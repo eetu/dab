@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "types": ["vite/client", "node"],
+    // core resolved to source, matching the bundler alias in vite.config.ts:
+    // its `exports` point at dist/, which a clean clone has not built yet.
+    "paths": { "dab-core": ["../core/src/index.ts"] }
+  },
+  // shots/ too: a scene that no longer compiles is a picture nobody notices is
+  // missing. The vitest configs stay out — they import each other by `.ts` path,
+  // which the bundler resolves and tsc will not without a flag the app does not
+  // otherwise need.
+  "include": ["src/**/*.ts", "src/**/*.svelte", "shots/**/*.ts", "vite.config.ts"]
+}

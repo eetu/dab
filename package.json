@@ -1,0 +1,21 @@
+{
+  "name": "dab",
+  "private": true,
+  "packageManager": "yarn@4.16.0",
+  "workspaces": [
+    "core",
+    "frontend"
+  ],
+  "scripts": {
+    "lint": "yarn workspaces foreach -Apt run lint",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "typecheck": "yarn workspaces foreach -Apt run typecheck",
+    "build": "yarn workspaces foreach -Apt run build",
+    "test": "yarn workspaces foreach -Apt run test"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "prettier-plugin-svelte": "^3.4.0"
+  }
+}

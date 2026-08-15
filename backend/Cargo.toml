@@ -1,0 +1,21 @@
+[package]
+name = "dab-backend"
+version.workspace = true
+edition = "2024"
+description = "Serves dab's built SPA, with an unauthenticated /status for probing."
+publish = false
+
+[dependencies]
+axum.workspace = true
+dotenvy.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+# Drives the router directly, so the routes are tested without a live socket.
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+tempfile = "3"

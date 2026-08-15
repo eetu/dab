@@ -1,0 +1,36 @@
+node_modules
+
+# Output
+dist
+/build
+/target
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Vitest browser mode
+.vitest-attachments/
+**/__screenshots__/
+
+# Yarn (berry, node-modules linker — commit yarn.lock + .yarnrc.yml + .yarn/releases only)
+.yarn/cache
+.yarn/install-state.gz
+.yarn/build-state.yml
+.yarn/unplugged
+.pnp.*
+
+# Claude Code agent worktrees — transient checkouts, not repo source.
+.claude/worktrees/
+
+# Screenshot rig output — pictures to look at, not artefacts to keep.
+frontend/shots/out/
