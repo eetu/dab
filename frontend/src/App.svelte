@@ -53,6 +53,7 @@
     usedBy,
     usePartInstead,
   } from "./lib/editor.svelte";
+  import { EXAMPLE_SHEET, exampleCar } from "./lib/examples";
   import {
     canWriteToDisk,
     deleteFromFolder,
@@ -88,6 +89,7 @@
   import Parts from "./lib/Parts.svelte";
   import {
     clearDraft,
+    forgetSaved,
     recallDraft,
     recallFile,
     recallPrefs,
@@ -110,9 +112,12 @@
 
   let backdrop = $state<Backdrop>("checker");
   let settingsOpen = $state(false);
+  /** Captured before anything writes prefs: the one signal that this browser
+   *  has never seen the app. Decides the help AND the example document. */
+  const firstVisit = !recallPrefs().seenHelp;
   // The help opens itself exactly once — the standalone build has no README in
   // reach, and a blank canvas with nine icons explains nothing.
-  let helpOpen = $state(!recallPrefs().seenHelp);
+  let helpOpen = $state(firstVisit);
   function closeHelp() {
     helpOpen = false;
     rememberPrefs({ seenHelp: true });
@@ -206,6 +211,21 @@
     clearDraft();
     rememberSaved(entry.sprite, entry.file);
     say(`opened ${entry.file}`);
+  }
+
+  /**
+   * Open the example — scene's car — as an unsaved document.
+   *
+   * The sheet gains the example sprites so the wheel resolves; a real folder,
+   * opened later, replaces the sheet wholesale, which is the right precedence:
+   * your files outrank the demo.
+   */
+  async function openExample() {
+    if (editor.dirty && !(await confirmed(discardSpec()))) return;
+    sheet.byName = { ...EXAMPLE_SHEET, ...sheet.byName };
+    loadSprite(exampleCar(), null);
+    forgetSaved();
+    say("the example car — pop the lights, open a door, spin the wheel");
   }
 
   const discardSpec = () => ({
@@ -578,6 +598,10 @@
       loadSprite(draft.sprite, draft.file);
       editor.dirty = true;
       say("restored unsaved work");
+    } else if (firstVisit && !editor.file) {
+      // Nothing restored and nothing ever seen: open on the example rather
+      // than a blank 16×16 — the car is what the format exists to say.
+      await openExample();
     }
   });
 
@@ -821,7 +845,7 @@
 <ResizeDialog />
 <NewSpriteDialog open={making} onclose={() => (making = false)} />
 <SettingsDialog open={settingsOpen} onclose={() => (settingsOpen = false)} />
-<HelpDialog open={helpOpen} onclose={closeHelp} />
+<HelpDialog open={helpOpen} onclose={closeHelp} onexample={openExample} />
 
 <style>
   .app {

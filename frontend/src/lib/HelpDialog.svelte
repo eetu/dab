@@ -4,8 +4,8 @@
   import { TOOLS } from "./editor.svelte";
   import Modal from "./Modal.svelte";
 
-  type Props = { open: boolean; onclose: () => void };
-  let { open, onclose }: Props = $props();
+  type Props = { open: boolean; onclose: () => void; onexample?: () => void };
+  let { open, onclose, onexample }: Props = $props();
 
   const KEYS: [string, string][] = [
     ["⌘S", "Save — writes the file in place (Chrome/Edge), downloads elsewhere"],
@@ -76,6 +76,17 @@
   {#snippet footer()}
     <span class="hintline">Open this again with <kbd>?</kbd></span>
     <span class="gap"></span>
+    {#if onexample}
+      <button
+        onclick={() => {
+          onexample();
+          onclose();
+        }}
+        title="A car with pop-up lights, doors and one wheel placed twice"
+      >
+        Open the example car
+      </button>
+    {/if}
     <button class="go" onclick={onclose}>Draw</button>
   {/snippet}
 </Modal>

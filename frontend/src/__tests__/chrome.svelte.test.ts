@@ -82,9 +82,15 @@ test("a first visit opens the help by itself, once", async () => {
   host.style.cssText = "position:fixed;inset:0";
   document.body.appendChild(host);
   const mounted = mount(App, { target: host });
-  await sleep(80);
+  await sleep(150);
   const dialog = document.querySelector("[role=dialog][aria-label='How dab works']");
   expect(dialog).toBeTruthy();
+  // And the document behind it is the example car, wheel resolved and all —
+  // a first visit must not open on a blank 16×16.
+  expect(editor.sprite.name).toBe("car");
+  expect(editor.sprite.parts?.length).toBe(5);
+  const { resolvePart } = await import("../lib/editor.svelte");
+  expect(resolvePart("wheel")?.frames.length).toBe(3);
   // Closing marks it seen, so the next mount stays quiet.
   const draw = [...dialog!.querySelectorAll("button")].find(
     (b) => b.textContent?.trim() === "Draw",
