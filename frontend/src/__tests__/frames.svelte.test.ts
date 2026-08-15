@@ -85,3 +85,33 @@ test("drawing repaints the thumbnail of the frame being drawn on", async () => {
   unmount(app);
   host.remove();
 });
+
+test("the strip scrolls to keep the stepped-to frame in view", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;inset:0";
+  document.body.appendChild(host);
+  const app = mount(App, { target: host });
+  await sleep(40);
+  const rows = ["....", "...."];
+  loadSprite(
+    {
+      name: "long",
+      w: 4,
+      h: 2,
+      palette: { A: "#ff0000" },
+      frames: Array.from({ length: 24 }, () => rows),
+    },
+    "long.json",
+  );
+  await sleep(60);
+  const strip = document.querySelector("section ol") as HTMLOListElement;
+  expect(strip.scrollWidth).toBeGreaterThan(strip.clientWidth); // it does overflow
+  editor.frame = 23;
+  await sleep(80);
+  expect(strip.scrollLeft).toBeGreaterThan(0);
+  editor.frame = 0;
+  await sleep(80);
+  expect(strip.scrollLeft).toBe(0);
+  unmount(app);
+  host.remove();
+});

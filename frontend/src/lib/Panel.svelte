@@ -85,6 +85,14 @@
   section[data-layout="row"] > header {
     flex: none;
     padding-top: 0.15rem;
+    /* A narrow block, not a long line: in a bar the header competes with the
+       BODY for width, and a title, a badge and four actions on one line left a
+       twelve-frame strip 167px to live in. Capped, it wraps to two short lines
+       and the strip gets the bar back. */
+    flex-wrap: wrap;
+    row-gap: 0.2rem;
+    max-width: 9.5rem;
+    align-content: start;
   }
   section[data-layout="row"] > .body {
     flex: 1;

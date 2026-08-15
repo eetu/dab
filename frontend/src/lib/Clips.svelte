@@ -167,7 +167,20 @@
           >
             {#if playing}<Pause size={11} />{:else}<Play size={11} />{/if}
           </IconButton>
-          <button class="name" onclick={() => rename(name)} title="Rename…">{name}</button>
+          <button class="name" onclick={() => rename(name)} title={`${name} — rename…`}>
+            {name}
+          </button>
+          <!-- Before the run in the MARKUP: the run spans the second grid row,
+               and auto-placement would otherwise strand this on a third. -->
+          <IconButton
+            size="sm"
+            ghost
+            danger
+            label={`Remove ${name}`}
+            onclick={() => removeClip(name)}
+          >
+            <Trash size={11} />
+          </IconButton>
           <div class="run">
             {#each list as f, i (i)}
               <!-- Click goes to the frame; everything destructive is behind the
@@ -185,15 +198,6 @@
               onclick={() => appendToClip(name)}>+</button
             >
           </div>
-          <IconButton
-            size="sm"
-            ghost
-            danger
-            label={`Remove ${name}`}
-            onclick={() => removeClip(name)}
-          >
-            <Trash size={11} />
-          </IconButton>
         </li>
       {/each}
     </ul>
@@ -218,17 +222,21 @@
     display: grid;
     gap: 0.1rem;
     align-content: start;
-    max-height: 4.6rem;
+    max-height: 5.4rem;
     overflow-y: auto;
     min-width: 0;
     scrollbar-width: thin;
     scrollbar-color: var(--halo-border) transparent;
   }
+  /* Two rows: who it is (play, name, remove), then its run. Side by side, a
+     long run crushed the name to nothing — and the name is what a consumer
+     asks for, so it is the one thing this row must never lose. */
   li {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.05rem 0.25rem;
+    gap: 0.1rem 0.25rem;
+    padding: 0.1rem 0.25rem;
     border: 1px solid transparent;
     border-radius: 4px;
   }
@@ -257,9 +265,15 @@
   .name:hover {
     color: var(--halo-accent);
   }
+  /* Wraps rather than clips: a run of ten chips is the data, and truncating it
+     mid-chip read as an eight-frame clip having one. The list already scrolls
+     vertically, so a wrapped row costs height it has. */
   .run {
+    grid-column: 1 / -1;
     display: flex;
+    flex-wrap: wrap;
     gap: 0.1rem;
+    min-width: 0;
   }
   .chip {
     min-width: 1.1rem;

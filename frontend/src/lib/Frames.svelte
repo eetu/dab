@@ -40,6 +40,17 @@
   const playFrame = $derived(editor.playing ? run[editor.playhead % run.length] : editor.frame);
   const where = $derived(editor.path.length ? editor.path.join("/") : editor.sprite.name);
 
+  // The strip follows the frame the way the frame follows the keys: stepping
+  // with , and . onto a thumbnail that has scrolled out of view otherwise moves
+  // the selection somewhere the eye cannot follow.
+  let strip: HTMLOListElement | null = $state(null);
+  $effect(() => {
+    void editor.frame;
+    strip
+      ?.querySelector("li.on")
+      ?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "instant" });
+  });
+
   /** The header buttons act on the frame being edited; this menu acts on the
    *  thumbnail under the cursor — same verbs, said where you are pointing. */
   function frameMenu(e: MouseEvent, i: number) {
@@ -82,7 +93,12 @@
   }
 </script>
 
-<Panel id="frames" title="Frames" layout="row" badge={where}>
+<Panel
+  id="frames"
+  title="Frames"
+  layout="row"
+  badge={frames.length > 1 ? `${where} · ${frames.length}` : where}
+>
   {#snippet actions()}
     <IconButton
       size="sm"
@@ -110,7 +126,7 @@
     </IconButton>
   {/snippet}
 
-  <ol>
+  <ol bind:this={strip}>
     {#each frames as _, i (i)}
       <li
         class:on={i === editor.frame}

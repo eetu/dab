@@ -952,11 +952,13 @@
     grid-area: dock;
     display: grid;
     /* Side by side, so the bar is as tall as the taller half rather than as
-       tall as both. The frames take what they need up to 60% and scroll past
-       that; the clips take whatever is left. A fixed share wasted room on a
-       two-frame sprite and starved the clips, and plain `auto` let whichever
-       grew first squeeze the other to a sliver. */
-    grid-template-columns: fit-content(60%) minmax(0, 1fr);
+       tall as both. The FRAMES are the flexible half: the strip is the primary
+       object down here and scrolls inside whatever it gets, so it takes the
+       remainder. The clips size to their content up to a third — sizing the
+       frames by content instead (fit-content through an overflow container)
+       squeezed a twelve-frame strip to two thumbnails while the clips sat on
+       width they were not using. */
+    grid-template-columns: minmax(0, 1fr) fit-content(38%);
     gap: 0.5rem 1.25rem;
     align-content: start;
     padding: 0.6rem 0.75rem;

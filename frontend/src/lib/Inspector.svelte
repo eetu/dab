@@ -3,6 +3,8 @@
   // being looked at. Size moved to the top bar, because a canvas size is a fact
   // about the document rather than a setting, and because the question it really
   // asks — which pixels — needs a picture to answer.
+  import Info from "@lucide/svelte/icons/info";
+
   import { activeRef, editor, rename, stageBox, usedBy } from "./editor.svelte";
   import Panel from "./Panel.svelte";
   import { cell, fit } from "./viewport.svelte";
@@ -36,18 +38,27 @@
       onchange={(e) => rename((e.target as HTMLInputElement).value.trim())}
     />
   </label>
-  {#if editor.path.length && borrowed}
-    <p class="note">
-      <code>{editor.path.join("/")}</code> draws <code>{borrowed.use}</code>. Its size, palette and
-      frames below are that sprite's and are read-only here — open it to change them. What belongs
-      to this sprite is where the part sits.
-    </p>
-  {:else if editor.path.length}
-    <p class="note">
-      Editing <code>{editor.path.join("/")}</code>. Its canvas size, palette, frames and clips are
-      that part's own — the name above is still the sprite's.
-    </p>
-  {/if}
+  <!-- ONE line, always rendered, details in the tooltip: this used to be a
+       paragraph that appeared, vanished and re-wrapped as the selection moved
+       through the tree, bouncing everything under it by a few lines each time.
+       A panel must not change height because of what is selected. -->
+  <p
+    class="ctx"
+    title={borrowed
+      ? `${editor.path.join("/")} draws ${borrowed.use} — its size, palette and frames are that sprite's, read-only here. What belongs to this sprite is where the part sits.`
+      : editor.path.length
+        ? `Editing ${editor.path.join("/")} — its canvas size, palette, frames and clips are the part's own. The name above is still the sprite's.`
+        : "Editing the sprite itself. Pick a part in the tree below to draw on it instead."}
+  >
+    <Info size={11} />
+    {#if borrowed}
+      <span>draws <code>{borrowed.use}</code> — read-only here</span>
+    {:else if editor.path.length}
+      <span>editing <code>{editor.path.join("/")}</code> — its own frames and colours</span>
+    {:else}
+      <span>editing the sprite itself</span>
+    {/if}
+  </p>
   {#if renamed}
     <p class="warn">
       Save moves <code>{editor.file}</code> → <code>{willWrite}</code>. The sheet is read from the
@@ -108,10 +119,21 @@
     opacity: 0.4;
     cursor: default;
   }
-  .note {
+  /* Fixed at one line whatever is selected; the tooltip carries the paragraph. */
+  .ctx {
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
     font-size: 0.7rem;
     color: var(--halo-text-light);
+    white-space: nowrap;
+    cursor: help;
+  }
+  .ctx span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
   .warn {
     margin: 0;
