@@ -47,6 +47,11 @@ It edits files **in place**: point it at a folder and, in a browser with the Fil
 System Access API (Chrome/Edge), Save writes back to the file it opened.
 Elsewhere it falls back to a download.
 
+**Try it without installing anything: <https://eetu.github.io/dab/>** — the whole
+tool is client-side, so the Pages build is the editor entire. Your files never
+leave your machine. `?` opens the built-in guide; the gear picks a theme
+(auto/dark/light).
+
 **A colour is `#rrggbb`, or `#rrggbbaa`** for something you can see through —
 glass, a windscreen, a shadow. Eight digits rather than a separate alpha map,
 because a canvas and a stylesheet both take that string as it stands, so the

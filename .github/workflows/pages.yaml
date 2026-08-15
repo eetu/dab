@@ -1,0 +1,54 @@
+# The editor as a standalone page: https://eetu.github.io/dab/
+#
+# The whole tool is client-side — files are reached through the File System
+# Access API and the backend only ever served the SPA — so Pages hosts it
+# whole. Draw, and Save writes your folder (Chrome/Edge) or downloads.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "core/**"
+      - ".github/workflows/pages.yaml"
+      - "package.json"
+      - "yarn.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a superseded push just stops.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+      # The vendored yarn, exactly as `just` uses it — not corepack.
+      - run: node .yarn/releases/yarn-4.16.0.cjs install --immutable
+      - run: node .yarn/releases/yarn-4.16.0.cjs workspace dab-frontend run build
+        env:
+          DAB_BASE: /dab/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

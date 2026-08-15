@@ -21,6 +21,9 @@ export const CORE_ALIAS = {
 };
 
 export default defineConfig({
+  // "/" everywhere except the GitHub Pages build, which serves from /dab/.
+  // An env rather than a config fork: the Pages workflow is the only caller.
+  base: process.env.DAB_BASE ?? "/",
   plugins: [svelte()],
   resolve: { alias: CORE_ALIAS },
   server: { port: 5180, fs: { allow: [REPO_ROOT] } },

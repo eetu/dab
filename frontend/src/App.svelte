@@ -7,9 +7,11 @@
   // imports, so the loop is draw → save → look at the running scene.
   import "./halo.css";
 
+  import CircleHelp from "@lucide/svelte/icons/circle-help";
   import PanelBottom from "@lucide/svelte/icons/panel-bottom";
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
+  import SettingsIcon from "@lucide/svelte/icons/settings";
   import { cloneSprite, validateSprite } from "dab-core";
   import { onMount } from "svelte";
 
@@ -68,6 +70,7 @@
     saveToFolder,
   } from "./lib/files";
   import Frames from "./lib/Frames.svelte";
+  import HelpDialog from "./lib/HelpDialog.svelte";
   import IconButton from "./lib/IconButton.svelte";
   import Inspector from "./lib/Inspector.svelte";
   import { typing } from "./lib/menu.svelte";
@@ -99,11 +102,21 @@
   import { openResize, resizer } from "./lib/resize.svelte";
   import ResizeDialog from "./lib/ResizeDialog.svelte";
   import SegmentedControl from "./lib/SegmentedControl.svelte";
+  import SettingsDialog from "./lib/SettingsDialog.svelte";
   import Sprites from "./lib/Sprites.svelte";
+  import { watchTheme } from "./lib/theme.svelte";
   import ToolRail from "./lib/ToolRail.svelte";
   import { type Backdrop, BACKDROPS, fit, zoomIn, zoomOut } from "./lib/viewport.svelte";
 
   let backdrop = $state<Backdrop>("checker");
+  let settingsOpen = $state(false);
+  // The help opens itself exactly once — the standalone build has no README in
+  // reach, and a blank canvas with nine icons explains nothing.
+  let helpOpen = $state(!recallPrefs().seenHelp);
+  function closeHelp() {
+    helpOpen = false;
+    rememberPrefs({ seenHelp: true });
+  }
   let folder = $state<Folder | null>(null);
   let entries = $state<Entry[]>([]);
   let problems = $state<{ file: string; errors: string[] }[]>([]);
@@ -359,7 +372,13 @@
     // stops propagation from inside its box — this is the backstop for a key
     // pressed while focus has wandered to the page, so `b` cannot switch tools
     // behind a veil.
-    if (dialog.open || resizer.open || partDialog.open || making) return;
+    if (dialog.open || resizer.open || partDialog.open || making || settingsOpen || helpOpen)
+      return;
+    // The one key that means "explain this app".
+    if (e.key === "?") {
+      helpOpen = true;
+      return;
+    }
     const meta = e.metaKey || e.ctrlKey;
     // A turn in progress answers first, and to the two keys every editor's
     // free-transform answers to. Nothing else should reach the tools: the
@@ -528,6 +547,8 @@
       backdrop,
     });
   });
+
+  $effect(() => watchTheme());
 
   onMount(async () => {
     const saved = await restoreFolder();
@@ -739,6 +760,30 @@
          a panel cannot do: fold all of them and the rail is still there, 16rem
          of empty background beside the drawing. -->
     <div class="chrome">
+      <!-- The app's own two: what it is, and how you like it. Before the region
+           toggles, which are about the furniture's layout rather than the app. -->
+      <IconButton
+        size="sm"
+        ghost
+        active={helpOpen}
+        label="How dab works"
+        hint="How dab works (?)"
+        onclick={() => (helpOpen = true)}
+      >
+        <CircleHelp size={13} />
+      </IconButton>
+      <IconButton
+        size="sm"
+        ghost
+        active={settingsOpen}
+        label="Settings"
+        hint="Settings — theme"
+        onclick={() => (settingsOpen = true)}
+      >
+        <SettingsIcon size={13} />
+      </IconButton>
+    </div>
+    <div class="chrome">
       <IconButton
         size="sm"
         ghost
@@ -779,6 +824,8 @@
 <AskDialog />
 <ResizeDialog />
 <NewSpriteDialog open={making} onclose={() => (making = false)} />
+<SettingsDialog open={settingsOpen} onclose={() => (settingsOpen = false)} />
+<HelpDialog open={helpOpen} onclose={closeHelp} />
 
 <style>
   .app {

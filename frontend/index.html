@@ -3,7 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>sprite editor — scene</title>
+    <title>dab — sprite editor</title>
+    <script>
+      // The theme, before first paint — the same rule theme.svelte.ts applies
+      // live, applied here so a light-mode reload does not flash dark while the
+      // app boots. Kept tiny and defensive: a parse error must never stop the
+      // page.
+      try {
+        var prefs = JSON.parse(localStorage.getItem("sprite-editor:prefs") || "{}");
+        var choice = prefs.theme === "light" || prefs.theme === "dark" ? prefs.theme : "auto";
+        var light =
+          choice === "light" ||
+          (choice === "auto" && matchMedia("(prefers-color-scheme: light)").matches);
+        document.documentElement.dataset.theme = light ? "light" : "dark";
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

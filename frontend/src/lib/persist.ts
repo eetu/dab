@@ -155,6 +155,9 @@ export type Prefs = {
   fps?: number;
   backdrop?: string;
   previewZoom?: "fit" | number;
+  theme?: "auto" | "dark" | "light";
+  /** The help dialog opens itself once, on a first visit. */
+  seenHelp?: boolean;
 };
 
 const PREFS_KEY = "sprite-editor:prefs";

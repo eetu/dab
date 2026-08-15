@@ -37,6 +37,9 @@ export default defineConfig({
   optimizeDeps: { noDiscovery: true, include: [] },
   test: {
     include: ["src/__tests__/*.svelte.test.ts"],
+    // Marks the help dialog as seen: it opens itself for first visitors, and a
+    // test driving the keyboard is not one.
+    setupFiles: ["src/__tests__/setup.ts"],
     // One file at a time. Every suite here mounts the whole app in a real
     // browser, and several of those at once is more than a two-core CI runner
     // has to give.
