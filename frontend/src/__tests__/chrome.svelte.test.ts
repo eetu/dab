@@ -40,8 +40,8 @@ test("the theme switch writes the attribute the tokens read", async () => {
   expect(recallPrefs().theme).toBe("auto");
 });
 
-test("settings opens from the status bar and Escape closes it", async () => {
-  const gear = [...app.host.querySelectorAll("footer button")].find(
+test("settings opens from the header and Escape closes it", async () => {
+  const gear = [...app.host.querySelectorAll("header button")].find(
     (b) => b.getAttribute("aria-label") === "Settings",
   ) as HTMLButtonElement;
   expect(gear).toBeTruthy();

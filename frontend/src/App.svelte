@@ -691,6 +691,26 @@
       <button class="save" onclick={save} title="Save (⌘S)">
         Save{editor.dirty ? " •" : ""}
       </button>
+      <!-- The app's own two, rightmost — where every app in this family keeps
+           them: what it is, and how you like it. -->
+      <IconButton
+        ghost
+        active={helpOpen}
+        label="How dab works"
+        hint="How dab works (?)"
+        onclick={() => (helpOpen = true)}
+      >
+        <CircleHelp size={15} />
+      </IconButton>
+      <IconButton
+        ghost
+        active={settingsOpen}
+        label="Settings"
+        hint="Settings — theme"
+        onclick={() => (settingsOpen = true)}
+      >
+        <SettingsIcon size={15} />
+      </IconButton>
     </div>
   </header>
 
@@ -759,30 +779,6 @@
     <!-- Where every editor puts them. A region toggle is the one thing folding
          a panel cannot do: fold all of them and the rail is still there, 16rem
          of empty background beside the drawing. -->
-    <div class="chrome">
-      <!-- The app's own two: what it is, and how you like it. Before the region
-           toggles, which are about the furniture's layout rather than the app. -->
-      <IconButton
-        size="sm"
-        ghost
-        active={helpOpen}
-        label="How dab works"
-        hint="How dab works (?)"
-        onclick={() => (helpOpen = true)}
-      >
-        <CircleHelp size={13} />
-      </IconButton>
-      <IconButton
-        size="sm"
-        ghost
-        active={settingsOpen}
-        label="Settings"
-        hint="Settings — theme"
-        onclick={() => (settingsOpen = true)}
-      >
-        <SettingsIcon size={13} />
-      </IconButton>
-    </div>
     <div class="chrome">
       <IconButton
         size="sm"
