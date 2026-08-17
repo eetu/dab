@@ -115,3 +115,40 @@ test("the strip scrolls to keep the stepped-to frame in view", async () => {
   unmount(app);
   host.remove();
 });
+
+test("a thumbnail keeps its height when the art turns tall", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;inset:0";
+  document.body.appendChild(host);
+  const app = mount(App, { target: host });
+  await sleep(40);
+  // Wide, like the car.
+  loadSprite(
+    {
+      name: "wide",
+      w: 24,
+      h: 6,
+      palette: { A: "#ff0000" },
+      frames: [["A".repeat(24), ...Array(5).fill(".".repeat(24))]],
+    },
+    "wide.json",
+  );
+  await sleep(60);
+  const thumb = () => host.querySelector("ol li canvas") as HTMLCanvasElement;
+  const before = Math.round(thumb().getBoundingClientRect().height);
+  // Rotate the whole thing a quarter. A whole-node turn never shrinks, so the
+  // wide 24×6 becomes 24×24 with the tall art centred in it — and the thumb
+  // must hold its box either way.
+  const { beginTurn, setTurn, applyTurn } = await import("../lib/editor.svelte");
+  beginTurn(true);
+  setTurn(90);
+  await sleep(40);
+  applyTurn();
+  await sleep(60);
+  expect(editor.sprite.h).toBe(24);
+  const after = Math.round(thumb().getBoundingClientRect().height);
+  // The BOX is fixed; the art letterboxes inside it. It used to grow ~2.5×.
+  expect(after).toBe(before);
+  unmount(app);
+  host.remove();
+});

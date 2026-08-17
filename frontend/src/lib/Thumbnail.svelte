@@ -50,16 +50,17 @@
   });
 </script>
 
-<canvas bind:this={canvas} style:aspect-ratio={`${node.w} / ${node.h}`} style:max-height={height}
-></canvas>
+<canvas bind:this={canvas} style:height></canvas>
 
 <style>
   canvas {
     display: block;
     width: 100%;
     image-rendering: pixelated;
-    /* Wide sprites (72×18) and tall ones (5×26) share a strip, so the box is
-       fixed and the art letterboxes inside it rather than the row jumping. */
+    /* The box is FIXED — height set, not capped. Wide sprites (72×18) and tall
+       ones (5×26) share a strip, and the art letterboxes inside the box rather
+       than the box following the art: a `max-height` here meant rotating a wide
+       rectangle 90° grew its thumbnail and bumped the whole layout. */
     object-fit: contain;
   }
 </style>
