@@ -97,7 +97,6 @@
               ? [
                   {
                     label: `Open ${use}`,
-                    hint: "to draw on it",
                     run: () => onopensprite(use),
                   } satisfies MenuItem,
                 ]
@@ -125,7 +124,6 @@
             } satisfies MenuItem,
             {
               label: "Make its pixels its own",
-              hint: "a copy that stops following",
               run: () => inlinePart(row.path),
             } satisfies MenuItem,
             { kind: "separator" as const },
@@ -133,7 +131,6 @@
         : []),
       {
         label: "Rename…",
-        hint: name,
         run: async () => {
           const to = await ask({
             title: "Rename part",
@@ -148,13 +145,11 @@
       { kind: "separator" },
       {
         label: "Draw earlier",
-        hint: "behind its siblings",
         disabled: at.i <= 0,
         run: () => movePart(row.path, at.i - 1),
       },
       {
         label: "Draw later",
-        hint: "in front of its siblings",
         disabled: at.i >= at.of - 1,
         run: () => movePart(row.path, at.i + 1),
       },
@@ -163,16 +158,11 @@
         ? [
             {
               label: "Detach to sprite…",
-              hint: "so copies share it",
               run: () => ondetach(row.path),
             } satisfies MenuItem,
           ]
         : []),
-      {
-        label: "Duplicate",
-        hint: row.part && isPartRef(row.part) ? "another of the same" : "an independent copy",
-        run: () => duplicatePart(row.path),
-      },
+      { label: "Duplicate", run: () => duplicatePart(row.path) },
       { label: "Remove", danger: true, run: () => removePart(row.path) },
     ];
   }
@@ -190,7 +180,6 @@
     return [
       {
         label: "Rename…",
-        hint: editor.sprite.name,
         run: async () => {
           const to = await ask({
             title: "Rename sprite",
@@ -206,9 +195,7 @@
       { kind: "separator" },
       {
         label: "Flip horizontal",
-        hint: editor.sprite.parts?.length
-          ? "its parts keep their places — flip them one by one"
-          : "every frame",
+        hint: editor.sprite.parts?.length ? "parts keep their places" : undefined,
         disabled: !!editor.sprite.parts?.length,
         run: () => flipNode("h"),
       },

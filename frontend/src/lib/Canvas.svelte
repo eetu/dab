@@ -556,7 +556,6 @@
     if (hasSelection()) {
       items.push({
         label: "Delete",
-        hint: "erase these cells",
         disabled: !!why,
         danger: true,
         run: deleteSelection,
@@ -567,17 +566,16 @@
       items.push({ label: "Rotate…", disabled: !!why, run: () => beginTurn(false) });
       items.push({
         label: "New part from this…",
-        hint: "copy or move",
         disabled: !!why,
         run: openPartDialog,
       });
       items.push({ kind: "separator" });
       items.push({ label: "Deselect", run: clearSelection });
     } else {
-      items.push({ label: "Select all", hint: where, disabled: !!why, run: selectAll });
+      items.push({ label: "Select all", disabled: !!why, run: selectAll });
       items.push({
         label: `Rotate ${where}…`,
-        hint: "the whole thing — it grows to fit",
+        hint: "grows to fit",
         disabled: !!why,
         run: () => beginTurn(true),
       });
@@ -587,7 +585,6 @@
         items.push({ kind: "separator" });
         items.push({
           label: `Select ${found.join("/") || editor.sprite.name}`,
-          hint: "the part under the cursor",
           run: () => selectNode(found),
         });
       }

@@ -132,7 +132,6 @@
         ? [
             {
               label: "Show the whole strip",
-              hint: `stop following ${editor.clip}`,
               run: () => (editor.clip = null),
             } satisfies MenuItem,
           ]
@@ -140,7 +139,6 @@
       { kind: "separator" },
       ...ZOOMS.map((z): MenuItem => ({
         label: z.id === "fit" ? "Fit" : `×${z.id}`,
-        hint: zoomMode === z.id ? "now" : undefined,
         run: () => (zoomMode = z.id === "fit" ? "fit" : Number(z.id)),
       })),
     ]);

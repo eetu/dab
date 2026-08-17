@@ -70,11 +70,9 @@
         run: () => onduplicate(entry),
       },
       {
-        label: "Add as a part here",
+        label: "Add as part",
         hint:
-          entry.sprite.name === editor.sprite.name
-            ? "a sprite cannot borrow itself"
-            : `borrowed into ${editor.sprite.name}`,
+          entry.sprite.name === editor.sprite.name ? "a sprite cannot borrow itself" : undefined,
         disabled: entry.sprite.name === editor.sprite.name,
         run: () => {
           const name = addPart({ use: entry.sprite.name });

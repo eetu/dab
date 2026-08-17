@@ -58,7 +58,7 @@
     const clips = Object.keys(node.clips ?? {});
     const items: MenuItem[] = [
       { label: "Duplicate", hint: why ?? undefined, disabled: !!why, run: () => duplicateFrame(i) },
-      { label: "Add a blank frame after", disabled: !!why, run: () => addFrame(i) },
+      { label: "Add frame after", disabled: !!why, run: () => addFrame(i) },
       {
         label: "Remove",
         hint: frames.length < 2 ? "the last frame stays" : (why ?? undefined),
@@ -83,7 +83,6 @@
       for (const name of clips) {
         items.push({
           label: `Add to ${name}`,
-          hint: "twice is a hold",
           disabled: !!why,
           run: () => appendToClip(name, i),
         });

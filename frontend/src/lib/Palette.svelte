@@ -78,11 +78,7 @@
         label: editor.variant === name ? "Show the palette instead" : "Show it",
         run: () => (editor.variant = editor.variant === name ? null : name),
       },
-      {
-        label: "Duplicate",
-        hint: "a copy to diverge from",
-        run: () => duplicateVariant(name),
-      },
+      { label: "Duplicate", run: () => duplicateVariant(name) },
       { kind: "separator" },
       { label: "Remove", danger: true, run: () => removeVariant(name) },
     ]);
@@ -243,9 +239,7 @@
             label: unused.size
               ? `Remove ${unused.size} unused colour${unused.size > 1 ? "s" : ""}`
               : "Remove unused colours",
-            hint: unused.size
-              ? "no pixel uses them — rotation residue, mostly"
-              : "every colour is in use",
+            hint: unused.size ? undefined : "every colour is in use",
             disabled: !unused.size,
             danger: true,
             run: removeUnusedColours,
@@ -279,13 +273,8 @@
       onclick={() => (editor.ink = TRANSPARENT)}
       oncontextmenu={(e) =>
         openMenu(e, "Transparent", [
-          { label: "Paint with it", hint: "the empty cell", run: () => (editor.ink = TRANSPARENT) },
-          {
-            label: "Rename, recolour, remove",
-            hint: "`.` is the format's — it cannot change",
-            disabled: true,
-            run: () => {},
-          },
+          { label: "Paint with it", run: () => (editor.ink = TRANSPARENT) },
+          { label: "Edit", hint: "`.` is fixed", disabled: true, run: () => {} },
         ])}
       title="Transparent — the empty cell"
       aria-label="Transparent"

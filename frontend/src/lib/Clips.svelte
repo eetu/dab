@@ -69,16 +69,11 @@
     const items: MenuItem[] = [
       { label: playing ? "Stop" : "Play", run: () => toggle(name) },
       { label: "Rename…", run: () => void rename(name) },
-      {
-        label: `Add frame ${editor.frame + 1}`,
-        hint: "twice is a hold",
-        run: () => appendToClip(name),
-      },
+      { label: `Add frame ${editor.frame + 1}`, run: () => appendToClip(name) },
     ];
     if (editor.clip === name) {
       items.push({
         label: "Show the whole strip",
-        hint: "stop following this clip",
         run: () => {
           editor.clip = null;
           editor.playing = false;
@@ -88,12 +83,7 @@
     const at = clips.findIndex(([n]) => n === name);
     items.push(
       { kind: "separator" },
-      {
-        label: "Move up",
-        hint: "the file's order",
-        disabled: at <= 0,
-        run: () => moveClip(name, at - 1),
-      },
+      { label: "Move up", disabled: at <= 0, run: () => moveClip(name, at - 1) },
       {
         label: "Move down",
         disabled: at >= clips.length - 1,
@@ -114,18 +104,17 @@
       setClipFrames(name, next);
     };
     openMenu(e, `${name} · frame ${list[i] + 1}`, [
-      { label: "Go to the frame", run: () => (editor.frame = list[i]) },
+      { label: "Go to frame", run: () => (editor.frame = list[i]) },
       {
-        label: "Hold it longer",
-        hint: "repeat the entry",
+        label: "Hold longer",
         run: () => setClipFrames(name, [...list.slice(0, i + 1), list[i], ...list.slice(i + 1)]),
       },
       { kind: "separator" },
-      { label: "Play it earlier", disabled: i <= 0, run: () => swap(i - 1) },
-      { label: "Play it later", disabled: i >= list.length - 1, run: () => swap(i + 1) },
+      { label: "Move earlier", disabled: i <= 0, run: () => swap(i - 1) },
+      { label: "Move later", disabled: i >= list.length - 1, run: () => swap(i + 1) },
       { kind: "separator" },
       {
-        label: "Drop from this clip",
+        label: "Remove",
         hint: list.length === 1 ? "the last entry removes the clip" : undefined,
         danger: true,
         run: () =>
