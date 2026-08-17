@@ -52,9 +52,10 @@
       </p>
       <h3>Rotation</h3>
       <p>
-        Right-click → Rotate. Quarter turns are exact; any other angle invents blend colours and the
-        bar says how many before you apply. Keep rotating the <em>original</em> for animation frames —
-        each angle reuses what earlier ones paid for.
+        Right-click → Rotate, then drag the round handle — it snaps at 90° (⌘ glides free). Quarter
+        turns are exact; any other angle invents blend colours and the bar says how many before you
+        apply. Keep rotating the <em>original</em> for animation frames — each angle reuses what earlier
+        ones paid for.
       </p>
     </section>
     <section>

@@ -16,6 +16,7 @@ import {
   history,
   loadSprite,
   selectBox,
+  selection,
   setTurn,
   turning,
   undoEdit,
@@ -252,4 +253,65 @@ test("the bar answers REAL clicks — capture must not eat them", async () => {
   await sleep(40);
   expect(turning.on).toBe(false);
   expect(editor.sprite.frames[0]).toEqual(["AB..", "A...", "....", "...."]);
+});
+
+test("the marquee follows the turned art, and cancel puts it back", async () => {
+  loadSprite(
+    {
+      name: "strip",
+      w: 4,
+      h: 4,
+      palette: { A: "#ff0000" },
+      frames: [["AAAA", "....", "....", "...."]],
+    },
+    "strip.json",
+  );
+  editor.tool = "select";
+  await sleep(30);
+  selectBox({ x: 0, y: 0 }, { x: 3, y: 0 }); // the solid 4×1 strip
+  await sleep(20);
+  beginTurn(false);
+  setTurn(90);
+  await sleep(30);
+  // Turned a quarter, the box reads tall — the art is not clipped to the old
+  // bounds and the ants must not claim it is.
+  expect(selection.y1 - selection.y0).toBe(3);
+  expect(selection.x1 - selection.x0).toBe(0);
+  cancelTurn();
+  await sleep(20);
+  // Cancel restores the marquee with the art.
+  expect(selection.x1 - selection.x0).toBe(3);
+  expect(selection.y1 - selection.y0).toBe(0);
+});
+
+test("the handle drags the angle, snapping at the quarters — ⌘ glides", async () => {
+  selectBox({ x: 0, y: 0 }, { x: 1, y: 1 });
+  beginTurn(false);
+  await sleep(40);
+  const grip = app.host.querySelector(".rotgrip") as HTMLElement;
+  expect(grip).toBeTruthy();
+  const canvas = app.host.querySelector("[data-testid=canvas]")!.getBoundingClientRect();
+  // The selection is the 2×2 at (0,0) of a 4×4: pivot (1,1) in stage cells.
+  const cx = canvas.left + (canvas.width * 1) / 4;
+  const cy = canvas.top + (canvas.height * 1) / 4;
+  const base = { bubbles: true, pointerId: 9, pointerType: "mouse", button: 0 };
+  // Land a few degrees shy of a right angle; the snap finishes the job.
+  grip.dispatchEvent(
+    new PointerEvent("pointerdown", { ...base, clientX: cx + 80, clientY: cy - 6 }),
+  );
+  grip.dispatchEvent(
+    new PointerEvent("pointermove", { ...base, clientX: cx + 80, clientY: cy - 6 }),
+  );
+  grip.dispatchEvent(new PointerEvent("pointerup", { ...base }));
+  await sleep(30);
+  expect(turning.angle).toBe(90);
+  // Same spot with ⌘ held glides to the true angle instead.
+  grip.dispatchEvent(
+    new PointerEvent("pointerdown", { ...base, clientX: cx + 80, clientY: cy - 6, metaKey: true }),
+  );
+  grip.dispatchEvent(new PointerEvent("pointerup", { ...base }));
+  await sleep(30);
+  expect(turning.angle).not.toBe(90);
+  expect(Math.abs(turning.angle - 86)).toBeLessThanOrEqual(2);
+  cancelTurn();
 });

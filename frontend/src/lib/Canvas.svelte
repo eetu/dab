@@ -44,6 +44,7 @@
     selection,
     selectNode,
     selectShapeAt,
+    setTurn,
     stageBox,
     strokePoints,
     turning,
@@ -344,6 +345,60 @@
    *  travel, a shape only commits on release. Decides what aborting undoes. */
   let committed = false;
 
+  // ---------- the rotation handle ----------
+  //
+  // A dot on an arm, hung off the turn's pivot — dragging it is how every
+  // transform tool says "rotate me", and the bar's slider was the only way in.
+  // 0° points the arm up; clockwise follows the drag.
+
+  /** Pivot and handle tip in STAGE pixels (CSS px inside the stage box). */
+  const pivotPx = $derived({
+    x: (origin.x + turning.cx) * px,
+    y: (origin.y + turning.cy) * px,
+  });
+  const armPx = $derived(Math.max(turning.r * px, 40));
+  const handlePx = $derived.by(() => {
+    const rad = ((turning.angle - 90) * Math.PI) / 180;
+    return { x: pivotPx.x + armPx * Math.cos(rad), y: pivotPx.y + armPx * Math.sin(rad) };
+  });
+  const snapped = $derived(turning.on && turning.angle % 90 === 0);
+
+  /** Freehand snaps to the quarters, ⌘ glides past them — the same bargain the
+   *  resize dialog's guides strike, said with the same accent when it bites. */
+  const SNAP_DEG = 7;
+  function dragHandle(e: PointerEvent) {
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic pointer — the drag still works, it just isn't captured */
+    }
+    const rect = canvas!.getBoundingClientRect();
+    const move = (ev: PointerEvent) => {
+      const sx = ((ev.clientX - rect.left) / rect.width) * box.w;
+      const sy = ((ev.clientY - rect.top) / rect.height) * box.h;
+      const dx = sx - (origin.x + turning.cx);
+      const dy = sy - (origin.y + turning.cy);
+      if (!dx && !dy) return;
+      let deg = Math.round((Math.atan2(dy, dx) * 180) / Math.PI) + 90;
+      if (deg > 180) deg -= 360;
+      if (!ev.metaKey && !ev.ctrlKey) {
+        const near = Math.round(deg / 90) * 90;
+        if (Math.abs(deg - near) <= SNAP_DEG) deg = near === -180 ? 180 : near;
+      }
+      setTurn(deg);
+    };
+    move(e);
+    const el = e.currentTarget as HTMLElement;
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  }
+
   /**
    * Abandon the drag in progress — the first rung of the app's Escape ladder.
    *
@@ -464,10 +519,10 @@
       const name = editor.path.length ? editor.path.join("/") : editor.sprite.name;
       const why = readOnly();
       openMenu(e, name, [
-        { label: "Select all", hint: name, disabled: !!why, run: selectAll },
+        { label: "Select all", disabled: !!why, run: selectAll },
         {
           label: `Rotate ${name}…`,
-          hint: "the whole thing — it grows to fit",
+          hint: "grows to fit",
           disabled: !!why,
           run: () => beginTurn(true),
         },
@@ -507,23 +562,9 @@
         run: deleteSelection,
       });
       items.push({ kind: "separator" });
-      items.push({
-        label: "Flip horizontal",
-        hint: "mirrors in place",
-        disabled: !!why,
-        run: () => flipSelection("h"),
-      });
-      items.push({
-        label: "Flip vertical",
-        disabled: !!why,
-        run: () => flipSelection("v"),
-      });
-      items.push({
-        label: "Rotate…",
-        hint: "live, about its centre",
-        disabled: !!why,
-        run: () => beginTurn(false),
-      });
+      items.push({ label: "Flip horizontal", disabled: !!why, run: () => flipSelection("h") });
+      items.push({ label: "Flip vertical", disabled: !!why, run: () => flipSelection("v") });
+      items.push({ label: "Rotate…", disabled: !!why, run: () => beginTurn(false) });
       items.push({
         label: "New part from this…",
         hint: "copy or move",
@@ -810,6 +851,30 @@
         style:height={`${(selection.y1 - selection.y0 + 1) * px}px`}
       ></div>
     {/if}
+    {#if turning.on}
+      <!-- The rotation handle: an arm from the pivot, a grip at its end. Accent
+           when the angle sits on a quarter — the snap made visible. -->
+      <div
+        class="rotarm"
+        class:snapped
+        style:left={`${pivotPx.x}px`}
+        style:top={`${pivotPx.y}px`}
+        style:width={`${armPx}px`}
+        style:transform={`rotate(${turning.angle - 90}deg)`}
+      ></div>
+      <button
+        class="rotgrip"
+        class:snapped
+        style:left={`${handlePx.x}px`}
+        style:top={`${handlePx.y}px`}
+        title="Drag to rotate — snaps at 90°, ⌘ glides free"
+        aria-label="Rotate by dragging"
+        onpointerdown={(e) => {
+          e.stopPropagation();
+          dragHandle(e);
+        }}
+      ></button>
+    {/if}
   </div>
 
   <p class="read">
@@ -972,6 +1037,38 @@
     .ants {
       animation: none;
     }
+  }
+  /* The rotate handle. The arm pivots about its LEFT edge, which sits on the
+     turn's centre; the grip is a real button so it can take the pointer before
+     the pane's capture does. */
+  .rotarm {
+    position: absolute;
+    height: 1px;
+    background: rgba(150, 205, 255, 0.55);
+    transform-origin: left center;
+    pointer-events: none;
+  }
+  .rotarm.snapped {
+    background: var(--halo-accent);
+    height: 2px;
+  }
+  .rotgrip {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(150, 205, 255, 0.9);
+    background: var(--halo-bg-main);
+    cursor: grab;
+    touch-action: none;
+  }
+  .rotgrip:active {
+    cursor: grabbing;
+  }
+  .rotgrip.snapped {
+    border-color: var(--halo-accent);
   }
   canvas {
     display: block;

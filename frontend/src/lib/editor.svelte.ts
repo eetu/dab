@@ -767,6 +767,11 @@ export const turning = $state({
   whole: false,
   /** Colours applying right now would add — the number that matters. */
   added: 0,
+  /** The centre it turns about, in the ACTIVE node's pixels — where the canvas
+   *  hangs the rotation handle — and how far out the handle sits. */
+  cx: 0,
+  cy: 0,
+  r: 4,
 });
 
 /**
@@ -785,6 +790,8 @@ let source: {
   wasDirty: boolean;
   /** The frame with the block lifted out — a selection only. */
   base: string[] | null;
+  /** The selection as it stood, so Cancel puts the marquee back too. */
+  cells: [number, number][] | null;
   x: number;
   y: number;
   w: number;
@@ -805,7 +812,7 @@ export function beginTurn(whole: boolean) {
   const before = cloneSprite(editor.sprite);
   const common = { palette: node.palette, before, wasDirty: editor.dirty };
   if (whole) {
-    source = { ...common, rows, base: null, x: 0, y: 0, w: node.w, h: node.h };
+    source = { ...common, rows, base: null, cells: null, x: 0, y: 0, w: node.w, h: node.h };
   } else {
     const pts = [...selection.cells].map((k) => k.split(",").map(Number) as [number, number]);
     const stamp = readStamp(rows, pts);
@@ -813,6 +820,7 @@ export function beginTurn(whole: boolean) {
       ...common,
       rows: stampRows(stamp),
       base: setPixels(rows, pts, TRANSPARENT),
+      cells: pts,
       x: selection.x0,
       y: selection.y0,
       w: stamp.w,
@@ -823,6 +831,9 @@ export function beginTurn(whole: boolean) {
   turning.whole = whole;
   turning.angle = 0;
   turning.added = 0;
+  turning.cx = source.x + source.w / 2;
+  turning.cy = source.y + source.h / 2;
+  turning.r = Math.max(source.w, source.h) / 2 + 2;
   showTurn();
 }
 
@@ -853,11 +864,22 @@ function showTurn() {
 
   if (!turning.whole) {
     // A block turns about its own centre, and overhangs where it has to: it is
-    // floating, so it is allowed off the edge until it is put down.
+    // floating, so nothing is LOST off an edge until it is baked — the same
+    // bargain every transform tool makes. What the frame cannot hold is only
+    // out of sight; shove the float after Apply and it comes back.
     const x = source.x + Math.round((source.w - r.w) / 2);
     const y = source.y + Math.round((source.h - r.h) / 2);
     const stamp = readStamp(r.rows, allCells(r.w, r.h));
     editor.sprite = withRows(source.before, stampCells(source.base!, stamp, x, y));
+    // The marquee follows the turned art — a transform box that sat on the old
+    // bounds read as the rotation being clipped to them.
+    const flash = selection.flash;
+    setSelection(
+      stamp.cells
+        .filter((c) => c.ch !== TRANSPARENT)
+        .map((c) => [x + c.dx, y + c.dy] as [number, number]),
+    );
+    selection.flash = flash; // a dial move is not a fresh pick
     return;
   }
 
@@ -909,6 +931,12 @@ export function cancelTurn() {
   if (!source) return;
   editor.sprite = source.before;
   editor.dirty = source.wasDirty;
+  // The marquee too: it followed the preview, and cancelling means all of it.
+  if (source.cells) {
+    const flash = selection.flash;
+    setSelection(source.cells);
+    selection.flash = flash;
+  }
   endTurn();
 }
 

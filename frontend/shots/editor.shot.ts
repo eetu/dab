@@ -73,6 +73,8 @@ test("rotation, crisp and smooth, on the shape it is for", async () => {
   // The whole point of the smooth end: it costs palette entries, and says so.
   expect(turning.added).toBeGreaterThan(0);
   expect(rig.host.querySelector("[data-testid=cost]")?.textContent).toContain("+");
+  // And the handle hangs off the pivot, arm at the angle.
+  expect(rig.host.querySelector(".rotgrip")).toBeTruthy();
   await rig.shot("05-rotate-smooth");
   cancelTurn();
 });
