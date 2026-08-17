@@ -25,7 +25,12 @@
 </script>
 
 {#if turning.on}
-  <div class="bar" role="group" aria-label="Rotate">
+  <!-- Pointer events STOP here. The bar floats inside the canvas pane, whose
+       pointerdown captures the pointer for strokes — and a captured pointer
+       retargets the release, so the browser never synthesised a click on these
+       buttons: the whole bar was dead to the mouse while looking perfectly
+       enabled. Chrome over a canvas must never share its gestures with it. -->
+  <div class="bar" role="group" aria-label="Rotate" onpointerdown={(e) => e.stopPropagation()}>
     <span class="what">{turning.whole ? "Rotating everything" : "Rotating the selection"}</span>
 
     <div class="angle">

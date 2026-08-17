@@ -253,6 +253,12 @@
       if (pointers.length === 2) pinch = pinchState();
       return;
     }
+    // A turn in progress owns the canvas — every tool would be writing to a
+    // document about to be rebuilt at the next angle. BEFORE the capture:
+    // capturing here stole the pointer from anything floating over the pane,
+    // which is what killed the rotate bar's buttons. Panning stays available,
+    // and takes its own capture below.
+    if (turning.on && !space && e.button !== 1) return;
     // Capture so a stroke that leaves the canvas still ends on this element.
     // Guarded: a pointer id the browser doesn't know — a synthetic event from a
     // test, or a device that has already released — throws here, and an
@@ -267,9 +273,6 @@
       return;
     }
     if (e.button !== 0) return;
-    // A turn in progress owns the canvas. Every tool would be writing to a
-    // document that is about to be thrown away and rebuilt at the next angle.
-    if (turning.on) return;
     shift = e.shiftKey;
     alt = e.altKey;
     // Move carries a whole PART. Its own tool because the select tool already

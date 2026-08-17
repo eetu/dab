@@ -216,3 +216,40 @@ test("a turned block is still floating: shoving it puts back what it covered", a
   await sleep(20);
   expect(rows()[3]).toBe("....B.");
 });
+
+test("the bar answers REAL clicks — capture must not eat them", async () => {
+  // userEvent drives actual browser input. Synthetic .click() bypasses pointer
+  // capture, which is exactly how this bug hid: the pane captured the pointer
+  // on pointerdown, the release retargeted, and no click was ever synthesised
+  // on the bar. Every earlier test called the functions instead of clicking.
+  const { userEvent } = await import("@vitest/browser/context");
+  selectBox({ x: 0, y: 0 }, { x: 1, y: 1 });
+  beginTurn(false);
+  setTurn(37, 1);
+  await sleep(40);
+
+  const bar = app.host.querySelector("[aria-label=Rotate]") as HTMLElement;
+  expect(bar).toBeTruthy();
+
+  // Smoothing: click 3× and the cost forecast must react.
+  const three = [...bar.querySelectorAll("button")].find((b) => b.textContent?.trim() === "3×")!;
+  await userEvent.click(three);
+  await sleep(40);
+  expect(turning.smooth).toBe(3);
+  expect(turning.added).toBeGreaterThan(0);
+
+  // A quarter button turns by exactly ninety.
+  const left = [...bar.querySelectorAll("button")].find((b) => b.textContent?.includes("↺"))!;
+  await userEvent.click(left);
+  await sleep(40);
+  expect(turning.angle).toBe(37 - 90);
+
+  // And Cancel actually cancels.
+  const cancel = [...bar.querySelectorAll("button")].find(
+    (b) => b.textContent?.trim() === "Cancel",
+  )!;
+  await userEvent.click(cancel);
+  await sleep(40);
+  expect(turning.on).toBe(false);
+  expect(editor.sprite.frames[0]).toEqual(["AB..", "A...", "....", "...."]);
+});
