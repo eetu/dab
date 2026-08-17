@@ -255,3 +255,26 @@ test("opening another sprite resets variant, clip and the play head", async () =
   expect(editor.clip).toBe(null);
   expect(editor.playing).toBe(false);
 });
+
+test("the palette sweeps its rotation residue in one undo", async () => {
+  const { removeUnusedColours, undoEdit } = await import("../lib/editor.svelte");
+  loadSprite(
+    {
+      name: "spun",
+      w: 2,
+      h: 1,
+      palette: { A: "#ff0000", B: "#00ff00", C: "#0000ff", D: "#ffff00" },
+      frames: [["AA"]],
+    },
+    "spun.json",
+  );
+  await sleep(20);
+  expect(removeUnusedColours()).toBe(3);
+  expect(Object.keys(editor.sprite.palette)).toEqual(["A"]);
+  // One edit, one undo.
+  undoEdit();
+  expect(Object.keys(editor.sprite.palette)).toEqual(["A", "B", "C", "D"]);
+  // Nothing unused, nothing swept.
+  undoEdit();
+  expect(removeUnusedColours()).toBe(3);
+});

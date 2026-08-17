@@ -31,6 +31,7 @@
     pushPalette,
     pushTargets,
     removeColour,
+    removeUnusedColours,
     removeVariant,
     renameChar,
     renameVariant,
@@ -231,6 +232,27 @@
   {#snippet actions()}
     <IconButton size="sm" label="Add a colour" onclick={() => addColour("#ffffff")}>
       <Plus size={13} />
+    </IconButton>
+    <IconButton
+      size="sm"
+      ghost
+      label="Palette actions"
+      onclick={(e) =>
+        openMenu(e, "Palette", [
+          {
+            label: unused.size
+              ? `Remove ${unused.size} unused colour${unused.size > 1 ? "s" : ""}`
+              : "Remove unused colours",
+            hint: unused.size
+              ? "no pixel uses them — rotation residue, mostly"
+              : "every colour is in use",
+            disabled: !unused.size,
+            danger: true,
+            run: removeUnusedColours,
+          },
+        ])}
+    >
+      <Ellipsis size={13} />
     </IconButton>
   {/snippet}
 

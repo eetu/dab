@@ -45,6 +45,7 @@ import {
   stampCells,
   stampRows,
   TRANSPARENT,
+  unusedChars,
   withNode,
 } from "dab-core";
 import { SvelteSet } from "svelte/reactivity";
@@ -891,7 +892,16 @@ export function applyTurn() {
         .map((c) => [bx + c.dx, by + c.dy] as [number, number]),
     );
   }
+  const added = turning.added;
   endTurn();
+  // The aftermath, said out loud. A second spin of the same pixels replaces the
+  // last spin's blends and orphans them — the palette menu can sweep those, but
+  // only if you know they are there.
+  const dead = unusedChars(activeNode()).length;
+  editor.status =
+    `rotated${added ? ` — ${added} colour${added > 1 ? "s" : ""} added` : ""}` +
+    (dead ? ` · ${dead} unused (the palette's ⋯ removes them)` : "");
+  editor.statusBad = false;
 }
 
 /** Let go without keeping any of it. */
@@ -1023,6 +1033,23 @@ export function moveFrame(from: number, to: number) {
   if (from === to || to < 0 || to >= node.frames.length) return;
   commitNode((n) => moveFrameIn(n, from, to));
   editor.frame = to;
+}
+
+/**
+ * Drop every palette entry no frame uses — one edit, one undo.
+ *
+ * What this exists for: smooth rotations invent blend colours, and re-rotating
+ * an already-rotated part replaces the last spin's blends with new ones. Three
+ * spins leave dozens of dimmed entries no pixel answers to, in a palette that
+ * only has 69 characters to spend.
+ */
+export function removeUnusedColours(): number {
+  const node = activeNode();
+  const dead = unusedChars(node);
+  if (!dead.length || blocked()) return 0;
+  commitNode((n) => dead.reduce((m, ch) => removeColourFrom(m, ch), n));
+  if (dead.includes(editor.ink)) editor.ink = TRANSPARENT;
+  return dead.length;
 }
 
 export const addColour = (hex: string) => commitNode((n) => addColourTo(n, hex));
