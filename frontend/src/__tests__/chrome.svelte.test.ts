@@ -111,3 +111,26 @@ test("a first visit opens the help by itself, once", async () => {
   host2.remove();
   app = { host: host2, stop: () => {} };
 });
+
+test("a restored draft of the example keeps its wheels", async () => {
+  // The Pages case: no folder, a draft using the example wheel, a reload.
+  app.stop();
+  const { rememberDraft } = await import("../lib/persist");
+  const { exampleCar } = await import("../lib/examples");
+  rememberDraft(exampleCar(), null);
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;inset:0";
+  document.body.appendChild(host);
+  const mounted = mount(App, { target: host });
+  await sleep(150);
+  const { resolvePart } = await import("../lib/editor.svelte");
+  expect(editor.sprite.name).toBe("car");
+  expect(editor.dirty).toBe(true);
+  // The sheet came back under it, so the borrowed wheels draw.
+  expect(resolvePart("wheel")?.frames.length).toBe(3);
+  unmount(mounted);
+  host.remove();
+  const { clearDraft } = await import("../lib/persist");
+  clearDraft();
+  app = { host, stop: () => {} };
+});

@@ -603,6 +603,12 @@
       // than a blank 16×16 — the car is what the format exists to say.
       await openExample();
     }
+    // With no folder carrying the sheet, the example sprites sit under it as
+    // the fallback. A RESTORED draft of the example car otherwise came back
+    // with its `use: wheel` parts pointing at an empty sheet — the drawing
+    // survived the reload and its wheels did not. A folder, opened now or
+    // later, still replaces the sheet wholesale: your files outrank the demo.
+    if (!folder) sheet.byName = { ...EXAMPLE_SHEET, ...sheet.byName };
   });
 
   async function reconnect() {
