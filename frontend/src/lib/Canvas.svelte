@@ -351,12 +351,30 @@
   // transform tool says "rotate me", and the bar's slider was the only way in.
   // 0° points the arm up; clockwise follows the drag.
 
+  /** The pivot in the ACTIVE node's cells. A whole-node turn RESIZES the node
+   *  at every angle (grow-to-fit recentres the art), so its pivot is wherever
+   *  the node's centre is NOW — pinning the centre captured at begin left the
+   *  handle orbiting a point the art had moved away from. A selection's pivot
+   *  is fixed: the block is stamped about the same centre throughout. */
+  const pivotCells = $derived(
+    turning.whole ? { x: node.w / 2, y: node.h / 2 } : { x: turning.cx, y: turning.cy },
+  );
   /** Pivot and handle tip in STAGE pixels (CSS px inside the stage box). */
   const pivotPx = $derived({
-    x: (origin.x + turning.cx) * px,
-    y: (origin.y + turning.cy) * px,
+    x: (origin.x + pivotCells.x) * px,
+    y: (origin.y + pivotCells.y) * px,
   });
-  const armPx = $derived(Math.max(turning.r * px, 40));
+  /** Arm length, capped so the grip stays INSIDE the pane — the art's radius
+   *  at a deep zoom is hundreds of pixels, most of them past the edge. The
+   *  stage sits centred plus the pan, so its pane offset is derivable. */
+  const armPx = $derived.by(() => {
+    const stageLeft = viewport.paneW / 2 - (box.w * px) / 2 + viewport.tx;
+    const stageTop = viewport.paneH / 2 - (box.h * px) / 2 + viewport.ty;
+    const cx = stageLeft + pivotPx.x;
+    const cy = stageTop + pivotPx.y;
+    const room = Math.min(cx, cy, viewport.paneW - cx, viewport.paneH - cy) - 14;
+    return Math.max(24, Math.min(turning.r * px, 140, room));
+  });
   const handlePx = $derived.by(() => {
     const rad = ((turning.angle - 90) * Math.PI) / 180;
     return { x: pivotPx.x + armPx * Math.cos(rad), y: pivotPx.y + armPx * Math.sin(rad) };
@@ -372,12 +390,15 @@
     } catch {
       /* synthetic pointer — the drag still works, it just isn't captured */
     }
-    const rect = canvas!.getBoundingClientRect();
     const move = (ev: PointerEvent) => {
+      // The rect and the pivot, FRESH each move: a whole-node turn resizes the
+      // stage under the drag, and a rect captured at pointerdown mapped every
+      // later pointer through geometry that no longer existed.
+      const rect = canvas!.getBoundingClientRect();
       const sx = ((ev.clientX - rect.left) / rect.width) * box.w;
       const sy = ((ev.clientY - rect.top) / rect.height) * box.h;
-      const dx = sx - (origin.x + turning.cx);
-      const dy = sy - (origin.y + turning.cy);
+      const dx = sx - (origin.x + pivotCells.x);
+      const dy = sy - (origin.y + pivotCells.y);
       if (!dx && !dy) return;
       let deg = Math.round((Math.atan2(dy, dx) * 180) / Math.PI) + 90;
       if (deg > 180) deg -= 360;

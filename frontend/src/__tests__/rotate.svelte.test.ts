@@ -315,3 +315,40 @@ test("the handle drags the angle, snapping at the quarters — ⌘ glides", asyn
   expect(Math.abs(turning.angle - 86)).toBeLessThanOrEqual(2);
   cancelTurn();
 });
+
+test("a whole-node turn keeps the handle on the node centre as it grows", async () => {
+  loadSprite(
+    {
+      name: "wide",
+      w: 24,
+      h: 6,
+      palette: { A: "#ff0000" },
+      frames: [["A".repeat(24), ...Array(5).fill(".".repeat(24))]],
+    },
+    "wide.json",
+  );
+  await sleep(30);
+  beginTurn(true);
+  setTurn(30, 1);
+  await sleep(40);
+  // The node grew (24×6 at 30° needs more height); the arm must anchor on the
+  // CURRENT centre, not the centre the node had when the turn began.
+  const grown = { w: editor.sprite.w, h: editor.sprite.h };
+  expect(grown.h).toBeGreaterThan(6);
+  const arm = app.host.querySelector(".rotarm") as HTMLElement;
+  const canvasEl = app.host.querySelector("[data-testid=canvas]") as HTMLElement;
+  const r = canvasEl.getBoundingClientRect();
+  const px = r.width / grown.w;
+  const want = { x: (grown.w / 2) * px, y: (grown.h / 2) * px };
+  expect(Math.abs(parseFloat(arm.style.left) - want.x)).toBeLessThan(1);
+  expect(Math.abs(parseFloat(arm.style.top) - want.y)).toBeLessThan(1);
+  // And the grip stays inside the pane whatever the zoom says.
+  const grip = app.host.querySelector(".rotgrip") as HTMLElement;
+  const pane = app.host.querySelector(".pane")!.getBoundingClientRect();
+  const g = grip.getBoundingClientRect();
+  expect(g.top).toBeGreaterThanOrEqual(pane.top);
+  expect(g.bottom).toBeLessThanOrEqual(pane.bottom);
+  expect(g.left).toBeGreaterThanOrEqual(pane.left);
+  expect(g.right).toBeLessThanOrEqual(pane.right);
+  cancelTurn();
+});
