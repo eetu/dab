@@ -921,11 +921,13 @@
     margin-left: auto;
   }
   aside {
-    padding: 0.75rem;
+    padding: 0.5rem 0.6rem;
     display: grid;
-    gap: 1rem;
+    gap: 0.6rem;
     align-content: start;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--halo-border) transparent;
     /* Without this the panel's content sets its minimum height, the middle grid
        row grows past the viewport, and the bottom of the rail — the frame strip —
        goes off the screen with no scrollbar to bring it back. A grid item has to

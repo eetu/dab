@@ -274,7 +274,7 @@
                 frame={shownFrame(row)}
                 variant={editor.variant}
                 assembly={row.path.length === 0}
-                height="1.5rem"
+                height="1.4rem"
               />
             {/if}
           </span>
@@ -407,14 +407,16 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.15rem;
+    gap: 0.1rem;
   }
   li {
     display: grid;
     grid-template-columns: 1fr auto auto;
     align-items: center;
-    gap: 0.2rem;
-    padding: 0.2rem 0.25rem 0.2rem calc(0.25rem + var(--depth) * 0.6rem);
+    /* Dense on purpose: six of these rows have to share a laptop's left rail
+       with the Sprite panel and the folder, without the column scrolling. */
+    gap: 0.12rem;
+    padding: 0.1rem 0.25rem 0.1rem calc(0.25rem + var(--depth) * 0.6rem);
     min-width: 0;
     border: 1px solid transparent;
     border-radius: 4px;
@@ -521,7 +523,7 @@
   .xy input {
     width: 100%;
     min-width: 0;
-    height: 1.4rem;
+    height: 1.25rem;
     /* The stepper arrows are half the width of a two-digit field and nobody
        clicks them at this size. */
     appearance: textfield;

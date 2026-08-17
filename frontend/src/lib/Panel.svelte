@@ -80,7 +80,7 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    min-height: 1.5rem;
+    min-height: 1.35rem;
   }
   section[data-layout="row"] > header {
     flex: none;

@@ -77,14 +77,15 @@
     {/if}
   {/if}
 
+  <!-- One row, not two: every saved line here is a line the parts tree gets on
+       a laptop, and these two are both about looking, not editing. -->
   <div class="row">
     <button onclick={() => fit(box.w, box.h)} title="Fit to view (0)">Fit ×{cell()}</button>
+    <label class="grid-toggle">
+      <input type="checkbox" bind:checked={editor.grid} />
+      <span>Pixel grid</span>
+    </label>
   </div>
-
-  <label class="row">
-    <input type="checkbox" bind:checked={editor.grid} />
-    <span>Pixel grid</span>
-  </label>
 </Panel>
 
 <style>
@@ -94,17 +95,25 @@
     font-size: 0.8rem;
     color: var(--halo-text-muted);
   }
-  label.row {
+  .row {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.6rem;
+  }
+  .grid-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--halo-text-muted);
+    cursor: pointer;
   }
   input:not([type]) {
     background: var(--halo-bg-main);
     color: var(--halo-text-main);
     border: 1px solid var(--halo-border);
     border-radius: 4px;
-    padding: 0.25rem 0.4rem;
+    padding: 0.2rem 0.4rem;
     font: inherit;
   }
   button {
