@@ -31,6 +31,7 @@
     deleteSelection,
     dropPaste,
     editor,
+    flattenedNode,
     floating,
     gesture,
     hasSelection,
@@ -234,6 +235,37 @@
     confirm: "Discard",
     danger: true,
   });
+
+  /**
+   * Bake the assembly into a flat copy and open it — the door out of "rotate
+   * the whole car": parts cannot turn together (a borrowed wheel is another
+   * sprite's pixels, and every seam would halo), but a flat copy turns as one
+   * grid. It opens unsaved so it works with no folder at all; ⌘S files it.
+   */
+  async function flatten() {
+    const was = editor.sprite.name;
+    let suggested = `${was} flat`;
+    for (let i = 2; sheet.byName[suggested]; i++) suggested = `${was} flat ${i}`;
+    const to = await ask({
+      title: `Flatten ${was}`,
+      label: "Name",
+      value: suggested,
+      note: `Bakes what you see — parts, poses, glass — into one grid, and opens it as a new unsaved sprite. ${was} stays as it is.`,
+      confirm: "Flatten",
+    });
+    const name = to?.trim();
+    if (!name) return;
+    if (sheet.byName[name]) return sayBad(`${name} already exists`);
+    if (editor.dirty && !(await confirmed(discardSpec()))) return;
+    const flat = flattenedNode(name);
+    if (!flat) return sayBad("no parts to flatten");
+    loadSprite(flat.sprite, null);
+    forgetSaved();
+    editor.dirty = true;
+    say(
+      `flattened ${was}${flat.added ? ` — ${flat.added} colour${flat.added > 1 ? "s" : ""} added` : ""} · ⌘S saves it`,
+    );
+  }
 
   // ---------- the folder's verbs, from a sprite row's menu ----------
   //
@@ -774,7 +806,7 @@
 
   <ToolRail />
 
-  <main><Canvas {backdrop} /></main>
+  <main><Canvas {backdrop} onflatten={flatten} /></main>
 
   <!-- Across, under the canvas: a frame strip is horizontal and a rail is not.
        Clips sit beside it because a clip is a sentence about those frames. -->

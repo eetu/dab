@@ -57,7 +57,12 @@
   import RotateBar from "./RotateBar.svelte";
   import { type Backdrop, cell, fit, panBy, viewport, zoomBy } from "./viewport.svelte";
 
-  let { backdrop = "checker" as Backdrop }: { backdrop?: Backdrop } = $props();
+  type Props = {
+    backdrop?: Backdrop;
+    /** Opens the flatten dialog — the file side lives with the folder, in App. */
+    onflatten?: () => void;
+  };
+  let { backdrop = "checker" as Backdrop, onflatten }: Props = $props();
 
   let pane: HTMLDivElement | null = $state(null);
   let canvas: HTMLCanvasElement | null = $state(null);
@@ -524,6 +529,25 @@
    * existed, and pulling a selection out into a part was behind a dialog in
    * another panel. A menu at the pointer is where a person looks for them.
    */
+  /** The whole-node turn, and the door out when it refuses: a parted node
+   *  cannot turn — its parts would sit still under the spinning grid — so the
+   *  verb that CAN turn it, flatten, stands next to the greyed one. */
+  function wholeTurnItems(name: string, why: string | null): MenuItem[] {
+    const parted = (node.parts?.length ?? 0) > 0;
+    const items: MenuItem[] = [
+      {
+        label: `Rotate ${name}…`,
+        hint: parted ? "parts do not turn — flatten first" : "grows to fit",
+        disabled: !!why || parted,
+        run: () => beginTurn(true),
+      },
+    ];
+    if (parted && onflatten) {
+      items.push({ label: "Flatten to a sprite…", disabled: !!why, run: onflatten });
+    }
+    return items;
+  }
+
   function canvasMenu(e: MouseEvent) {
     // The rotate bar's degree field lives inside this pane: a text field keeps
     // the browser's menu even here.
@@ -541,12 +565,7 @@
       const why = readOnly();
       openMenu(e, name, [
         { label: "Select all", disabled: !!why, run: selectAll },
-        {
-          label: `Rotate ${name}…`,
-          hint: "grows to fit",
-          disabled: !!why,
-          run: () => beginTurn(true),
-        },
+        ...wholeTurnItems(name, why),
         { kind: "separator" },
         { label: "Fit to window", hint: "0", run: () => fit(box.w, box.h) },
         ...(hasSelection() ? [{ label: "Deselect", run: clearSelection } satisfies MenuItem] : []),
@@ -594,12 +613,7 @@
       items.push({ label: "Deselect", run: clearSelection });
     } else {
       items.push({ label: "Select all", disabled: !!why, run: selectAll });
-      items.push({
-        label: `Rotate ${where}…`,
-        hint: "grows to fit",
-        disabled: !!why,
-        run: () => beginTurn(true),
-      });
+      items.push(...wholeTurnItems(where, why));
       // No selection, so offer the thing under the cursor instead.
       const found = nodeUnder(s);
       if (found && pathKey(found) !== pathKey(editor.path)) {

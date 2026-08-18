@@ -117,6 +117,17 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   frame rotates; the rest are padded to the new size, never cropped, so turning
   frame 2 cannot quietly trim frame 1. A selection stays in its frame instead —
   it is floating, and growing the document from a marquee would be a surprise.
+  A part keeps its CENTRE while it grows: the placement walks back by half the
+  growth, or the art orbits its own corner as the box breathes with the angle.
+- **A parted node does not turn or flip whole — flatten is the door out.** Parts
+  cannot rotate together: a borrowed wheel is another sprite's pixels, each part
+  would invent blends in its own local palette, and per-part sampling fades every
+  edge against nothing — a halo at each seam. `flattenSprite` bakes the assembly
+  (same walk as the renderer, colours composited source-over in sRGB BEFORE they
+  become characters, then rotation's reuse-or-allocate rule) into a flat copy
+  that turns as one grid. The editor bakes the VIEW — shown frames, hidden eyes —
+  because posing the parts is how you aim the bake; variants stay behind. The
+  flat copy opens as a new unsaved document, so it works with no folder at all.
 - **Browser tests set the viewport once, in the config.** Per-test
   `page.viewport()` calls resize the real window, and a resize while another
   file's module is still being fetched kills that fetch — it surfaces as "Failed

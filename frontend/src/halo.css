@@ -52,8 +52,11 @@
   --halo-bg-main: #ffffff;
   --halo-bg-light: #fbfbfb;
   --halo-text-main: #525252;
-  --halo-text-muted: #a0a0a0;
-  --halo-text-light: #e9e9e9;
+  /* Deviation 3: the canonical light file has text-light #e9e9e9 — white-on-white
+     for the tertiary text this app sets in it (notes, hints, readouts). Kept as
+     real greys, muted above light, both legible on the white cards. */
+  --halo-text-muted: #8a8a8a;
+  --halo-text-light: #a6a6a6;
   --halo-border: lightgray;
   --halo-accent-bg: linear-gradient(153deg, rgba(255, 237, 207, 1) 0%, rgba(255, 239, 171, 1) 56%);
   --halo-accent-soft: rgba(247, 143, 8, 0.1);

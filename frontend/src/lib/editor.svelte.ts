@@ -16,6 +16,7 @@ import {
   duplicateFrame as duplicateFrameIn,
   ellipsePoints,
   fitRows,
+  flattenSprite,
   type Flip,
   flipRows,
   floodPoints,
@@ -804,6 +805,9 @@ export function beginTurn(whole: boolean) {
   // pristine source, and there would be no way back to the art.
   if (turning.on || blocked()) return;
   if (!whole && !hasSelection()) return;
+  // A parted node does not turn: its parts would sit still while the grid spun
+  // under them — the same reason flipNode refuses. Flatten first.
+  if (whole && activeNode().parts?.length) return;
   // Its items would act on a preview, and it would sit over the dial.
   closeMenu();
   dropFloat();
@@ -959,6 +963,27 @@ function endTurn() {
   turning.on = false;
   turning.angle = 0;
   turning.added = 0;
+}
+
+// ---------- flatten ----------
+
+/**
+ * The active node's assembly baked flat, exactly as the canvas shows it —
+ * parts at their shown frames, hidden eyes honoured, glass blended. Variants
+ * stay behind: they are skins over the base, and the bake is of the base.
+ */
+export function flattenedNode(name: string): { sprite: SpriteFile; added: number } | null {
+  const node = activeNode();
+  if (!node.parts?.length) return null;
+  const flat = flattenSprite(node, {
+    resolve: resolvePart,
+    frameOf: (path, n, f) => frameOf([...editor.path, ...path], n, f),
+    hidden: (path) => !!editor.hidden[pathKey([...editor.path, ...path])],
+  });
+  return {
+    sprite: { name, w: flat.w, h: flat.h, palette: flat.palette, frames: flat.frames },
+    added: flat.added.length,
+  };
 }
 
 // ---------- document ----------
