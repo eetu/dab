@@ -888,7 +888,21 @@ function showTurn() {
   const W = Math.max(source.w, r.w);
   const H = Math.max(source.h, r.h);
   const grown = withNode(source.before, editor.path, (n) => resizeSprite(n, W, H, "center"));
-  editor.sprite = withRows(grown, fitRows(r.rows, r.w, r.h, W, H), { w: W, h: H });
+  let next = withRows(grown, fitRows(r.rows, r.w, r.h, W, H), { w: W, h: H });
+  // A part turns about its CENTRE, so its placement walks back as the box grows
+  // — anchor the corner instead and the art orbits it, wandering around the
+  // parent as W and H breathe with the angle. The root needs no such walk: its
+  // box IS the stage, and the canvas centres that.
+  const dx = Math.round((W - source.w) / 2);
+  const dy = Math.round((H - source.h) / 2);
+  if (editor.path.length && (dx || dy)) {
+    const name = editor.path[editor.path.length - 1];
+    next = withNode(next, editor.path.slice(0, -1), (n) => ({
+      ...n,
+      parts: n.parts?.map((p) => (p.name === name ? { ...p, x: p.x - dx, y: p.y - dy } : p)),
+    }));
+  }
+  editor.sprite = next;
 }
 
 /** Put the turn down. One undo entry covers the whole session at the dial. */

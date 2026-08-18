@@ -17,6 +17,7 @@ import {
   loadSprite,
   selectBox,
   selection,
+  selectNode,
   setTurn,
   turning,
   undoEdit,
@@ -351,4 +352,51 @@ test("a whole-node turn keeps the handle on the node centre as it grows", async 
   expect(g.left).toBeGreaterThanOrEqual(pane.left);
   expect(g.right).toBeLessThanOrEqual(pane.right);
   cancelTurn();
+});
+
+test("a whole-part turn keeps the part's centre pinned in the parent", async () => {
+  loadSprite(
+    {
+      name: "host",
+      w: 24,
+      h: 24,
+      palette: { A: "#ff0000" },
+      frames: [Array.from({ length: 24 }, () => ".".repeat(24))],
+      parts: [
+        {
+          name: "arm",
+          x: 10,
+          y: 8,
+          w: 8,
+          h: 2,
+          palette: { B: "#00ff00" },
+          frames: [["BBBBBBBB", "BBBBBBBB"]],
+        },
+      ],
+    },
+    "host.json",
+  );
+  await sleep(30);
+  selectNode(["arm"]);
+  const part = () => editor.sprite.parts![0] as { x: number; y: number; w: number; h: number };
+  const centre = () => ({ x: part().x + part().w / 2, y: part().y + part().h / 2 });
+  const at0 = centre();
+  beginTurn(true);
+  // The box breathes with the angle — the centre must not. Half a cell of slack
+  // covers the rounding an odd growth cannot avoid.
+  for (const deg of [30, 45, 60, 90]) {
+    setTurn(deg, 1);
+    await sleep(20);
+    expect(Math.abs(centre().x - at0.x)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(centre().y - at0.y)).toBeLessThanOrEqual(0.5);
+  }
+  applyTurn();
+  expect(Math.abs(centre().x - at0.x)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(centre().y - at0.y)).toBeLessThanOrEqual(0.5);
+  // And Cancel would have put the placement back exactly — undo does now.
+  undoEdit();
+  expect(part().x).toBe(10);
+  expect(part().y).toBe(8);
+  expect(part().w).toBe(8);
+  expect(part().h).toBe(2);
 });
