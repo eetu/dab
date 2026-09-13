@@ -136,13 +136,31 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   on the canvas (blue says which node, white says what is selected), and the chip
   goes ahead of the message, away from the region toggles: it is about the
   document, they are about the furniture.
-- **Rotation is a mode, and it may invent colours.** Nobody knows the angle they
+- **Turning is a mode, and it may invent colours.** Nobody knows the angle they
   want until they see it, so it previews live on the real canvas — a dialog would
   have to show its own, and a rotated door says nothing without the car under it.
   Every angle re-samples the PRISTINE source, never the last preview: turning one
   wheel five times costs 9, 4, 4, 1, 4 palette entries and climbs, where turning
   the original to five angles costs 9, 3, 2, 0, 0 and settles. Quarter turns skip
   the sampler entirely and are exact.
+- **Three axes, and only one of them rotates.** `z` spins the art in the picture
+  plane — a wheel — and needs corners the box did not have, so the node grows.
+  `y` and `x` are HINGES: the art turns OUT of the picture and an orthographic
+  view shows that as foreshortening, the same art `cos θ` as wide about the hinge
+  line. So a hinge never grows the box (a door gets narrower, not bigger), the
+  dial stops at 90° (past edge-on you are looking at the other face, which is the
+  artist's to draw), and the sign does not matter — toward and away project the
+  same. The hinge is a handle ON the art, like the rotate pivot, because the line
+  a turn is about belongs on the thing being turned.
+- **A turn can write a RUN of frames, and name it.** Closed to open in four is
+  the whole reason a door has frames, and doing it by hand is four turns of the
+  same block. The frames stepper writes one frame per step from where the art is
+  to the dial, each sampled from the pristine source against the palette the step
+  before it grew — so the last frame is as clean as the first and the run costs
+  what one turn costs plus change. They land through `insertFrames` (one remap of
+  the animations after them, not one per frame) and get an animation naming the
+  run, because a run of frames nobody named is the next three clicks. A selection
+  cannot: it is floating, and a float has no frames of its own.
 - **A blend that is not near an existing colour becomes one.** Indexed art cannot
   interpolate, so smoothing either invents entries or does not smooth. "Near" is
   OKLab distance, not RGB — green carries most of the perceived brightness and
@@ -211,11 +229,13 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 
 - Layers. The format is one grid per frame, and the tools are built on that.
   Parts are not layers: nothing composites into the grid being edited.
-- Scale, sub-pixel offsets, tweening, bones. Rotation came in because it is a
+- Free scale, sub-pixel offsets, tweening, bones. Turning came in because it is a
   different kind of thing from the rest of that list: it is an operation on
   pixels and leaves no trace in the file, where `flip` is a part PROPERTY and
   drags coordinate arithmetic behind it. Rotation as a part property would too,
-  and stays out.
+  and stays out. A hinge turn scales one axis, which is the one place this line
+  bends — it is a turn expressed as a scale, not a scale tool, which is why it
+  has an angle and a hinge rather than a width.
 - RotSprite. It exists to keep pixel art crisp when you cannot add colours; here
   you can, so supersampling covers the same ground for a few hundred lines less.
   If it ever lands it is also the point at which wasm would earn its keep — an
@@ -225,7 +245,11 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   land as Aseprite does it — a per-frame array, orthogonal to animations.
 - Chained `use` references (a borrowed part is a leaf) and `flip` on a subtree.
   Both are additive later; neither is worth the coordinate arithmetic now.
-- Resampling. Resize crops or pads — there is no meaningful resample for pixel
-  art, and "make it bigger" means a bigger canvas, not a blurrier drawing.
+- Resampling as a RESIZE. Resize crops or pads: "make it bigger" means a bigger
+  canvas, not a blurrier drawing. Turning resamples — it has to, at any angle
+  that is not a quarter — and a hinge turn resamples one axis. The difference is
+  that a turn is a drawing operation with an artist behind it, crisp by default
+  so it drops pixels rather than inventing colours, and the result is a starting
+  point to draw over.
 - A server-side file store. The editor reaches the disk through the browser; the
   backend exists to serve the SPA, not to hold sprites.

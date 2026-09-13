@@ -56,12 +56,16 @@
         it to another corner; − and + change the size. A variant recolours characters without
         redrawing; pick one to preview it, and it is what a consumer draws.
       </p>
-      <h3>Rotation</h3>
+      <h3>Turning</h3>
       <p>
-        Right-click → Rotate, then drag the round handle — it snaps at 90° (⌘ glides free). Quarter
-        turns are exact; any other angle invents blend colours and the bar says how many before you
-        apply. Keep rotating the <em>original</em> for animation frames — each angle reuses what
-        earlier ones paid for. A sprite with parts does not turn whole —
+        Right-click → Rotate. <strong>Spin</strong> turns the art in the picture plane — drag the
+        round handle, which snaps at 90° (⌘ glides free). <strong>Swing</strong> and
+        <strong>Tilt</strong> are hinges: the art turns out of the picture and gets narrower about a
+        hinge line you drag onto it — a door opening toward you, a bonnet lifting. Set
+        <em>frames</em> and Apply writes the whole run, one frame per step, with an animation naming
+        it. Every step comes off the original, so the last frame is as clean as the first and the
+        palette settles. Quarter spins are exact; other angles invent blend colours and the bar says
+        how many before you pay. A sprite with parts does not turn whole —
         <em>Flatten to a sprite</em> bakes the assembly into one grid that does.
       </p>
     </section>
