@@ -9,9 +9,9 @@ import {
   addColour as addColourTo,
   addFrame as addFrameTo,
   allCells,
+  animationFrames,
   blankFrame,
   blankSprite,
-  clipFrames,
   cloneSprite,
   duplicateFrame as duplicateFrameIn,
   ellipsePoints,
@@ -122,7 +122,7 @@ export const editor = $state({
    *  colourways, since that is what a consumer will draw. */
   variant: null as string | null,
   /** Which named run the play head is walking, or null for the whole strip. */
-  clip: null as string | null,
+  animation: null as string | null,
   status: "" as string,
   /** Whether the status is a refusal or a failure — drawn in the error colour,
    *  where an outcome ("saved car.json") stays quiet. */
@@ -145,7 +145,7 @@ export function activeRef(): (Placement & { use: string }) | null {
 }
 
 /**
- * The node whose palette, frames and clips the panels are about.
+ * The node whose palette, frames and animations the panels are about.
  *
  * For a borrowed part that is the sprite it borrows — showing its own colours
  * is the truth about what is drawn there, and every operation below refuses to
@@ -288,9 +288,9 @@ function settle() {
   for (const key of Object.keys(editor.hidden)) {
     if (key && !nodeAt(editor.sprite, key.split("/"))) delete editor.hidden[key];
   }
-  // A frame operation can remap a clip out of existence while the preview is
-  // showing it — the badge would keep naming a clip the node no longer has.
-  if (editor.clip && !activeNode().clips?.[editor.clip]) editor.clip = null;
+  // A frame operation can remap a animation out of existence while the preview is
+  // showing it — the badge would keep naming an animation the node no longer has.
+  if (editor.animation && !activeNode().animations?.[editor.animation]) editor.animation = null;
 }
 
 export function undoEdit() {
@@ -322,10 +322,10 @@ export function loadSprite(sprite: SpriteFile, file: string | null) {
   dropFloat();
   closeMenu();
   // Per-document view state resets WITH the document. These used to survive, so
-  // opening sprite B carried sprite A's variant and clip name over — and the
-  // preview badge could name a clip the new sprite never had.
+  // opening sprite B carried sprite A's variant and animation name over — and the
+  // preview badge could name an animation the new sprite never had.
   editor.variant = null;
-  editor.clip = null;
+  editor.animation = null;
   editor.playing = false;
   editor.playhead = 0;
   editor.sprite = sprite;
@@ -811,6 +811,9 @@ export function beginTurn(whole: boolean) {
   // Its items would act on a preview, and it would sit over the dial.
   closeMenu();
   dropFloat();
+  // One mode at a time: a turn previews on the frame you are editing, and the
+  // play head would keep replacing it with the next one.
+  editor.playing = false;
   const node = activeNode();
   const rows = rowsNow();
   const before = cloneSprite(editor.sprite);
@@ -1145,79 +1148,112 @@ export function renameChar(from: string, to: string) {
   if (editor.ink === from) editor.ink = to;
 }
 
-// ---------- clips ----------
+// ---------- animations ----------
 //
-// A clip is a named run of frame indices on one node. A strip that is an
+// An animation is a named run of frame indices on one node. A strip that is an
 // animation in one place and a set of states in another can then say which is
 // which, and a consumer can ask for "swing" instead of remembering that the door
 // opens over frames 0 to 2.
 
-/** The frames the play head walks: the selected clip, or the whole strip. */
-export const clipRun = (node: SpriteBody = activeNode()): number[] =>
-  (editor.clip ? clipFrames(node, editor.clip) : null) ?? node.frames.map((_, i) => i);
+/** The frames the play head walks: the selected animation, or the whole strip. */
+export const animationRun = (node: SpriteBody = activeNode()): number[] =>
+  (editor.animation ? animationFrames(node, editor.animation) : null) ??
+  node.frames.map((_, i) => i);
 
-function setClips(clips: Record<string, number[]>) {
-  const names = Object.keys(clips);
-  commitNode((n) => ({ ...n, clips: names.length ? clips : undefined }));
-  if (editor.clip && !names.includes(editor.clip)) editor.clip = null;
+// ---------- playback ----------
+//
+// The SURFACE plays: the canvas draws the run while the play head walks it, and
+// the strip follows. One frame number, derived in one place, so a second window
+// cannot be showing a different one — which is what a separate preview pane was
+// always one bug away from.
+
+/** Whether there is anything to play: one frame is a picture, not an animation. */
+export const canPlay = (node: SpriteBody = activeNode()): boolean => animationRun(node).length > 1;
+
+/** The frame on screen: the play head while playing, the frame being edited
+ *  otherwise — so stopping puts you back where you were drawing. */
+export function shownFrame(node: SpriteBody = activeNode()): number {
+  if (!editor.playing) return editor.frame;
+  const run = animationRun(node);
+  return run[editor.playhead % run.length] ?? editor.frame;
 }
 
-/** A new clip starts as the frame you are on — one frame is a state, which is
- *  the commonest kind of clip there is. */
-export function addClip(name: string) {
+/** Start or stop. Playing is a MODE the surface is in, so it refuses to start
+ *  on a single frame rather than running an interval that changes nothing. */
+export function setPlaying(on: boolean): void {
+  editor.playing = on && canPlay();
+  if (!editor.playing) editor.playhead = 0;
+}
+
+/** Back to the start of the run. Stopped, that means the frame you are editing
+ *  goes back too — otherwise rewind would move a play head nobody can see. */
+export function rewind(): void {
+  editor.playhead = 0;
+  if (!editor.playing) editor.frame = animationRun()[0] ?? 0;
+}
+
+function setAnimations(animations: Record<string, number[]>) {
+  const names = Object.keys(animations);
+  commitNode((n) => ({ ...n, animations: names.length ? animations : undefined }));
+  if (editor.animation && !names.includes(editor.animation)) editor.animation = null;
+}
+
+/** A new animation starts as the frame you are on — one frame is a state, which is
+ *  the commonest kind of animation there is. */
+export function addAnimation(name: string) {
   const key = name.trim();
   const node = activeNode();
-  if (!key || node.clips?.[key]) return;
-  setClips({ ...(node.clips ?? {}), [key]: [frameNow()] });
-  editor.clip = key;
+  if (!key || node.animations?.[key]) return;
+  setAnimations({ ...(node.animations ?? {}), [key]: [frameNow()] });
+  editor.animation = key;
 }
 
-export function renameClip(from: string, to: string) {
+export function renameAnimation(from: string, to: string) {
   const key = to.trim();
-  const existing = activeNode().clips;
+  const existing = activeNode().animations;
   if (!key || !existing?.[from] || existing[key]) return;
-  const wasPlaying = editor.clip === from;
+  const wasPlaying = editor.animation === from;
   // Rebuilt in order rather than deleted and re-added: the map's order is the
   // order the editor and a consumer list them in.
-  setClips(
+  setAnimations(
     Object.fromEntries(Object.entries(existing).map(([k, v]) => (k === from ? [key, v] : [k, v]))),
   );
-  if (wasPlaying) editor.clip = key;
+  if (wasPlaying) editor.animation = key;
 }
 
-export function removeClip(name: string) {
-  const existing = activeNode().clips;
+export function removeAnimation(name: string) {
+  const existing = activeNode().animations;
   if (!existing?.[name]) return;
-  setClips(Object.fromEntries(Object.entries(existing).filter(([k]) => k !== name)));
+  setAnimations(Object.fromEntries(Object.entries(existing).filter(([k]) => k !== name)));
 }
 
-/** Reorder the clips. The map's order is the file's, and the file's order is
+/** Reorder the animations. The map's order is the file's, and the file's order is
  *  what the editor and every consumer list them in — an edit, not a view. */
-export function moveClip(name: string, to: number) {
-  const entries = Object.entries(activeNode().clips ?? {});
+export function moveAnimation(name: string, to: number) {
+  const entries = Object.entries(activeNode().animations ?? {});
   const from = entries.findIndex(([k]) => k === name);
   if (from < 0 || to < 0 || to >= entries.length || from === to) return;
   const next = [...entries];
   const [row] = next.splice(from, 1);
   next.splice(to, 0, row);
-  setClips(Object.fromEntries(next));
+  setAnimations(Object.fromEntries(next));
 }
 
-/** Replace a clip's run. An empty run drops the clip: a name that plays nothing
+/** Replace an animation's run. An empty run drops the animation: a name that plays nothing
  *  is a name that means nothing. */
-export function setClipFrames(name: string, frames: number[]) {
-  const existing = activeNode().clips;
+export function setAnimationFrames(name: string, frames: number[]) {
+  const existing = activeNode().animations;
   if (!existing?.[name]) return;
-  if (!frames.length) return removeClip(name);
-  setClips({ ...existing, [name]: frames });
+  if (!frames.length) return removeAnimation(name);
+  setAnimations({ ...existing, [name]: frames });
 }
 
-/** Put a frame at the end of a clip — the one you are on unless said otherwise.
+/** Put a frame at the end of an animation — the one you are on unless said otherwise.
  *  Repeats are legal and mean a hold, so appending twice is how a pause is
  *  written. */
-export function appendToClip(name: string, at: number = frameNow()) {
-  const list = activeNode().clips?.[name];
-  if (list) setClipFrames(name, [...list, at]);
+export function appendToAnimation(name: string, at: number = frameNow()) {
+  const list = activeNode().animations?.[name];
+  if (list) setAnimationFrames(name, [...list, at]);
 }
 
 // ---------- parts ----------

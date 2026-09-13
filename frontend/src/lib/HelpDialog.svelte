@@ -11,14 +11,14 @@
     ["⌘S", "Save — writes the file in place (Chrome/Edge), downloads elsewhere"],
     ["⌘Z / ⇧⌘Z", "Undo / redo — a whole drag, paste or turn is one entry"],
     ["⌘A / ⌘C / ⌘X / ⌘V", "Select all, copy, cut, paste — pastes float until you let go"],
-    ["Esc", "Abort the drag, cancel the floating paste, then deselect — never commits"],
+    ["Esc", "Abort the drag, stop playing, cancel the floating paste, then deselect"],
     ["Arrows (⇧ ×10)", "Nudge the selection, or the selected part under Move; else step frames"],
     ["⌫", "Delete the selection, or the selected part under Move"],
     [", / .", "Previous / next frame, whatever is selected"],
-    ["P / N", "Play or stop · onion skin"],
+    ["P / N", "Play the sprite on the canvas itself, and stop · onion skin"],
     ["Space-drag / ⌘-wheel", "Pan · zoom at the cursor (0 fits, + and − step)"],
     ["⌥-click", "Pick the colour under the cursor, from any tool"],
-    ["⌘B / ⌘⌥B / ⌘J", "Toggle the left rail, right rail, bottom dock"],
+    ["⌘B / ⌘⌥B / ⌘J", "Toggle parts and folder, the sprite panel, the frame strip"],
   ];
 </script>
 
@@ -44,10 +44,16 @@
         sprite in the folder, so one wheel serves every car. Move (V) drags a part; selecting a borrowed
         part is dashed — open its sprite to draw on it.
       </p>
-      <h3>Frames, clips, variants</h3>
+      <h3>Frames, animations, variants</h3>
       <p>
-        Frames run along the bottom; onion skin shows the previous one. A clip names a run of frames
-        (<code>swing: 0 1 2</code>) — repeats hold. A variant recolours characters without
+        Frames run along the bottom; onion skin shows the previous one. An animation names a run of
+        frames (<code>swing: 0 1 2</code>) and appears as a lane under them: click a cell to put
+        that frame in or take it out, drag to sweep a run, and a repeated frame is a hold. Press
+        play and the sprite runs
+        <em>on the canvas</em>: no grid, no marquee, the fps on a bar over the art, and Esc puts
+        your frame back. The loupe (last button on the rail) puts a small window over the canvas
+        showing the sprite at ×1 — how it reads at the size it is drawn, moving when it moves. Drag
+        it to another corner; − and + change the size. A variant recolours characters without
         redrawing; pick one to preview it, and it is what a consumer draws.
       </p>
       <h3>Rotation</h3>

@@ -1,11 +1,11 @@
-// The bottom bar under load: frames and clips, sparse and heavy.
+// The bottom bar under load: frames and animations, sparse and heavy.
 import { expect, onTestFinished, test } from "vitest";
 
 import { editor, loadSprite, selectNode, sheet } from "../src/lib/editor.svelte";
 import { EXAMPLE_SHEET, exampleCar } from "../src/lib/examples";
 import { open, SPRITES } from "./rig";
 
-test("the dock on the example car's lights: frames plus two clips", async () => {
+test("the dock on the example car's lights: frames plus two animations", async () => {
   const rig = await open(SPRITES.car());
   onTestFinished(rig.stop);
   sheet.byName = { ...EXAMPLE_SHEET };
@@ -17,7 +17,7 @@ test("the dock on the example car's lights: frames plus two clips", async () => 
   await rig.shot("13-dock-lights");
 });
 
-test("the dock heavy: twelve frames, three clips with long runs", async () => {
+test("the dock heavy: twelve frames, three animations with long runs", async () => {
   const rig = await open(SPRITES.car());
   onTestFinished(rig.stop);
   const rows = SPRITES.wheel().frames[0];
@@ -26,7 +26,7 @@ test("the dock heavy: twelve frames, three clips with long runs", async () => {
       ...SPRITES.wheel(),
       name: "spinner",
       frames: Array.from({ length: 12 }, () => rows),
-      clips: {
+      animations: {
         "spin fast": [0, 1, 2, 3, 4, 5, 6, 7],
         "spin slow": [0, 0, 2, 2, 4, 4, 6, 6, 8, 8],
         idle: [0],
@@ -38,7 +38,7 @@ test("the dock heavy: twelve frames, three clips with long runs", async () => {
   await rig.shot("14-dock-heavy");
 });
 
-test("the dock sparse: one frame, no clips", async () => {
+test("the dock sparse: one frame, no animations", async () => {
   const rig = await open(SPRITES.car());
   onTestFinished(rig.stop);
   await rig.settle(100);

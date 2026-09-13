@@ -7,9 +7,9 @@ import {
   addColour,
   addFrame,
   alphaOf,
+  animationFrames,
   blankSprite,
   cellColour,
-  clipFrames,
   cloneSprite,
   COLOUR,
   colourGap,
@@ -39,6 +39,7 @@ import {
   setPixel,
   setPixels,
   shapePoints,
+  type SpriteBody,
   type SpriteFile,
   stampCells,
   toJson,
@@ -680,7 +681,7 @@ describe("serialisation", () => {
   });
 });
 
-// ---------- parts and clips ----------
+// ---------- parts and animations ----------
 
 /** A car-shaped fixture: a body, a door of its own, and a wheel it borrows. */
 const car = (): SpriteFile => ({
@@ -688,7 +689,7 @@ const car = (): SpriteFile => ({
   w: 6,
   h: 4,
   palette: { B: "#c81e3c" },
-  clips: { clean: [0], dented: [1] },
+  animations: { clean: [0], dented: [1] },
   frames: [
     ["BBBBBB", "B....B", "B....B", "BBBBBB"],
     ["BBBBB.", "B....B", "B....B", "BBBBBB"],
@@ -701,7 +702,7 @@ const car = (): SpriteFile => ({
       w: 2,
       h: 2,
       palette: { D: "#101014" },
-      clips: { shut: [0], swing: [0, 1, 2], open: [2] },
+      animations: { shut: [0], swing: [0, 1, 2], open: [2] },
       frames: [
         ["DD", "DD"],
         ["D.", "D."],
@@ -732,12 +733,12 @@ describe("parts", () => {
     expect(validateSprite(s)).toEqual(["part doorL: frame 0 row 0 is 3 wide, expected 2"]);
   });
 
-  test("a part's clips are checked against that part's own strip", () => {
+  test("a part's animations are checked against that part's own strip", () => {
     const s = car();
     (s.parts![0] as { frames: string[][] }).frames.pop();
     expect(validateSprite(s)).toEqual([
-      "part doorL: clip swing names frame 2, which the sprite has not got",
-      "part doorL: clip open names frame 2, which the sprite has not got",
+      "part doorL: animation swing names frame 2, which the sprite has not got",
+      "part doorL: animation open names frame 2, which the sprite has not got",
     ]);
   });
 
@@ -826,9 +827,9 @@ describe("parts", () => {
     const s = car();
     const copy = cloneSprite(s);
     (copy.parts![0] as { frames: string[][] }).frames[0][0] = "..";
-    copy.clips!.clean[0] = 9;
+    copy.animations!.clean[0] = 9;
     expect((s.parts![0] as { frames: string[][] }).frames[0][0]).toBe("DD");
-    expect(s.clips!.clean).toEqual([0]);
+    expect(s.animations!.clean).toEqual([0]);
   });
 
   test("groupBox is the union of the node and its parts, resolved ones included", () => {
@@ -869,51 +870,86 @@ describe("parts", () => {
   });
 });
 
-describe("clips", () => {
-  test("a clip names frames the sprite has, and holds are repeats", () => {
+describe("animations", () => {
+  test("an animation names frames the sprite has, and holds are repeats", () => {
     const s = car();
-    s.clips = { hold: [0, 0, 1] };
+    s.animations = { hold: [0, 0, 1] };
     expect(validateSprite(s)).toEqual([]);
-    s.clips = { gone: [2] };
-    expect(validateSprite(s)).toContain("clip gone names frame 2, which the sprite has not got");
-    s.clips = { empty: [] };
-    expect(validateSprite(s)).toContain("clip empty is not a non-empty list of frame indices");
+    s.animations = { gone: [2] };
+    expect(validateSprite(s)).toContain(
+      "animation gone names frame 2, which the sprite has not got",
+    );
+    s.animations = { empty: [] };
+    expect(validateSprite(s)).toContain("animation empty is not a non-empty list of frame indices");
   });
 
-  test("clipFrames hands back the run, and null for a name it has not got", () => {
+  test("animationFrames hands back the run, and null for a name it has not got", () => {
     const door = nodeAt(car(), ["doorL"])!;
-    expect(clipFrames(door, "swing")).toEqual([0, 1, 2]);
-    expect(clipFrames(door, "slam")).toBeNull();
+    expect(animationFrames(door, "swing")).toEqual([0, 1, 2]);
+    expect(animationFrames(door, "slam")).toBeNull();
   });
 
-  test("removing a frame drops it from every clip and shifts the rest", () => {
+  test("removing a frame drops it from every animation and shifts the rest", () => {
     const door = nodeAt(car(), ["doorL"])!;
     const next = removeFrame(door, 1);
-    expect(next.clips).toEqual({ shut: [0], swing: [0, 1], open: [1] });
+    expect(next.animations).toEqual({ shut: [0], swing: [0, 1], open: [1] });
     expect(validateSprite({ ...next, name: "x" })).toEqual([]);
   });
 
-  test("a clip that loses every frame is dropped rather than left empty", () => {
-    const s = { ...spoke, frames: [["K."], ["..."]], clips: { only: [0] } };
+  test("an animation that loses every frame is dropped rather than left empty", () => {
+    const s = { ...spoke, frames: [["K."], ["..."]], animations: { only: [0] } };
     const next = removeFrame({ ...s, w: 2, h: 1, frames: [["K."], [".."]] }, 0);
-    expect(next.clips).toBeUndefined();
+    expect(next.animations).toBeUndefined();
   });
 
-  test("adding a frame shifts the clips that come after it and joins none", () => {
+  test("adding a frame shifts the animations that come after it and joins none", () => {
     const door = nodeAt(car(), ["doorL"])!;
-    expect(addFrame(door, 0).clips).toEqual({ shut: [0], swing: [0, 2, 3], open: [3] });
-    expect(duplicateFrame(door, 0).clips).toEqual({ shut: [0], swing: [0, 2, 3], open: [3] });
+    expect(addFrame(door, 0).animations).toEqual({ shut: [0], swing: [0, 2, 3], open: [3] });
+    expect(duplicateFrame(door, 0).animations).toEqual({ shut: [0], swing: [0, 2, 3], open: [3] });
   });
 
-  test("moving a frame carries every clip's indices through the same permutation", () => {
+  test("moving a frame carries every animation's indices through the same permutation", () => {
     const door = nodeAt(car(), ["doorL"])!;
     // [0,1,2] → [1,2,0]: the run that was 0,1,2 is now 2,0,1.
-    expect(moveFrame(door, 0, 2).clips).toEqual({ shut: [2], swing: [2, 0, 1], open: [1] });
-    expect(moveFrame(door, 2, 0).clips).toEqual({ shut: [1], swing: [1, 2, 0], open: [0] });
+    expect(moveFrame(door, 0, 2).animations).toEqual({ shut: [2], swing: [2, 0, 1], open: [1] });
+    expect(moveFrame(door, 2, 0).animations).toEqual({ shut: [1], swing: [1, 2, 0], open: [0] });
   });
 
-  test("a frame operation on a sprite with no clips is unchanged by all of this", () => {
-    expect(addFrame(spoke, 0).clips).toBeUndefined();
+  test("a frame operation on a sprite with no animations is unchanged by all of this", () => {
+    expect(addFrame(spoke, 0).animations).toBeUndefined();
+  });
+
+  test("a file written when the key was `clips` still opens, at every depth", () => {
+    const legacy = JSON.stringify({
+      name: "car",
+      w: 2,
+      h: 1,
+      palette: { B: "#3060c0" },
+      clips: { idle: [0] },
+      frames: [["BB"]],
+      parts: [
+        {
+          name: "doorL",
+          x: 0,
+          y: 0,
+          w: 2,
+          h: 1,
+          palette: { D: "#101014" },
+          clips: { swing: [0, 1] },
+          frames: [["DD"], ["D."]],
+        },
+      ],
+    });
+    const read = fromJson(legacy);
+    expect("sprite" in read).toBe(true);
+    const sprite = (read as { sprite: SpriteFile }).sprite;
+    expect(sprite.animations).toEqual({ idle: [0] });
+    expect((sprite.parts![0] as SpriteBody).animations).toEqual({ swing: [0, 1] });
+    // And the old name is gone, so nothing downstream has two names for it.
+    expect("clips" in sprite).toBe(false);
+    // Saving it writes the new key.
+    expect(toJson(sprite)).toContain('"animations"');
+    expect(toJson(sprite)).not.toContain('"clips"');
   });
 });
 
@@ -933,7 +969,7 @@ describe("serialising an assembly", () => {
     expect(toJson(car())).toContain('"flip": "h", "use": "spoke"');
   });
 
-  test("a sprite with no parts and no clips is written exactly as it was before", () => {
+  test("a sprite with no parts and no animations is written exactly as it was before", () => {
     expect(toJson(spoke)).toBe(
       '{\n  "name": "spoke",\n  "w": 2,\n  "h": 2,\n' +
         '  "palette": {\n    "K": "#222222"\n  },\n' +

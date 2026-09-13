@@ -27,7 +27,7 @@ const BLUE = { name: "blue", w: 2, h: 2, palette: { B: "#0000ff" }, frames: [["B
  *  the app grew a preview canvas between the drawing surface and the strip, and
  *  a positional index quietly started reading the wrong one. */
 function thumbPixel(host: HTMLElement, n: number, x: number, y: number) {
-  const c = [...host.querySelectorAll("ol li canvas")][n] as HTMLCanvasElement;
+  const c = [...host.querySelectorAll(".timeline .frame canvas")][n] as HTMLCanvasElement;
   const g = c.getContext("2d")!;
   return [...g.getImageData(x, y, 1, 1).data];
 }
@@ -104,7 +104,7 @@ test("the strip scrolls to keep the stepped-to frame in view", async () => {
     "long.json",
   );
   await sleep(60);
-  const strip = document.querySelector("section ol") as HTMLOListElement;
+  const strip = document.querySelector(".timeline") as HTMLElement;
   expect(strip.scrollWidth).toBeGreaterThan(strip.clientWidth); // it does overflow
   editor.frame = 23;
   await sleep(80);
@@ -134,7 +134,7 @@ test("a thumbnail keeps its height when the art turns tall", async () => {
     "wide.json",
   );
   await sleep(60);
-  const thumb = () => host.querySelector("ol li canvas") as HTMLCanvasElement;
+  const thumb = () => host.querySelector(".timeline .frame canvas") as HTMLCanvasElement;
   const before = Math.round(thumb().getBoundingClientRect().height);
   // Rotate the whole thing a quarter. A whole-node turn never shrinks, so the
   // wide 24×6 becomes 24×24 with the tall art centred in it — and the thumb

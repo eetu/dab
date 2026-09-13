@@ -167,6 +167,21 @@ test("adding a part is a question with an answer, not a row that lingers", async
   expect(editor.sprite.parts?.length ?? 0).toBe(parts);
 });
 
+test("the part question is asked from the canvas, whichever tab is showing", async () => {
+  // It is asked from the parts tree and from the canvas menu, so it cannot be
+  // mounted inside the tree: the Navigate region may be showing the folder.
+  const { setNavTab } = await import("../lib/panels.svelte");
+  const { openPartDialog } = await import("../lib/partdialog.svelte");
+  setNavTab("folder");
+  await sleep(40);
+  openPartDialog();
+  await sleep(40);
+  expect(document.querySelector('[aria-label="New part"]')).toBeTruthy();
+  const { closePartDialog } = await import("../lib/partdialog.svelte");
+  closePartDialog();
+  setNavTab("parts");
+});
+
 test("right-clicking a selection offers what to do with it", async () => {
   selectNode([]);
   editor.tool = "select";
@@ -305,7 +320,7 @@ test("a text field inside a menu-bearing row still gets the browser menu", async
 test("a frame thumbnail answers with the frame verbs", async () => {
   selectNode([]);
   await sleep(30);
-  const thumb = app.host.querySelector("ol li") as HTMLElement;
+  const thumb = app.host.querySelector(".timeline .frame") as HTMLElement;
   thumb.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
   await sleep(20);
   const labels = [...document.querySelectorAll(".menu button")].map((b) =>

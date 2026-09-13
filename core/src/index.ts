@@ -20,9 +20,10 @@
 // This is not layers: nothing composites into the grid being edited, and each
 // part is still one grid per frame.
 //
-// And a sprite may carry CLIPS: named runs of frame indices, so a strip that is
-// an animation in one place and a set of states in another can say which is
-// which.
+// And a sprite may carry ANIMATIONS: named runs of frame indices, so a strip
+// that is a movement in one place and a set of states in another can say which
+// is which. The word a consumer uses — Godot and Unity both ask for one by
+// name — rather than "clip", which in a video app means a piece of footage.
 //
 // Everything here is pure and string-in/string-out, so the editor's undo stack is
 // a list of sprites rather than a list of inverse operations, and every tool is
@@ -55,7 +56,7 @@ export type SpriteBody = {
    * reading the list backwards, so there is no direction field and no duration —
    * a consumer's clock is its own.
    */
-  clips?: Record<string, number[]>;
+  animations?: Record<string, number[]>;
   /** One entry per animation frame; each is `h` rows of `w` characters. */
   frames: string[][];
   /** Children, drawn in list order after this grid — see `Part`. */
@@ -181,8 +182,8 @@ export function cloneSprite<T extends SpriteBody>(s: T): T {
     variants: s.variants
       ? Object.fromEntries(Object.entries(s.variants).map(([k, v]) => [k, { ...v }]))
       : undefined,
-    clips: s.clips
-      ? Object.fromEntries(Object.entries(s.clips).map(([k, v]) => [k, [...v]]))
+    animations: s.animations
+      ? Object.fromEntries(Object.entries(s.animations).map(([k, v]) => [k, [...v]]))
       : undefined,
     frames: s.frames.map((f) => [...f]),
     parts: s.parts?.map((p) => (isPartRef(p) ? { ...p } : cloneSprite(p))),
@@ -234,11 +235,11 @@ export function withNode<T extends SpriteBody>(
   return patch(s, { parts: next });
 }
 
-/** The frames a clip plays, in order, or null for a name the node has not got.
+/** The frames an animation plays, in order, or null for a name the node has not got.
  *  No silent fallback to the whole strip: that hides a typo. */
-export function clipFrames(node: SpriteBody, name: string): number[] | null {
-  const clip = node.clips?.[name];
-  return clip ? [...clip] : null;
+export function animationFrames(node: SpriteBody, name: string): number[] | null {
+  const animation = node.animations?.[name];
+  return animation ? [...animation] : null;
 }
 
 export type Box = { x: number; y: number; w: number; h: number };
@@ -353,22 +354,22 @@ function validateBody(
       });
     });
   }
-  // A clip that points past the end of the strip is a file that fails to load
+  // An animation that points past the end of the strip is a file that fails to load
   // the next time it is opened, which is why every frame operation remaps them.
-  if (sp.clips !== undefined) {
-    if (typeof sp.clips !== "object" || Array.isArray(sp.clips)) {
-      say("clips must be an object of name → list of frame indices");
+  if (sp.animations !== undefined) {
+    if (typeof sp.animations !== "object" || Array.isArray(sp.animations)) {
+      say("animations must be an object of name → list of frame indices");
     } else {
       const count = Array.isArray(sp.frames) ? sp.frames.length : 0;
-      for (const [name, list] of Object.entries(sp.clips)) {
-        if (!name) say("a clip has no name");
+      for (const [name, list] of Object.entries(sp.animations)) {
+        if (!name) say("an animation has no name");
         if (!Array.isArray(list) || list.length === 0) {
-          say(`clip ${name} is not a non-empty list of frame indices`);
+          say(`animation ${name} is not a non-empty list of frame indices`);
           continue;
         }
         for (const i of list) {
           if (!Number.isInteger(i) || i < 0 || i >= count) {
-            say(`clip ${name} names frame ${i}, which the sprite has not got`);
+            say(`animation ${name} names frame ${i}, which the sprite has not got`);
           }
         }
       }
@@ -1101,21 +1102,21 @@ export function shapePoints(frame: string[], x: number, y: number): [number, num
 // ---------- frames ----------
 
 /**
- * Move every clip's indices through the same permutation the frames just went
- * through. Returning null from `move` drops that entry, and a clip that empties
+ * Move every animation's indices through the same permutation the frames just went
+ * through. Returning null from `move` drops that entry, and an animation that empties
  * is dropped with it.
  *
- * Not optional: a clip left pointing past the end of a shortened strip is a file
+ * Not optional: an animation left pointing past the end of a shortened strip is a file
  * that fails validation the next time it is opened, which is the same worse
  * surprise `removeColour` avoids by erasing the pixels it orphans.
  */
-function remapClips(
-  clips: Record<string, number[]> | undefined,
+function remapAnimations(
+  animations: Record<string, number[]> | undefined,
   move: (i: number) => number | null,
 ): Record<string, number[]> | undefined {
-  if (!clips) return undefined;
+  if (!animations) return undefined;
   const out: Record<string, number[]> = {};
-  for (const [name, list] of Object.entries(clips)) {
+  for (const [name, list] of Object.entries(animations)) {
     const next = list.map(move).filter((i): i is number => i !== null);
     if (next.length) out[name] = next;
   }
@@ -1126,17 +1127,17 @@ export function addFrame<T extends SpriteBody>(s: T, after = s.frames.length - 1
   const at = after + 1;
   return patch(s, {
     frames: [...s.frames.slice(0, at), blankFrame(s.w, s.h), ...s.frames.slice(at)],
-    // A blank frame joins no clip: it is not part of any animation until asked.
-    clips: remapClips(s.clips, (i) => (i >= at ? i + 1 : i)),
+    // A blank frame joins no animation: it is not part of any animation until asked.
+    animations: remapAnimations(s.animations, (i) => (i >= at ? i + 1 : i)),
   });
 }
 
 export function duplicateFrame<T extends SpriteBody>(s: T, index: number): T {
   return patch(s, {
     frames: [...s.frames.slice(0, index + 1), [...s.frames[index]], ...s.frames.slice(index + 1)],
-    // The copy joins no clip either — a duplicate is a starting point, and a clip
+    // The copy joins no animation either — a duplicate is a starting point, and an animation
     // that silently doubled a frame would be a hold nobody asked for.
-    clips: remapClips(s.clips, (i) => (i > index ? i + 1 : i)),
+    animations: remapAnimations(s.animations, (i) => (i > index ? i + 1 : i)),
   });
 }
 
@@ -1144,7 +1145,7 @@ export function removeFrame<T extends SpriteBody>(s: T, index: number): T {
   if (s.frames.length <= 1) return s;
   return patch(s, {
     frames: s.frames.filter((_, i) => i !== index),
-    clips: remapClips(s.clips, (i) => (i === index ? null : i > index ? i - 1 : i)),
+    animations: remapAnimations(s.animations, (i) => (i === index ? null : i > index ? i - 1 : i)),
   });
 }
 
@@ -1156,7 +1157,7 @@ export function moveFrame<T extends SpriteBody>(s: T, from: number, to: number):
   frames.splice(to, 0, f);
   return patch(s, {
     frames,
-    clips: remapClips(s.clips, (i) => {
+    animations: remapAnimations(s.animations, (i) => {
       if (i === from) return to;
       if (from < to) return i > from && i <= to ? i - 1 : i;
       return i >= to && i < from ? i + 1 : i;
@@ -1265,7 +1266,7 @@ const framesBlock = (frames: string[][], ind: string): string =>
 /**
  * A node's keys, in a fixed order, with `ind` the indent its key lines sit at.
  *
- * One line per variant and per clip: they are short, and a diff of a recolour or
+ * One line per variant and per animation: they are short, and a diff of a recolour or
  * a retimed animation should read as one changed line rather than a reflowed
  * block. Frames keep one row per line at every depth, which is the whole reason
  * this writer exists instead of `JSON.stringify`'s indent.
@@ -1279,7 +1280,8 @@ function bodyEntries(n: SpriteBody, ind: string): [string, string][] {
   if (n.variants && Object.keys(n.variants).length) {
     out.push(["variants", mapBlock(n.variants, ind, q)]);
   }
-  if (n.clips && Object.keys(n.clips).length) out.push(["clips", mapBlock(n.clips, ind, q)]);
+  if (n.animations && Object.keys(n.animations).length)
+    out.push(["animations", mapBlock(n.animations, ind, q)]);
   out.push(["frames", framesBlock(n.frames, ind)]);
   if (n.parts?.length) {
     out.push([
@@ -1307,6 +1309,25 @@ function partBlock(p: Part, ind: string): string {
   return `{\n${entries.map(([k, v]) => `${ind}  ${q(k)}: ${v}`).join(",\n")}\n${ind}}`;
 }
 
+/**
+ * `clips` was this key's first name, and files on disk still carry it.
+ *
+ * Read as the new name, at every depth, on the way in — so nothing downstream
+ * has two names for one thing, and the next save writes `animations`. A node
+ * carrying both keeps the new one: it has already been through here.
+ */
+function readAnimations(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(readAnimations);
+  if (!value || typeof value !== "object") return value;
+  const node = { ...(value as Record<string, unknown>) };
+  if ("clips" in node) {
+    if (!("animations" in node)) node.animations = node.clips;
+    delete node.clips;
+  }
+  if (Array.isArray(node.parts)) node.parts = node.parts.map(readAnimations);
+  return node;
+}
+
 export function fromJson(text: string): { sprite: SpriteFile } | { errors: string[] } {
   let parsed: unknown;
   try {
@@ -1314,6 +1335,7 @@ export function fromJson(text: string): { sprite: SpriteFile } | { errors: strin
   } catch (e) {
     return { errors: [`not JSON: ${(e as Error).message}`] };
   }
-  const errors = validateSprite(parsed);
-  return errors.length ? { errors } : { sprite: parsed as SpriteFile };
+  const sprite = readAnimations(parsed);
+  const errors = validateSprite(sprite);
+  return errors.length ? { errors } : { sprite: sprite as SpriteFile };
 }

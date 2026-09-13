@@ -2,9 +2,9 @@
   // The folder: what is in it, and which one is open.
   //
   // Navigation, not the document — you use it to get somewhere and then you are
-  // there for an hour. So it sits BELOW the panels about the sprite you are
-  // actually drawing, it folds, and it keeps its own scroller: thirty sprites
-  // used to push the parts tree off the bottom of a laptop.
+  // there for an hour. A tab of the Navigate region, beside the parts tree:
+  // thirty sprites and a six-part car cannot both have a laptop's column, and
+  // the one you are not using is the one you are not looking at.
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
 
@@ -12,7 +12,6 @@
   import type { Entry, Folder } from "./files";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
-  import Panel from "./Panel.svelte";
 
   type Props = {
     entries: Entry[];
@@ -23,21 +22,10 @@
     onrename: (entry: Entry) => void;
     onduplicate: (entry: Entry) => void;
     ondelete: (entry: Entry) => void;
-    /** Disconnect from the folder — the handle is forgotten, no file is touched. */
-    onforget?: () => void;
   };
 
-  let {
-    entries,
-    problems,
-    folder,
-    canWrite,
-    onopen,
-    onrename,
-    onduplicate,
-    ondelete,
-    onforget,
-  }: Props = $props();
+  let { entries, problems, folder, canWrite, onopen, onrename, onduplicate, ondelete }: Props =
+    $props();
 
   /** The folder's verbs, on the file under the cursor. Writes need a writable
    *  folder; without one they grey with the reason rather than vanish. */
@@ -106,20 +94,7 @@
   );
 </script>
 
-<Panel id="sprites" title="Folder" badge={entries.length ? String(entries.length) : undefined}>
-  {#snippet actions()}
-    {#if folder && onforget}
-      <IconButton
-        size="sm"
-        ghost
-        label="Forget this folder"
-        hint={`Disconnect from ${folder.name} — files are not touched`}
-        onclick={onforget}
-      >
-        <X size={12} />
-      </IconButton>
-    {/if}
-  {/snippet}
+<div class="folder">
   {#if !folder}
     <p class="note">
       {#if canWrite}
@@ -170,9 +145,15 @@
   {#each problems as p (p.file)}
     <p class="bad">{p.file}: {p.errors[0]}</p>
   {/each}
-</Panel>
+</div>
 
 <style>
+  .folder {
+    display: grid;
+    gap: 0.4rem;
+    align-content: start;
+    min-width: 0;
+  }
   .find {
     display: flex;
     align-items: center;
@@ -196,16 +177,14 @@
   .find input:focus-visible {
     outline: none;
   }
-  /* Its own scroller, so the list is as long as it likes without moving
-     anything above it. */
+  /* No height cap of its own: the tab is the whole column, so a long folder
+     scrolls the region it owns rather than a box inside a box. */
   .list {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
     gap: 0.15rem;
-    max-height: 34dvh;
-    overflow-y: auto;
     min-height: 0;
   }
   .list button {

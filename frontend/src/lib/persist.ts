@@ -146,7 +146,7 @@ export function savedFile(): string | null {
  * and a reload hands back your desk along with your drawing.
  *
  * What is deliberately NOT here: zoom/pan (auto-fit is the right answer after a
- * reload), selection, variant and clip (per-document — they reset with it).
+ * reload), selection, variant and animation (per-document — they reset with it).
  */
 export type Prefs = {
   tool?: string;
@@ -154,7 +154,6 @@ export type Prefs = {
   grid?: boolean;
   fps?: number;
   backdrop?: string;
-  previewZoom?: "fit" | number;
   theme?: "auto" | "dark" | "light";
   /** The help dialog opens itself once, on a first visit. */
   seenHelp?: boolean;

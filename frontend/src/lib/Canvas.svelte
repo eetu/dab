@@ -15,7 +15,9 @@
   import {
     activeNode,
     activeRef,
+    animationRun,
     beginTurn,
+    canPlay,
     clearSelection,
     clipboard,
     copySelection,
@@ -39,20 +41,25 @@
     placePart,
     readOnly,
     resolvePart,
+    rewind,
     selectAll,
     selectBox,
     selection,
     selectNode,
     selectShapeAt,
+    setPlaying,
     setTurn,
+    shownFrame,
     stageBox,
     strokePoints,
     turning,
     undoEdit,
   } from "./editor.svelte";
+  import Loupe from "./Loupe.svelte";
   import { type MenuItem, openMenu, typing } from "./menu.svelte";
-  import { panels } from "./panels.svelte";
+  import { panels, toggleLoupe } from "./panels.svelte";
   import { openPartDialog } from "./partdialog.svelte";
+  import PlayBar from "./PlayBar.svelte";
   import { paintAssembly, paintRows } from "./render";
   import RotateBar from "./RotateBar.svelte";
   import { type Backdrop, cell, fit, panBy, viewport, zoomBy } from "./viewport.svelte";
@@ -102,6 +109,29 @@
   const sprite = $derived(editor.sprite);
   const px = $derived(cell());
 
+  // The play head lives here because the surface is what plays. One interval,
+  // one frame number: the strip follows `shownFrame`, so the two cannot be
+  // showing different frames, and a reload or a load stops it (loadSprite).
+  $effect(() => {
+    if (!editor.playing) return;
+    const steps = animationRun(activeNode()).length;
+    // Selecting a single-frame part, or an animation of one, leaves the mode with
+    // nothing to run: stop rather than sitting lit over a still picture.
+    if (steps < 2) {
+      setPlaying(false);
+      return;
+    }
+    const id = setInterval(
+      () => (editor.playhead = (editor.playhead + 1) % steps),
+      1000 / Math.max(1, editor.fps),
+    );
+    return () => clearInterval(id);
+  });
+
+  /** The frame the surface draws: the play head while playing, otherwise the
+   *  frame being edited. */
+  const surfaceFrame = $derived(shownFrame(activeNode()));
+
   /** The whole assembly's box, in the sprite's coordinates. The canvas covers
    *  this rather than the sprite's own grid, so a part hanging off an edge is
    *  visible instead of cropped out of the view it is being drawn in. */
@@ -122,8 +152,10 @@
   /** Selected, but borrowed: there is a box to show and nothing to draw in it. */
   const borrowed = $derived(!!activeRef());
   /** Whether the canvas should draw the furniture that is about PIXELS — the
-   *  onion skin, the ants, the selection tint. A borrowed part has none. */
-  const drawable = $derived(!nodeHidden && !borrowed);
+   *  onion skin, the ants, the selection tint. A borrowed part has none, and
+   *  neither has a sprite that is playing: what is on screen then is what the
+   *  game draws, which is the whole reason to watch it. */
+  const drawable = $derived(!nodeHidden && !borrowed && !editor.playing);
   /** The node being edited, and where its top-left sits on that canvas. */
   const node = $derived(activeNode());
   const origin = $derived.by(() => {
@@ -265,6 +297,10 @@
     // which is what killed the rotate bar's buttons. Panning stays available,
     // and takes its own capture below.
     if (turning.on && !space && e.button !== 1) return;
+    // So does playing: a stroke on a frame that is about to be replaced by the
+    // next one lands on whichever frame the interval happened to be showing.
+    // Panning and zooming stay — looking at it is the point.
+    if (editor.playing && !space && e.button !== 1) return;
     // Capture so a stroke that leaves the canvas still ends on this element.
     // Guarded: a pointer id the browser doesn't know — a synthetic event from a
     // test, or a device that has already released — throws here, and an
@@ -548,6 +584,22 @@
     return items;
   }
 
+  /** Watching it move, from the menu as well as from P and the strip. Greyed
+   *  with the reason on a single frame rather than missing. */
+  const playItem = (): MenuItem => ({
+    label: "Play",
+    hint: canPlay() ? "P" : "a single frame has nothing to play",
+    disabled: !canPlay(),
+    run: () => setPlaying(true),
+  });
+
+  /** The window that says how the art reads at the size it will be drawn at. */
+  const loupeItem = (): MenuItem => ({
+    label: panels.loupe.on ? "Hide the loupe" : "Show the loupe",
+    hint: panels.loupe.on ? undefined : "the sprite at ×1, over the canvas",
+    run: () => toggleLoupe(),
+  });
+
   function canvasMenu(e: MouseEvent) {
     // The rotate bar's degree field lives inside this pane: a text field keeps
     // the browser's menu even here.
@@ -555,6 +607,24 @@
     // The turn owns the canvas, and every item here would act on a preview.
     if (turning.on) {
       e.preventDefault();
+      return;
+    }
+    // Playing owns it too, and answers with the verbs that apply to a sprite in
+    // motion rather than with a menu of tools that are inert behind it.
+    if (editor.playing) {
+      e.preventDefault();
+      openMenu(e, editor.animation ? `playing · ${editor.animation}` : "playing", [
+        { label: "Stop", run: () => setPlaying(false) },
+        { label: "Rewind", run: rewind },
+        ...(editor.animation
+          ? [
+              {
+                label: "Play the whole strip",
+                run: () => (editor.animation = null),
+              } satisfies MenuItem,
+            ]
+          : []),
+      ]);
       return;
     }
     const s = stageAt(e as unknown as PointerEvent);
@@ -567,6 +637,8 @@
         { label: "Select all", disabled: !!why, run: selectAll },
         ...wholeTurnItems(name, why),
         { kind: "separator" },
+        playItem(),
+        loupeItem(),
         { label: "Fit to window", hint: "0", run: () => fit(box.w, box.h) },
         ...(hasSelection() ? [{ label: "Deselect", run: clearSelection } satisfies MenuItem] : []),
       ]);
@@ -613,6 +685,8 @@
       items.push({ label: "Deselect", run: clearSelection });
     } else {
       items.push({ label: "Select all", disabled: !!why, run: selectAll });
+      items.push(playItem());
+      items.push(loupeItem());
       items.push(...wholeTurnItems(where, why));
       // No selection, so offer the thing under the cursor instead.
       const found = nodeUnder(s);
@@ -807,7 +881,9 @@
    *  rest by the chosen underlay, so the first thing the view says is which
    *  pixels are yours. */
   const paintOpts = $derived({
-    frameOf,
+    // The active node walks the run while playing; every other part sits on the
+    // frame it was put on, or follows this one — the same rule as when stopped.
+    frameOf: (path: string[], n: SpriteBody) => frameOf(path, n, surfaceFrame),
     resolve: resolvePart,
     variant: editor.variant,
     hidden: (path: string[]) => !!editor.hidden[pathKey(path)],
@@ -843,10 +919,10 @@
     style:height={`${box.h * px}px`}
     style:transform={`translate(-50%, -50%) translate(${viewport.tx}px, ${viewport.ty}px)`}
     style:--cell={`${px}px`}
-    class:grid={editor.grid && px >= 6}
+    class:grid={editor.grid && px >= 6 && !editor.playing}
   >
     <canvas bind:this={canvas} data-testid="canvas"></canvas>
-    {#each ghosts as g (g.key)}
+    {#each editor.playing ? [] : ghosts as g (g.key)}
       <!-- A part with nothing drawn in it yet. Faint, and never over the art:
            by definition there is none of its own there to hide. -->
       <div
@@ -858,7 +934,7 @@
         style:height={`${g.h * px}px`}
       ></div>
     {/each}
-    {#if editor.path.length && !nodeHidden}
+    {#if editor.path.length && !nodeHidden && !editor.playing}
       <!-- Where painting is possible — or, for a borrowed part, simply what is
            selected. Only for a part: when the sprite itself is what you are
            drawing, its box IS the canvas and outlining it says nothing. -->
@@ -912,9 +988,14 @@
   <p class="read">
     {node.w}×{node.h} · ×{px}
     {#if editor.path.length && !nodeHidden}· {editor.path.join("/")}{/if}
-    {#if hover}· {hover.x},{hover.y}{/if}
+    {#if editor.playing}· frame {surfaceFrame + 1}/{node.frames.length}
+    {:else if hover}· {hover.x},{hover.y}{/if}
   </p>
 
+  <!-- Chrome over the art: the loupe is always available, the bars belong to the
+       modes that put them there. -->
+  <Loupe {backdrop} />
+  <PlayBar />
   <RotateBar />
 </div>
 

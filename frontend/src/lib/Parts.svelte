@@ -10,10 +10,8 @@
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import FlipHorizontal from "@lucide/svelte/icons/flip-horizontal";
   import Layers from "@lucide/svelte/icons/layers";
-  import Plus from "@lucide/svelte/icons/plus";
   import { isPartRef, type Part, type SpriteBody } from "dab-core";
 
-  import AddPartDialog from "./AddPartDialog.svelte";
   import { ask } from "./dialog.svelte";
   import {
     duplicatePart,
@@ -36,8 +34,7 @@
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
-  import Panel from "./Panel.svelte";
-  import { closePartDialog, openPartDialog, partDialog } from "./partdialog.svelte";
+  import { openPartDialog } from "./partdialog.svelte";
   import { openResize } from "./resize.svelte";
   import Thumbnail from "./Thumbnail.svelte";
 
@@ -217,18 +214,7 @@
   }
 </script>
 
-<Panel id="parts" title="Parts" badge={rows.length > 1 ? String(rows.length - 1) : undefined}>
-  {#snippet actions()}
-    <IconButton
-      size="sm"
-      active={partDialog.open}
-      label="Add a part to what is selected"
-      onclick={openPartDialog}
-    >
-      <Plus size={13} />
-    </IconButton>
-  {/snippet}
-
+<div class="tree">
   <ul>
     {#each rows as row (pathKey(row.path))}
       {@const key = pathKey(row.path)}
@@ -384,11 +370,15 @@
       frames, so a consumer can open one without touching the rest.
     </p>
   {/if}
-</Panel>
-
-<AddPartDialog open={partDialog.open} onclose={closePartDialog} />
+</div>
 
 <style>
+  .tree {
+    display: grid;
+    gap: 0.4rem;
+    align-content: start;
+    min-width: 0;
+  }
   ul {
     list-style: none;
     margin: 0;
@@ -400,8 +390,8 @@
     display: grid;
     grid-template-columns: 1fr auto auto;
     align-items: center;
-    /* Dense on purpose: six of these rows have to share a laptop's left rail
-       with the Sprite panel and the folder, without the column scrolling. */
+    /* Dense on purpose: a part row is three lines of controls, and a car's worth
+       of them has to fit a laptop's column without it scrolling. */
     gap: 0.12rem;
     padding: 0.1rem 0.25rem 0.1rem calc(0.25rem + var(--depth) * 0.6rem);
     min-width: 0;
