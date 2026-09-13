@@ -846,6 +846,107 @@ export function rotateRows(
   return { rows: out, palette: pal, added, w: W, h: H };
 }
 
+/** Rows as columns. A horizontal hinge is a vertical one with the grid on its
+ *  side, so the sampler below is written once. */
+const transpose = (rows: string[], w: number, h: number): string[] =>
+  Array.from({ length: w }, (_, x) => Array.from({ length: h }, (_, y) => rows[y][x]).join(""));
+
+/**
+ * Swing a grid about a hinge LINE, as an orthographic view shows it.
+ *
+ * A car door opening toward the viewer does not turn in the picture plane: its
+ * face turns out of it, and a side view shows that face foreshortened — the
+ * same art, `cos θ` as wide, pinned where it is hinged. So one axis compresses
+ * and the other is untouched, which is what makes this a different operation
+ * from `rotateRows` rather than a special case of it.
+ *
+ * Sign does not matter: swinging toward the viewer and away from it project to
+ * the same silhouette. Which FACE you then see is art, not geometry, and that
+ * is the artist's to draw over the result.
+ *
+ * The grid keeps its size. A door gets narrower, never bigger, so there is
+ * nothing to grow to hold — unlike a turn in the plane, which needs the corners.
+ *
+ * `samples` is the same dial as rotation's: 1 takes exactly one source pixel per
+ * destination pixel, so it drops columns and invents nothing, and above that the
+ * columns that land together are averaged and matched against the palette —
+ * reusing an entry when one is near enough, allocating when none is.
+ */
+export function hingeRows(
+  rows: string[],
+  palette: Record<string, string>,
+  degrees: number,
+  opts: { axis?: "y" | "x"; hinge?: number; samples?: number; tolerance?: number } = {},
+): Rotation {
+  const h = rows.length;
+  const w = rows[0]?.length ?? 0;
+  if (!w || !h) return { rows, palette, added: [], w, h };
+
+  const axis = opts.axis ?? "y";
+  const src = axis === "y" ? rows : transpose(rows, w, h);
+  // Along the hinge's normal, and across it: the sampler only knows these.
+  const across = axis === "y" ? w : h;
+  const along = axis === "y" ? h : w;
+  const hinge = Math.max(0, Math.min(across, opts.hinge ?? 0));
+  // Past a quarter turn the face is edge-on and then facing away — the same
+  // silhouette back again, which is the artist's to draw, not the sampler's.
+  const k = Math.max(0, Math.cos((Math.min(90, Math.abs(degrees)) * Math.PI) / 180));
+  if (k === 1) return { rows, palette, added: [], w, h };
+
+  const n = Math.max(1, Math.round(opts.samples ?? 1));
+  const { pal, added, charFor } = paletteMapper(palette, opts.tolerance ?? SAME_COLOUR);
+
+  const out = Array.from({ length: along }, (_, y) => {
+    let row = "";
+    for (let x = 0; x < across; x++) {
+      if (k === 0) {
+        row += TRANSPARENT;
+        continue;
+      }
+      let R = 0;
+      let G = 0;
+      let B = 0;
+      let A = 0;
+      for (let s = 0; s < n; s++) {
+        // Destination back to source: a pixel of the door as drawn covers 1/k
+        // pixels of the door as it stood.
+        const u = hinge + (x + (s + 0.5) / n - hinge) / k;
+        const px = Math.floor(u);
+        if (px < 0 || px >= across) continue;
+        const ch = src[y][px];
+        const hex = ch === TRANSPARENT ? undefined : pal[ch];
+        if (!hex) continue;
+        const [r, g, b, a8] = channels(hex);
+        const a = a8 / 255;
+        R += r * a;
+        G += g * a;
+        B += b * a;
+        A += a;
+      }
+      const alpha = (A / n) * 255;
+      if (Math.round(alpha) <= 0) {
+        row += TRANSPARENT;
+        continue;
+      }
+      const hex2 = (v: number) =>
+        Math.max(0, Math.min(255, Math.round(v / A)))
+          .toString(16)
+          .padStart(2, "0");
+      row += charFor(withAlpha(`#${hex2(R)}${hex2(G)}${hex2(B)}`, alpha));
+    }
+    return row;
+  });
+
+  // `out` is `along` rows of `across` characters, whichever axis this was.
+  return {
+    rows: axis === "y" ? out : transpose(out, across, along),
+    palette: pal,
+    added,
+    w,
+    h,
+  };
+}
+
 // ---------- flatten ----------
 
 export type Flattened = {
@@ -1129,6 +1230,23 @@ export function addFrame<T extends SpriteBody>(s: T, after = s.frames.length - 1
     frames: [...s.frames.slice(0, at), blankFrame(s.w, s.h), ...s.frames.slice(at)],
     // A blank frame joins no animation: it is not part of any animation until asked.
     animations: remapAnimations(s.animations, (i) => (i >= at ? i + 1 : i)),
+  });
+}
+
+/**
+ * Put a run of ready-made frames in after `after`, as one operation.
+ *
+ * What a generated turn lands through: the frames arrive together, so the
+ * animations that pointed past the insertion shift once rather than once per
+ * frame. The new frames join no animation here — naming them is the caller's,
+ * and the whole point of generating a run is usually that it gets a name.
+ */
+export function insertFrames<T extends SpriteBody>(s: T, after: number, frames: string[][]): T {
+  if (!frames.length) return s;
+  const at = Math.max(0, Math.min(s.frames.length, after + 1));
+  return patch(s, {
+    frames: [...s.frames.slice(0, at), ...frames.map((f) => [...f]), ...s.frames.slice(at)],
+    animations: remapAnimations(s.animations, (i) => (i >= at ? i + frames.length : i)),
   });
 }
 

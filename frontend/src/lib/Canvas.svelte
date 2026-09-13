@@ -47,6 +47,7 @@
     selection,
     selectNode,
     selectShapeAt,
+    setHinge,
     setPlaying,
     setTurn,
     shownFrame,
@@ -421,6 +422,32 @@
     return { x: pivotPx.x + armPx * Math.cos(rad), y: pivotPx.y + armPx * Math.sin(rad) };
   });
   const snapped = $derived(turning.on && turning.angle % 90 === 0);
+
+  /** Drag the hinge line to any column (a swing) or row (a tilt). Whole cells:
+   *  a hinge between two pixels is not a thing this grid can express. */
+  function dragHinge(e: PointerEvent) {
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic pointer — the drag still works, it just isn't captured */
+    }
+    const move = (ev: PointerEvent) => {
+      // Stage pixels to the ACTIVE NODE's own, which is what a hinge is in:
+      // the door's third column is the third column of the door.
+      const rect = canvas!.getBoundingClientRect();
+      const at =
+        turning.axis === "x"
+          ? ((ev.clientY - rect.top) / rect.height) * box.h - origin.y
+          : ((ev.clientX - rect.left) / rect.width) * box.w - origin.x;
+      setHinge(at);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
 
   /** Freehand snaps to the quarters, ⌘ glides past them — the same bargain the
    *  resize dialog's guides strike, said with the same accent when it bites. */
@@ -959,7 +986,24 @@
         style:height={`${(selection.y1 - selection.y0 + 1) * px}px`}
       ></div>
     {/if}
-    {#if turning.on}
+    {#if turning.on && turning.axis !== "z"}
+      <!-- The hinge: the line the art swings about, dragged to any column or
+           row. Where the rotate handle would be, and for the same reason — the
+           thing a turn is about has to be on the art, not in the bar. -->
+      <button
+        class="hinge"
+        class:across={turning.axis === "x"}
+        style:left={turning.axis === "y" ? `${(origin.x + turning.hinge) * px}px` : "0"}
+        style:top={turning.axis === "x" ? `${(origin.y + turning.hinge) * px}px` : "0"}
+        title="Drag the hinge — the line the art turns about"
+        aria-label="Hinge"
+        onpointerdown={(e) => {
+          e.stopPropagation();
+          dragHinge(e);
+        }}
+      ></button>
+    {/if}
+    {#if turning.on && turning.axis === "z"}
       <!-- The rotation handle: an arm from the pivot, a grip at its end. Accent
            when the angle sits on a quarter — the snap made visible. -->
       <div
@@ -1154,6 +1198,42 @@
   /* The rotate handle. The arm pivots about its LEFT edge, which sits on the
      turn's centre; the grip is a real button so it can take the pointer before
      the pane's capture does. */
+  /* The hinge: a line across the whole stage, because the art swings about the
+     LINE and not about the piece of it the door happens to cover. Grabbable
+     well past its one pixel of width — a 1px target at ×4 is not a target. */
+  .hinge {
+    position: absolute;
+    z-index: 3;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: ew-resize;
+    width: 11px;
+    height: 100%;
+    margin-left: -5px;
+  }
+  .hinge.across {
+    cursor: ns-resize;
+    width: 100%;
+    height: 11px;
+    margin-left: 0;
+    margin-top: -5px;
+  }
+  .hinge::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: var(--halo-accent);
+  }
+  .hinge.across::after {
+    left: 0;
+    top: 5px;
+    width: 100%;
+    height: 1px;
+  }
   .rotarm {
     position: absolute;
     height: 1px;

@@ -22,6 +22,8 @@ import {
   floodPoints,
   getPixel,
   groupBox,
+  hingeRows,
+  insertFrames,
   isPartRef,
   linePoints,
   moveFrame as moveFrameIn,
@@ -758,10 +760,22 @@ export function flipNode(dir: Flip): boolean {
  * door looks right depends on the car it is sitting on, so the canvas has to
  * stay where it is.
  */
+/** Which way the art turns. `z` is the picture plane — a wheel spinning. `y`
+ *  and `x` are HINGES, out of the plane: a door swinging open, a bonnet lifting.
+ *  Those foreshorten rather than rotate, which is a different sampler. */
+export type Axis = "z" | "y" | "x";
+
 export const turning = $state({
   on: false,
-  /** Degrees clockwise. */
+  /** Degrees clockwise for `z`, degrees open for a hinge. */
   angle: 0,
+  axis: "z" as Axis,
+  /** The hinge line, in the ACTIVE node's pixels: a column for `y`, a row for
+   *  `x`. Meaningless for `z`, which turns about a centre instead. */
+  hinge: 0,
+  /** How many frames Apply writes, stepping from where the art is now to the
+   *  angle on the dial. 1 is a single turn, which is what this mode always was. */
+  frames: 1,
   /** Sub-samples per axis. 1 is nearest neighbour: jagged, and free. */
   smooth: 1,
   /** The whole node, rather than what is selected. */
@@ -838,6 +852,11 @@ export function beginTurn(whole: boolean) {
   turning.whole = whole;
   turning.angle = 0;
   turning.added = 0;
+  turning.axis = "z";
+  turning.frames = 1;
+  // The near edge of what is turning: a door is hinged at one of its sides, and
+  // that is where the handle starts. Dragged from there.
+  turning.hinge = source.x;
   turning.cx = source.x + source.w / 2;
   turning.cy = source.y + source.h / 2;
   turning.r = Math.max(source.w, source.h) / 2 + 2;
@@ -851,15 +870,85 @@ export function setTurn(angle: number, smooth = turning.smooth) {
   showTurn();
 }
 
+/** Swap axes. The angle goes back to zero: 60° about a hinge and 60° in the
+ *  plane are different pictures, and carrying the number over shows one while
+ *  the dial says the other. */
+export function setAxis(axis: Axis) {
+  if (!turning.on || !source) return;
+  turning.axis = axis;
+  turning.angle = 0;
+  turning.hinge = axis === "x" ? source.y : source.x;
+  showTurn();
+}
+
+/** Where the hinge line sits, in the active node's pixels. Clamped to the box
+ *  it is hinging: a hinge outside the art turns it inside out. */
+export function setHinge(at: number) {
+  if (!turning.on || !source) return;
+  const lo = turning.axis === "x" ? source.y : source.x;
+  const hi = lo + (turning.axis === "x" ? source.h : source.w);
+  turning.hinge = Math.max(lo, Math.min(hi, Math.round(at)));
+  showTurn();
+}
+
+/** How many frames Apply writes. A run turns the WHOLE node: a selection is
+ *  floating, and there is no sense in which a float has frames of its own. */
+export function setTurnFrames(n: number) {
+  if (!turning.on) return;
+  turning.frames = turning.whole ? Math.max(1, Math.min(24, Math.round(n))) : 1;
+  showTurn();
+}
+
+/**
+ * One angle, sampled from the pristine source against a given palette.
+ *
+ * The axis picks the sampler, and they are different operations rather than one
+ * with a flag: `z` turns the art in the picture plane and needs the corners the
+ * box did not have, while a hinge foreshortens it about a line and never needs
+ * a pixel more than it started with.
+ */
+const sampleTurn = (angle: number, palette: Record<string, string>) => {
+  const s = source!;
+  if (turning.axis === "z") {
+    return rotateRows(s.rows, palette, angle, { samples: turning.smooth, grow: true });
+  }
+  return hingeRows(s.rows, palette, angle, {
+    axis: turning.axis,
+    // The block's own coordinates: a selection's hinge is a column of the node.
+    hinge: turning.hinge - (turning.axis === "x" ? s.y : s.x),
+    samples: turning.smooth,
+  });
+};
+
+/** The angles a run would write, in order — the dial is the LAST of them, and
+ *  the frame you are on is the first, which is why it is not in the list. */
+const runAngles = () =>
+  Array.from({ length: turning.frames }, (_, i) => (turning.angle * (i + 1)) / turning.frames);
+
+/** Every step of a run, each sampled from the pristine source against the
+ *  palette the step before it grew. That threading is the whole economy of the
+ *  thing: step two asks for blends step one already paid for. */
+function runSteps() {
+  let palette = source!.palette;
+  return runAngles().map((deg) => {
+    const r = sampleTurn(deg, palette);
+    palette = r.palette;
+    return r;
+  });
+}
+
 /** Redraw the preview. Nothing here commits: the document is rebuilt from the
  *  pristine `before` every time, so cancelling is just letting go. */
 function showTurn() {
   if (!source || !turning.on) return;
-  const r = rotateRows(source.rows, source.palette, turning.angle, {
-    samples: turning.smooth,
-    grow: true,
-  });
-  turning.added = r.added.length;
+  const r = sampleTurn(turning.angle, source.palette);
+  // What the whole run would cost, not what this one frame costs: the number is
+  // there to be read before Apply, and Apply writes the run.
+  turning.added =
+    turning.frames > 1
+      ? Object.keys(runSteps()[turning.frames - 1].palette).length -
+        Object.keys(source.palette).length
+      : r.added.length;
   const at = frameNow();
   const withRows = (host: SpriteFile, rows: string[], size?: { w: number; h: number }) =>
     withNode(host, editor.path, (n) => ({
@@ -912,19 +1001,80 @@ function showTurn() {
   editor.sprite = next;
 }
 
+/**
+ * Write the turn as a RUN of frames: the art where it stands, then one frame
+ * per step up to the dial, with an animation naming them.
+ *
+ * The frames are the point of the mode for a door or a wheel — closed to open in
+ * four, rather than four turns of the same block done by hand — and a run of
+ * frames nobody named is the next three clicks. Every step samples the pristine
+ * source, so the last frame is as clean as the first.
+ */
+function applyTurnRun() {
+  const s = source!;
+  const steps = runSteps();
+  const pal = steps[steps.length - 1].palette;
+  // A turn in the plane needs the corners; a hinge never grows. Either way the
+  // box holds the WIDEST step, and the other frames are padded, never cropped.
+  const W = Math.max(s.w, ...steps.map((r) => r.w));
+  const H = Math.max(s.h, ...steps.map((r) => r.h));
+  const at = frameNow();
+
+  let next = withNode(s.before, editor.path, (n) => ({
+    ...resizeSprite(n, W, H, "center"),
+    palette: pal,
+  }));
+  // A part keeps its CENTRE as the box grows, the same walk a single turn does.
+  const dx = Math.round((W - s.w) / 2);
+  const dy = Math.round((H - s.h) / 2);
+  if (editor.path.length && (dx || dy)) {
+    const name = editor.path[editor.path.length - 1];
+    next = withNode(next, editor.path.slice(0, -1), (n) => ({
+      ...n,
+      parts: n.parts?.map((p) => (p.name === name ? { ...p, x: p.x - dx, y: p.y - dy } : p)),
+    }));
+  }
+  next = withNode(next, editor.path, (n) =>
+    insertFrames(
+      n,
+      at,
+      steps.map((r) => fitRows(r.rows, r.w, r.h, W, H)),
+    ),
+  );
+
+  const taken = new Set(Object.keys(nodeAt(next, editor.path)?.animations ?? {}));
+  let name = turning.axis === "z" ? "spin" : "swing";
+  for (let i = 2; taken.has(name); i++) name = `${turning.axis === "z" ? "spin" : "swing"} ${i}`;
+  next = withNode(next, editor.path, (n) => ({
+    ...n,
+    animations: {
+      ...(n.animations ?? {}),
+      [name]: [at, ...steps.map((_, i) => at + 1 + i)],
+    },
+  }));
+
+  commitOver(s.before, next);
+  const added = Object.keys(pal).length - Object.keys(s.palette).length;
+  endTurn();
+  // Selected, so the lane is lit and P plays the thing that was just made.
+  editor.animation = name;
+  editor.status =
+    `${steps.length} frame${steps.length > 1 ? "s" : ""} · ${name}` +
+    (added ? ` — ${added} colour${added > 1 ? "s" : ""} added` : "");
+  editor.statusBad = false;
+}
+
 /** Put the turn down. One undo entry covers the whole session at the dial. */
 export function applyTurn() {
   if (!source || !turning.on) return;
+  if (turning.whole && turning.frames > 1) return applyTurnRun();
   const next = editor.sprite;
   const { base, x, y, w, h, before } = source;
   commitOver(before, next);
   if (base) {
     // Hand it to the float, so a turn can be shoved into place without a second
     // undo entry — and so the hole it was lifted from stays open until it lands.
-    const r = rotateRows(source.rows, source.palette, turning.angle, {
-      samples: turning.smooth,
-      grow: true,
-    });
+    const r = sampleTurn(turning.angle, source.palette);
     const bx = x + Math.round((w - r.w) / 2);
     const by = y + Math.round((h - r.h) / 2);
     const stamp = readStamp(r.rows, allCells(r.w, r.h));
@@ -966,6 +1116,8 @@ function endTurn() {
   turning.on = false;
   turning.angle = 0;
   turning.added = 0;
+  turning.axis = "z";
+  turning.frames = 1;
 }
 
 // ---------- flatten ----------

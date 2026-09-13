@@ -39,9 +39,21 @@ costs 9, 3, 2, 0 and 0 entries and then stops. Edges against nothing come out as
 partial alpha rather than blended toward a guessed backdrop, which is what makes
 a rotated sprite look right in the game and not just in the editor.
 
-For a rotation animation, keep the source: copy it once, then per frame paste it
-and rotate to the angle you want. Turning each frame's output again instead
-blends the blends, and the palette never stops growing.
+**It turns three ways, and only one of them is a rotation.** _Spin_ is the one
+above: the art turning in the picture plane, a wheel. _Swing_ and _Tilt_ are
+hinges — the art turning out of the picture, which an orthographic view shows as
+foreshortening: the same art `cos θ` as wide about a hinge line you drag onto it.
+That is a car door opening toward you, or a bonnet lifting. It drops pixel
+columns and invents nothing (smoothing is there if you want it, off by default),
+so what you get is the geometry right and the art yours to draw over.
+
+**And it can write the frames.** Set the angle you want at the end, set _frames_
+to how many you want between, and Apply writes them — the art where it stands,
+then one frame per step — with an animation naming the run. Every step is sampled
+from the original rather than from the step before it, so the last frame is as
+clean as the first and the palette settles instead of climbing. A door goes
+closed-to-open in four frames and a wheel a quarter turn in three, and then the
+drawing starts.
 
 It edits files **in place**: point it at a folder and, in a browser with the File
 System Access API (Chrome/Edge), Save writes back to the file it opened.

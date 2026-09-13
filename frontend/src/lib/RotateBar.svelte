@@ -5,8 +5,27 @@
   // says nothing without the car under it. So the canvas stays exactly where it
   // is and this sits over the bottom of it, close enough to the art to compare
   // against but out of the middle of it.
-  import { applyTurn, cancelTurn, setTurn, turning } from "./editor.svelte";
+  import {
+    applyTurn,
+    type Axis,
+    cancelTurn,
+    setAxis,
+    setTurn,
+    setTurnFrames,
+    turning,
+  } from "./editor.svelte";
   import SegmentedControl from "./SegmentedControl.svelte";
+
+  // Three turns, and only one of them is a rotation. Z spins the art where it
+  // lies; Y and X swing it out of the picture on a hinge, which an orthographic
+  // view shows as the art getting narrower — a door, a bonnet, a lid.
+  const AXES = [
+    { id: "z", label: "Spin", hint: "In the picture plane — a wheel" },
+    { id: "y", label: "Swing", hint: "About a vertical hinge — a door opening toward you" },
+    { id: "x", label: "Tilt", hint: "About a horizontal hinge — a bonnet lifting" },
+  ];
+
+  const hinged = $derived(turning.axis !== "z");
 
   const SMOOTH = [
     { id: 1, label: "Crisp", hint: "Nearest neighbour — jagged, and costs no colours" },
@@ -31,40 +50,78 @@
        buttons: the whole bar was dead to the mouse while looking perfectly
        enabled. Chrome over a canvas must never share its gestures with it. -->
   <div class="bar" role="group" aria-label="Rotate" onpointerdown={(e) => e.stopPropagation()}>
-    <span class="what">{turning.whole ? "Rotating everything" : "Rotating the selection"}</span>
+    <span class="what">{turning.whole ? "Turning everything" : "Turning the selection"}</span>
+
+    <SegmentedControl
+      label="Which way it turns"
+      options={AXES}
+      value={turning.axis}
+      onchange={(id) => setAxis(id as Axis)}
+    />
 
     <div class="angle">
-      <button
-        class="quarter"
-        title="A quarter turn left — exact, and free"
-        onclick={() => bump(-90)}>↺</button
-      >
+      {#if !hinged}
+        <button
+          class="quarter"
+          title="A quarter turn left — exact, and free"
+          onclick={() => bump(-90)}>↺</button
+        >
+      {/if}
+      <!-- A hinge only opens: past a quarter turn the face is edge-on, and what
+           is behind it is the artist's to draw, not the sampler's to guess. -->
       <input
         type="range"
-        min="-180"
-        max="180"
+        min={hinged ? 0 : -180}
+        max={hinged ? 90 : 180}
         step="1"
         aria-label="Angle"
         value={turning.angle}
         oninput={(e) => setTurn(Number(e.currentTarget.value))}
       />
-      <button
-        class="quarter"
-        title="A quarter turn right — exact, and free"
-        onclick={() => bump(90)}>↻</button
-      >
+      {#if !hinged}
+        <button
+          class="quarter"
+          title="A quarter turn right — exact, and free"
+          onclick={() => bump(90)}>↻</button
+        >
+      {/if}
       <input
         class="deg"
         type="number"
-        min="-180"
-        max="180"
+        min={hinged ? 0 : -180}
+        max={hinged ? 90 : 180}
         step="1"
         aria-label="Angle in degrees"
         value={turning.angle}
-        oninput={(e) => setTurn(wrap(Number(e.currentTarget.value)))}
+        oninput={(e) =>
+          setTurn(
+            hinged
+              ? Math.max(0, Math.min(90, Number(e.currentTarget.value)))
+              : wrap(Number(e.currentTarget.value)),
+          )}
       />
       <span class="unit">°</span>
     </div>
+
+    <!-- How many frames Apply writes, stepping from where the art is now to the
+         angle above. A door closed-to-open is four of these, and doing it by
+         hand is four turns of the same block. -->
+    <label
+      class="frames"
+      title={turning.whole ? undefined : "A run of frames turns the whole node"}
+    >
+      frames
+      <input
+        type="number"
+        min="1"
+        max="24"
+        step="1"
+        disabled={!turning.whole}
+        aria-label="Frames to write"
+        value={turning.frames}
+        oninput={(e) => setTurnFrames(Number(e.currentTarget.value))}
+      />
+    </label>
 
     <SegmentedControl
       label="Smoothing"
@@ -135,6 +192,26 @@
   .quarter:hover {
     color: var(--halo-accent);
     border-color: var(--halo-accent);
+  }
+  .frames {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--halo-text-muted);
+    white-space: nowrap;
+  }
+  .frames input {
+    width: 3rem;
+    background: var(--halo-bg-light);
+    border: 1px solid var(--halo-border);
+    border-radius: 4px;
+    color: inherit;
+    font: inherit;
+    padding: 0.1rem 0.2rem;
+    text-align: right;
+  }
+  .frames input:disabled {
+    opacity: 0.4;
   }
   .deg {
     width: 3.2rem;
