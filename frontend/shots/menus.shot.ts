@@ -10,7 +10,7 @@ import { open, SPRITES } from "./rig";
 test("a frame thumbnail's menu, with the disabled reason visible", async () => {
   const rig = await open(SPRITES.car());
   onTestFinished(rig.stop);
-  const thumb = rig.host.querySelector("ol li") as HTMLElement;
+  const thumb = rig.host.querySelector(".timeline .frame") as HTMLElement;
   const r = thumb.getBoundingClientRect();
   thumb.dispatchEvent(
     new MouseEvent("contextmenu", {

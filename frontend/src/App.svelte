@@ -15,9 +15,9 @@
   import { cloneSprite, validateSprite } from "dab-core";
   import { onMount } from "svelte";
 
+  import AddPartDialog from "./lib/AddPartDialog.svelte";
   import AskDialog from "./lib/AskDialog.svelte";
   import Canvas from "./lib/Canvas.svelte";
-  import Clips from "./lib/Clips.svelte";
   import ContextMenu from "./lib/ContextMenu.svelte";
   import { ask, confirmed, dialog } from "./lib/dialog.svelte";
   import {
@@ -43,6 +43,7 @@
     redoEdit,
     removePart,
     selectAll,
+    setPlaying,
     setTurn,
     sheet,
     spriteFromPart,
@@ -76,6 +77,7 @@
   import IconButton from "./lib/IconButton.svelte";
   import Inspector from "./lib/Inspector.svelte";
   import { typing } from "./lib/menu.svelte";
+  import Navigator from "./lib/Navigator.svelte";
   import NewSpriteDialog from "./lib/NewSpriteDialog.svelte";
   import Palette from "./lib/Palette.svelte";
   import {
@@ -86,8 +88,7 @@
     type Underlay,
     UNDERLAYS,
   } from "./lib/panels.svelte";
-  import { partDialog } from "./lib/partdialog.svelte";
-  import Parts from "./lib/Parts.svelte";
+  import { closePartDialog, partDialog } from "./lib/partdialog.svelte";
   import {
     clearDraft,
     forgetSaved,
@@ -101,12 +102,10 @@
     rememberSaved,
     savedFile,
   } from "./lib/persist";
-  import Preview from "./lib/Preview.svelte";
   import { openResize, resizer } from "./lib/resize.svelte";
   import ResizeDialog from "./lib/ResizeDialog.svelte";
   import SegmentedControl from "./lib/SegmentedControl.svelte";
   import SettingsDialog from "./lib/SettingsDialog.svelte";
-  import Sprites from "./lib/Sprites.svelte";
   import { watchTheme } from "./lib/theme.svelte";
   import ToolRail from "./lib/ToolRail.svelte";
   import { type Backdrop, BACKDROPS, fit, zoomIn, zoomOut } from "./lib/viewport.svelte";
@@ -498,13 +497,17 @@
       return;
     }
     if (meta) return;
-    // The Escape ladder, one rung per press: abort the drag in progress, then
-    // cancel the floating paste (putting back what it covered — the same CANCEL
-    // a turn answers with, where deselecting would quietly bake it), then
-    // deselect. Escape never commits anything.
+    // The Escape ladder, one rung per press: abort the drag in progress, leave
+    // the play mode, then cancel the floating paste (putting back what it
+    // covered — the same CANCEL a turn answers with, where deselecting would
+    // quietly bake it), then deselect. Escape never commits anything.
     if (e.key === "Escape") {
       if (gesture.abort) {
         gesture.abort();
+        return;
+      }
+      if (editor.playing) {
+        setPlaying(false);
         return;
       }
       if (floating.on) {
@@ -529,8 +532,8 @@
     // Frame stepping that always works, whatever is selected — Aseprite's keys.
     if (e.key === ",") editor.frame = Math.max(0, editor.frame - 1);
     if (e.key === ".") editor.frame = Math.min(activeNode().frames.length - 1, editor.frame + 1);
-    if (e.key === "p" && activeNode().frames.length > 1) {
-      editor.playing = !editor.playing;
+    if (e.key === "p") {
+      setPlaying(!editor.playing);
       return;
     }
     if (e.key === "n") {
@@ -677,9 +680,9 @@
 <div
   class="app"
   class:dropping
-  style:grid-template-columns={`${showing("left") ? "16rem" : "0"} auto 1fr ${
+  style:grid-template-columns={`${showing("left") ? "16rem" : "0"} 1fr ${
     showing("right") ? "16rem" : "0"
-  }`}
+  } auto`}
   role="application"
   aria-label="Sprite editor"
   ondragover={(e) => {
@@ -776,53 +779,47 @@
     </div>
   </header>
 
+  <!-- Navigate: what exists — the parts of this sprite, the sprites in the
+       folder — as tabs, on the left. -->
   {#if showing("left")}
-    <aside class="left">
-      <!-- What you are drawing first; where you might go next below it. The
-           folder listing is navigation you use for a moment and then leave,
-           and thirty of them used to push the parts tree off a laptop. -->
+    <Navigator
+      {entries}
+      {problems}
+      {folder}
+      canWrite={canWriteToDisk()}
+      onopen={open}
+      onrename={renameEntry}
+      onduplicate={duplicateEntry}
+      ondelete={deleteEntry}
+      onforget={forgetFolder}
+      ondetach={detach}
+      onopensprite={(name) => {
+        const entry = entries.find((e) => e.sprite.name === name);
+        if (entry) open(entry);
+        else say(`${name} is not in this folder`);
+      }}
+    />
+  {/if}
+
+  <main><Canvas {backdrop} onflatten={flatten} /></main>
+
+  <!-- Across, under the canvas: a timeline is horizontal and a rail is not. The
+       animations are lanes inside it, under the frames they name. -->
+  {#if showing("dock")}
+    <div class="dock"><Frames /></div>
+  {/if}
+
+  <!-- Subject: what you are working on — the sprite or part in hand and its
+       colours. The tool rail sits against it, because a tool and the thing it
+       draws in belong within a glance. -->
+  {#if showing("right")}
+    <aside class="right">
       <Inspector />
-      <Parts
-        ondetach={detach}
-        onopensprite={(name) => {
-          const entry = entries.find((e) => e.sprite.name === name);
-          if (entry) open(entry);
-          else say(`${name} is not in this folder`);
-        }}
-      />
-      <Sprites
-        {entries}
-        {problems}
-        {folder}
-        canWrite={canWriteToDisk()}
-        onopen={open}
-        onrename={renameEntry}
-        onduplicate={duplicateEntry}
-        ondelete={deleteEntry}
-        onforget={forgetFolder}
-      />
+      <Palette />
     </aside>
   {/if}
 
   <ToolRail />
-
-  <main><Canvas {backdrop} onflatten={flatten} /></main>
-
-  <!-- Across, under the canvas: a frame strip is horizontal and a rail is not.
-       Clips sit beside it because a clip is a sentence about those frames. -->
-  {#if showing("dock")}
-    <div class="dock">
-      <Frames />
-      <Clips />
-    </div>
-  {/if}
-
-  {#if showing("right")}
-    <aside class="right">
-      <Palette />
-      <Preview {backdrop} />
-    </aside>
-  {/if}
 
   <footer class="status">
     <!-- A paste is a state, not an event, so it says so for as long as it lasts.
@@ -846,8 +843,8 @@
         size="sm"
         ghost
         active={showing("left")}
-        label="Sprite and parts"
-        hint="Sprite and parts (⌘B)"
+        label="Parts and folder"
+        hint="Parts and folder (⌘B)"
         onclick={() => toggleRegion("left")}
       >
         <PanelLeft size={13} />
@@ -856,8 +853,8 @@
         size="sm"
         ghost
         active={showing("dock")}
-        label="Frames and clips"
-        hint="Frames and clips (⌘J)"
+        label="Frames and animations"
+        hint="Frames and animations (⌘J)"
         onclick={() => toggleRegion("dock")}
       >
         <PanelBottom size={13} />
@@ -866,8 +863,8 @@
         size="sm"
         ghost
         active={showing("right")}
-        label="Palette and preview"
-        hint="Palette and preview (⌘⌥B)"
+        label="Sprite, palette and preview"
+        hint="Sprite, palette and preview (⌘⌥B)"
         onclick={() => toggleRegion("right")}
       >
         <PanelRight size={13} />
@@ -877,9 +874,13 @@
 </div>
 
 <!-- Mounted once, outside the layout: these have to be able to sit over any
-     panel whatever that panel does with overflow. -->
+     panel whatever that panel does with overflow — and to outlive the panel a
+     question was asked from. Add-a-part is asked from the parts tree AND from
+     the canvas menu, and the tree is one tab of a region that can be showing
+     the folder instead. -->
 <ContextMenu />
 <AskDialog />
+<AddPartDialog open={partDialog.open} onclose={closePartDialog} />
 <ResizeDialog />
 <NewSpriteDialog open={making} onclose={() => (making = false)} />
 <SettingsDialog open={settingsOpen} onclose={() => (settingsOpen = false)} />
@@ -889,16 +890,15 @@
   .app {
     height: 100dvh;
     display: grid;
-    /* The frame strip and the clips run ACROSS, under the canvas, the way every
-       timeline does — they were the bottom two of six panels in one 16rem
-       column, which put the clips off the screen entirely on a laptop. The
-       structure panels (sprite, parts) sit left with the document; what a cell
-       looks like (palette, variants, preview) sits right. */
+    /* The family's region map: Navigate left (what exists), Surface centre,
+       Subject right (what you are working on), the tool rail beside the Subject
+       panel it feeds, and the frame strip and animations ACROSS under the canvas, the
+       way every timeline runs. */
     grid-template-rows: auto 1fr auto auto;
     grid-template-areas:
       "bar bar bar bar"
-      "left rail main right"
-      "left dock dock right"
+      "left main right rail"
+      "left dock right rail"
       "status status status status";
     background: var(--halo-body);
     color: var(--halo-text-main);
@@ -973,7 +973,9 @@
   .app :global(nav.rail) {
     grid-area: rail;
   }
-  .left {
+  /* The Navigate region brings its own tab strip and its own scroller, so it is
+     placed rather than styled as one of the asides here. */
+  .app :global(aside.nav) {
     grid-area: left;
     border-right: 1px solid var(--halo-border);
   }
@@ -991,15 +993,8 @@
   .dock {
     grid-area: dock;
     display: grid;
-    /* Side by side, so the bar is as tall as the taller half rather than as
-       tall as both. The FRAMES are the flexible half: the strip is the primary
-       object down here and scrolls inside whatever it gets, so it takes the
-       remainder. The clips size to their content up to a third — sizing the
-       frames by content instead (fit-content through an overflow container)
-       squeezed a twelve-frame strip to two thumbnails while the clips sat on
-       width they were not using. */
-    grid-template-columns: minmax(0, 1fr) fit-content(38%);
-    gap: 0.5rem 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
     align-content: start;
     padding: 0.6rem 0.75rem;
     border-top: 1px solid var(--halo-border);

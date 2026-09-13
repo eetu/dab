@@ -3,7 +3,7 @@
 //
 // A first visitor — especially on the Pages build — met a blank 16×16 and nine
 // icons, which demonstrates nothing this tool is actually for. The car does:
-// five parts (pop-up lights with open/close clips, two doors, one wheel drawn
+// five parts (pop-up lights with open/close animations, two doors, one wheel drawn
 // once and placed twice), so the first thing seen is the thing the format was
 // built to say.
 import type { SpriteFile } from "dab-core";

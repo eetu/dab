@@ -227,32 +227,32 @@ test("a use part can be re-pointed and inlined", async () => {
 });
 
 test("removing the frame a clip lived on stops the preview naming a dead clip", async () => {
-  const { addClip, removeFrame } = await import("../lib/editor.svelte");
+  const { addAnimation, removeFrame } = await import("../lib/editor.svelte");
   loadSprite(
     { name: "two", w: 1, h: 1, palette: { B: "#ff0000" }, frames: [["B"], ["."]] },
     "two.json",
   );
   await sleep(20);
   editor.frame = 1;
-  addClip("blink"); // [1]
-  expect(editor.clip).toBe("blink");
+  addAnimation("blink"); // [1]
+  expect(editor.animation).toBe("blink");
   removeFrame(1); // the clip's only frame goes; core drops the clip
   await sleep(20);
-  expect(editor.sprite.clips?.blink).toBeUndefined();
-  expect(editor.clip).toBe(null);
+  expect(editor.sprite.animations?.blink).toBeUndefined();
+  expect(editor.animation).toBe(null);
 });
 
 test("opening another sprite resets variant, clip and the play head", async () => {
-  const { addClip, addVariant } = await import("../lib/editor.svelte");
+  const { addAnimation, addVariant } = await import("../lib/editor.svelte");
   addVariant("night");
-  addClip("idle");
+  addAnimation("idle");
   editor.playing = true;
   expect(editor.variant).toBe("night");
-  expect(editor.clip).toBe("idle");
+  expect(editor.animation).toBe("idle");
   loadSprite({ name: "b", w: 1, h: 1, palette: {}, frames: [["."]] }, "b.json");
   await sleep(20);
   expect(editor.variant).toBe(null);
-  expect(editor.clip).toBe(null);
+  expect(editor.animation).toBe(null);
   expect(editor.playing).toBe(false);
 });
 

@@ -9,6 +9,7 @@
   import Move from "@lucide/svelte/icons/move";
   import PaintBucket from "@lucide/svelte/icons/paint-bucket";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import PictureInPicture from "@lucide/svelte/icons/picture-in-picture-2";
   import Pipette from "@lucide/svelte/icons/pipette";
   import Square from "@lucide/svelte/icons/square";
   import SquareDashedMousePointer from "@lucide/svelte/icons/square-dashed-mouse-pointer";
@@ -17,6 +18,7 @@
 
   import { editor, stageBox, type Tool, TOOLS } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
+  import { panels, toggleLoupe } from "./panels.svelte";
   import { cell, fit, zoomIn, zoomOut } from "./viewport.svelte";
 
   const ICONS: Record<Tool, typeof Pencil> = {
@@ -67,6 +69,17 @@
   >
     <Maximize size={18} />
   </IconButton>
+  <!-- With the view controls, because that is what it is: a second view of the
+       same sprite, at the size a consumer draws it. -->
+  <IconButton
+    pill
+    active={panels.loupe.on}
+    label="Loupe"
+    hint={`Loupe — the sprite at ×${panels.loupe.zoom} over the canvas`}
+    onclick={() => toggleLoupe()}
+  >
+    <PictureInPicture size={18} />
+  </IconButton>
   <span class="zoom">×{cell()}</span>
 </nav>
 
@@ -83,7 +96,7 @@
     overflow-y: auto;
     scrollbar-width: none;
     background: var(--halo-bg-light);
-    border-right: 1px solid var(--halo-border);
+    border-left: 1px solid var(--halo-border);
   }
   .sep {
     width: 60%;

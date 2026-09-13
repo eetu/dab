@@ -3,8 +3,8 @@
 // A grid item's minimum height is its content unless it is told otherwise, so a
 // side panel that outgrows the viewport pushes its own bottom off the screen —
 // and because the row grew rather than overflowed, no scrollbar appears to bring
-// it back. The frame strip is the bottom of the right rail and was the casualty:
-// on a 1024×700 window it was simply gone, with nothing to say so.
+// it back. The frame strip was the casualty: on a 1024×700 window it was simply
+// gone, with nothing to say so.
 import { mount, unmount } from "svelte";
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";

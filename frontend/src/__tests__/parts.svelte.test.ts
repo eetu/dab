@@ -22,14 +22,14 @@ import App from "../App.svelte";
 import {
   activeNode,
   activeRef,
-  addClip,
+  addAnimation,
   addColour,
   addFrame,
   addPart,
   adoptFromBundle,
-  appendToClip,
+  animationRun,
+  appendToAnimation,
   clashingChars,
-  clipRun,
   deleteSelection,
   duplicatePart,
   editor,
@@ -49,7 +49,7 @@ import {
   selectAll,
   selectBox,
   selectNode,
-  setClipFrames,
+  setAnimationFrames,
   setColour,
   sheet,
   spriteFromPart,
@@ -431,7 +431,7 @@ test("a part keeps its own frames, and the body's strip is not the door's", asyn
 });
 
 test("removing a frame leaves every clip valid rather than pointing past the end", async () => {
-  (editor.sprite.parts![0] as { clips: Record<string, number[]> }).clips = {
+  (editor.sprite.parts![0] as { animations: Record<string, number[]> }).animations = {
     shut: [0],
     swing: [0, 1],
   };
@@ -439,7 +439,7 @@ test("removing a frame leaves every clip valid rather than pointing past the end
   editor.frame = 0;
   removeFrame();
   await sleep(20);
-  expect((editor.sprite.parts![0] as { clips?: unknown }).clips).toEqual({ swing: [0] });
+  expect((editor.sprite.parts![0] as { animations?: unknown }).animations).toEqual({ swing: [0] });
   expect(validateSprite(editor.sprite)).toEqual([]);
 });
 
@@ -866,50 +866,74 @@ test("a detached part becomes a reference, and a duplicate of it shares the draw
 test("a clip names a run on its own node, and the play head walks the run", async () => {
   selectNode(["door"]);
   editor.frame = 1;
-  addClip("open");
-  expect((editor.sprite.parts![0] as { clips: Record<string, number[]> }).clips).toEqual({
+  addAnimation("open");
+  expect((editor.sprite.parts![0] as { animations: Record<string, number[]> }).animations).toEqual({
     open: [1],
   });
-  expect(editor.clip).toBe("open");
+  expect(editor.animation).toBe("open");
   // A repeat is a hold — pressing add twice is how a pause is written.
-  appendToClip("open");
-  expect(clipRun()).toEqual([1, 1]);
+  appendToAnimation("open");
+  expect(animationRun()).toEqual([1, 1]);
   // And the body's own strip is untouched by any of it.
-  expect(editor.sprite.clips).toBeUndefined();
+  expect(editor.sprite.animations).toBeUndefined();
 });
 
 test("pressing play on a clip plays it, rather than arming something else", async () => {
   selectNode(["door"]);
   editor.frame = 0;
-  addClip("shut");
-  editor.clip = null;
+  addAnimation("swing");
+  // Three entries, so there is something to walk. A clip of one is a state.
+  appendToAnimation("swing");
+  appendToAnimation("swing");
+  editor.animation = null;
   editor.playing = false;
   await sleep(30);
 
   const byLabel = (label: string) =>
     [...app.host.querySelectorAll("button")].find((b) => b.getAttribute("aria-label") === label);
 
-  byLabel("Play shut")!.click();
+  byLabel("Play swing")!.click();
   await sleep(30);
-  expect(editor.clip).toBe("shut");
+  expect(editor.animation).toBe("swing");
   expect(editor.playing).toBe(true);
 
   // The same button stops it — it says Stop, so it has to.
-  const stop = byLabel("Stop shut");
+  const stop = byLabel("Stop swing");
   expect(stop).toBeTruthy();
   stop!.click();
   await sleep(30);
   expect(editor.playing).toBe(false);
   // The clip stays chosen: the strip is still scrubbing that run.
-  expect(editor.clip).toBe("shut");
+  expect(editor.animation).toBe("swing");
+});
+
+test("a clip of one frame is shown, not played", async () => {
+  selectNode(["door"]);
+  editor.frame = 0;
+  addAnimation("shut");
+  editor.animation = null;
+  editor.playing = false;
+  await sleep(30);
+
+  // The button says Show, because a still picture cannot be played — and it
+  // still does the half of it that means something: choose the clip, go there.
+  const show = [...app.host.querySelectorAll("button")].find(
+    (b) => b.getAttribute("aria-label") === "Show shut",
+  ) as HTMLButtonElement;
+  expect(show).toBeTruthy();
+  show.click();
+  await sleep(30);
+  expect(editor.animation).toBe("shut");
+  expect(editor.playing).toBe(false);
+  expect(editor.frame).toBe(0);
 });
 
 test("a clip that loses its last frame is dropped rather than left naming nothing", async () => {
   selectNode(["door"]);
-  addClip("shut");
-  setClipFrames("shut", []);
-  expect((editor.sprite.parts![0] as { clips?: unknown }).clips).toBeUndefined();
-  expect(editor.clip).toBeNull();
+  addAnimation("shut");
+  setAnimationFrames("shut", []);
+  expect((editor.sprite.parts![0] as { animations?: unknown }).animations).toBeUndefined();
+  expect(editor.animation).toBeNull();
 });
 
 test("renaming a sprite others borrow warns and names them", async () => {

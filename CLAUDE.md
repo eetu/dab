@@ -10,7 +10,7 @@ vocabulary this follows), `../raspi` (deploy).
 ```text
 core/        the format, its validator, and every pure operation on a sprite
              (pixels, shapes, flood, blocks, frames, palette, variants, parts,
-             clips, JSON). Private to this repo; node-only tests.
+             animations, JSON). Private to this repo; node-only tests.
 frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest
 backend/     axum binary: serves frontend/dist with an SPA fallback, plus /status.
              No store and no upload route — the editor reaches the disk through
@@ -47,7 +47,7 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **Which frame a part shows is runtime state, not authored state.** Shown
   frames, visibility and the previewed variant are editor state and are never
   written; a door that has fallen off is the consumer not drawing that part.
-- **Every frame operation remaps clips.** A clip left pointing past the end of a
+- **Every frame operation remaps animations.** An animation left pointing past the end of a
   shortened strip is a file that fails validation the next time it is opened —
   the same surprise `removeColour` avoids by erasing the pixels it orphans.
 - **Sprite JSON is written one frame row per line** and Prettier is kept away from
@@ -63,9 +63,52 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   than re-read from the file, because after a cold start the folder's permission
   is normally gone. A sprite that has never been saved has no baseline, and the
   button says so rather than disappearing.
-- **Prefs are the desk, document state is the drawing.** Tool, onion, grid, fps,
-  backdrop and the preview zoom persist globally (`sprite-editor:prefs`) and
-  survive a reload; selection, variant, clip and the play head are per-document
+- **The regions are the family's, not this app's.** Navigate left (what exists:
+  the parts tree and the folder, as tabs), Surface centre, Subject right (the
+  sprite panel, its palette and variants), the tool rail beside the Subject panel
+  it feeds, the timeline across the bottom, outcomes
+  in the status bar with the region toggles at its right end. A person who has
+  used `../nib` should not have to find anything twice, which is worth more than
+  any local argument for a different column. The Subject panel follows the
+  SUBJECT, never the tool: select is the most-used tool and has no settings, so
+  a "tool options" panel would read broken every time you press V.
+- **An animation is a lane under the frames it names, and "animation" is what it
+  is called.** The old arrangement was a row of frames with a column of clips
+  beside it, each listing its frames again as chips: three reading directions for
+  one subject, and the only link between "1 2 3" and the thumbnails was matching
+  digits by eye. Aseprite puts the bar over the frames it covers, and position
+  answers it instead. The bar is a cell per frame rather than a span, because a
+  run here is an arbitrary list — a gap is a hole in the bar, a hold is a cell
+  with two numbers in it, and numbers appear only when the run does not simply
+  play in strip order. Click a cell to add or drop that frame, drag to sweep a
+  run (one undo entry, since the sweep commits on release). The word: Godot,
+  Unity and Spine all say "animation" for the thing a consumer asks for by name,
+  and `../scene` already uses `Clip` for a piece of video. Files written as
+  `clips` are still read — `fromJson` renames the key on the way in, at every
+  depth, and the next save writes `animations`.
+- **The surface plays; there is no second canvas.** P (or the strip's ▶) puts the
+  canvas in the play mode: the run walks, the grid, ants, part boxes and onion go
+  away, the tools are inert, and what is on screen is what a consumer draws.
+  Escape or P stops and puts back the frame you were drawing. A separate preview
+  pane is a second renderer of the same assembly that has to be kept in step and
+  is one bug away from showing a different frame from the strip — and it was
+  furniture: always on screen, seldom looked at. One frame number,
+  `shownFrame`, is what the canvas, the strip and the bar all read. fps lives on
+  the bar over the surface, because it is the number you change while watching.
+- **The loupe is a size window, not a magnifier.** The family's loupe magnifies
+  pixels under a picker; dab's does the opposite, because the thing a canvas at
+  ×29 cannot tell you is how the art reads at the size a consumer draws it — where
+  a sign turns to mush and a one-pixel highlight vanishes. It sits in a corner of
+  the surface, plays when the surface plays, and its zoom is a knob because ×1 of
+  a 16×16 wheel on a 4K display is a postage stamp. It can never take more than
+  two fifths of the pane: a window that covers the drawing is not a second opinion
+  about it, so a zoom that would is refused, said in the accent, with Bigger
+  greyed rather than doing nothing.
+- **Prefs are the desk, document state is the drawing.** Tool, onion, grid, fps
+  and backdrop persist globally (`sprite-editor:prefs`); the chrome — folded
+  panels, hidden regions, the Navigate tab, the loupe's state — lives beside it
+  under `dab.chrome`. Both survive a reload;
+  selection, variant, animation and the play head are per-document
   and reset in `loadSprite` — opening sprite B must not carry sprite A's view.
   Zoom/pan deliberately persist nowhere: auto-fit is the right answer after a
   reload.
@@ -179,7 +222,7 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   8× upscale is 64× the pixels, where the present sampler is ~3ms on a node this
   format can hold and does not justify putting one operation outside core.
 - Per-frame durations. A consumer's clock is its own. If they ever land, they
-  land as Aseprite does it — a per-frame array, orthogonal to clips.
+  land as Aseprite does it — a per-frame array, orthogonal to animations.
 - Chained `use` references (a borrowed part is a leaf) and `flip` on a subtree.
   Both are additive later; neither is worth the coordinate arithmetic now.
 - Resampling. Resize crops or pads — there is no meaningful resample for pixel

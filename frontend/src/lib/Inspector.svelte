@@ -5,11 +5,9 @@
   // asks — which pixels — needs a picture to answer.
   import Info from "@lucide/svelte/icons/info";
 
-  import { activeRef, editor, rename, stageBox, usedBy } from "./editor.svelte";
+  import { activeRef, editor, rename, usedBy } from "./editor.svelte";
   import Panel from "./Panel.svelte";
-  import { cell, fit } from "./viewport.svelte";
 
-  const box = $derived(stageBox());
   /** The part being looked at, when it borrows its pixels from another sprite. */
   const borrowed = $derived(activeRef());
   /** Follows the document when it is loaded or renamed from elsewhere (undo). */
@@ -27,8 +25,9 @@
   const borrowers = $derived(usedBy(editor.file?.replace(/\.json$/, "") ?? ""));
 </script>
 
-<!-- A Panel like its five siblings — this was the one hand-rolled heading left.
-     `fixed`, because the document's name is the point of the rail it heads. -->
+<!-- The head of the SUBJECT column: what you are working on, with its colours
+     and its preview under it. `fixed`, because the document's name is the point
+     of the column it heads. -->
 <Panel id="sprite" title="Sprite" fixed>
   <label>
     <span>Name</span>
@@ -41,24 +40,32 @@
   <!-- ONE line, always rendered, details in the tooltip: this used to be a
        paragraph that appeared, vanished and re-wrapped as the selection moved
        through the tree, bouncing everything under it by a few lines each time.
-       A panel must not change height because of what is selected. -->
-  <p
-    class="ctx"
-    title={borrowed
-      ? `${editor.path.join("/")} draws ${borrowed.use} — its size, palette and frames are that sprite's, read-only here. What belongs to this sprite is where the part sits.`
-      : editor.path.length
-        ? `Editing ${editor.path.join("/")} — its canvas size, palette, frames and clips are the part's own. The name above is still the sprite's.`
-        : "Editing the sprite itself. Pick a part in the tree below to draw on it instead."}
-  >
-    <Info size={11} />
-    {#if borrowed}
-      <span>draws <code>{borrowed.use}</code> — read-only here</span>
-    {:else if editor.path.length}
-      <span>editing <code>{editor.path.join("/")}</code> — its own frames and colours</span>
-    {:else}
-      <span>editing the sprite itself</span>
-    {/if}
-  </p>
+       A panel must not change height because of what is selected. The grid
+       toggle rides the same line — it is about looking, not editing, and the
+       Subject column has three panels under this one. -->
+  <div class="row">
+    <p
+      class="ctx"
+      title={borrowed
+        ? `${editor.path.join("/")} draws ${borrowed.use} — its size, palette and frames are that sprite's, read-only here. What belongs to this sprite is where the part sits.`
+        : editor.path.length
+          ? `Editing ${editor.path.join("/")} — its canvas size, palette, frames and animations are the part's own. The name above is still the sprite's.`
+          : "Editing the sprite itself. Pick a part in the tree below to draw on it instead."}
+    >
+      <Info size={11} />
+      {#if borrowed}
+        <span>draws <code>{borrowed.use}</code> — read-only here</span>
+      {:else if editor.path.length}
+        <span>editing <code>{editor.path.join("/")}</code> — its own frames and colours</span>
+      {:else}
+        <span>editing the sprite itself</span>
+      {/if}
+    </p>
+    <label class="grid-toggle">
+      <input type="checkbox" bind:checked={editor.grid} />
+      <span>Grid</span>
+    </label>
+  </div>
   {#if renamed}
     <p class="warn">
       Save moves <code>{editor.file}</code> → <code>{willWrite}</code>. The sheet is read from the
@@ -76,16 +83,6 @@
       </p>
     {/if}
   {/if}
-
-  <!-- One row, not two: every saved line here is a line the parts tree gets on
-       a laptop, and these two are both about looking, not editing. -->
-  <div class="row">
-    <button onclick={() => fit(box.w, box.h)} title="Fit to view (0)">Fit ×{cell()}</button>
-    <label class="grid-toggle">
-      <input type="checkbox" bind:checked={editor.grid} />
-      <span>Pixel grid</span>
-    </label>
-  </div>
 </Panel>
 
 <style>
@@ -98,7 +95,12 @@
   .row {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .row .ctx {
+    flex: 1;
+    min-width: 0;
   }
   .grid-toggle {
     display: flex;
@@ -115,18 +117,6 @@
     border-radius: 4px;
     padding: 0.2rem 0.4rem;
     font: inherit;
-  }
-  button {
-    background: var(--halo-bg-main);
-    color: var(--halo-text-main);
-    border: 1px solid var(--halo-border);
-    border-radius: 4px;
-    padding: 0.3rem;
-    cursor: pointer;
-  }
-  button:disabled {
-    opacity: 0.4;
-    cursor: default;
   }
   /* Fixed at one line whatever is selected; the tooltip carries the paragraph. */
   .ctx {

@@ -15,6 +15,14 @@ const KEY = "dab.chrome";
 export type Region = "left" | "right" | "dock";
 
 /**
+ * Which list the Navigate region is showing.
+ *
+ * Chrome, so it is a global pref: which tab you left open is about the desk,
+ * and opening another sprite must not move it.
+ */
+export type NavTab = "parts" | "folder";
+
+/**
  * How the parts you are not drawing on are drawn.
  *
  * Solid by default: a part sitting on a body is a solid thing sitting on a
@@ -30,18 +38,44 @@ export const UNDERLAYS: { id: Underlay; label: string; hint: string }[] = [
   { id: "outline", label: "Outline", hint: "Parts as silhouettes only" },
 ];
 
+/**
+ * The loupe: the sprite at a small fixed zoom, over the canvas.
+ *
+ * The one thing a canvas zoomed to ×29 cannot say is how the art reads at the
+ * size it will be drawn at. ×1 is that size; the zoom is a knob because ×1 of a
+ * 16×16 wheel on a 4K display is a postage stamp, and the question is "does this
+ * read", not "is this literally one device pixel".
+ *
+ * A corner rather than a free position: a window that can sit anywhere sits over
+ * the art half the time, and four choices are all this ever needed.
+ */
+export type Corner = "tl" | "tr" | "bl" | "br";
+export const LOUPE_ZOOMS = [1, 2, 3, 4, 6, 8] as const;
+
+type Loupe = { on: boolean; zoom: number; corner: Corner };
+
 type Chrome = {
   folded: Record<string, boolean>;
   hidden: Record<string, boolean>;
   underlay: Underlay;
+  nav: NavTab;
+  loupe: Loupe;
 };
+
+const LOUPE: Loupe = { on: false, zoom: 1, corner: "br" };
 
 const load = (): Chrome => {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Chrome>;
-    return { folded: raw.folded ?? {}, hidden: raw.hidden ?? {}, underlay: raw.underlay ?? "full" };
+    return {
+      folded: raw.folded ?? {},
+      hidden: raw.hidden ?? {},
+      underlay: raw.underlay ?? "full",
+      nav: raw.nav ?? "parts",
+      loupe: { ...LOUPE, ...raw.loupe },
+    };
   } catch {
-    return { folded: {}, hidden: {}, underlay: "full" };
+    return { folded: {}, hidden: {}, underlay: "full", nav: "parts", loupe: { ...LOUPE } };
   }
 };
 
@@ -55,6 +89,8 @@ const save = () => {
         folded: panels.folded,
         hidden: panels.hidden,
         underlay: panels.underlay,
+        nav: panels.nav,
+        loupe: panels.loupe,
       }),
     );
   } catch {
@@ -69,6 +105,28 @@ export function toggleFold(id: string): void {
 
 export function toggleRegion(id: Region): void {
   panels.hidden = { ...panels.hidden, [id]: !panels.hidden[id] };
+  save();
+}
+
+export function toggleLoupe(on = !panels.loupe.on): void {
+  panels.loupe = { ...panels.loupe, on };
+  save();
+}
+
+/** A stepper rather than a row of chips: the loupe is too small to hold one,
+ *  and which zoom fits is the window's business, so the steps are picked there. */
+export function setLoupeZoom(zoom: number): void {
+  panels.loupe = { ...panels.loupe, zoom };
+  save();
+}
+
+export function setLoupeCorner(corner: Corner): void {
+  panels.loupe = { ...panels.loupe, corner };
+  save();
+}
+
+export function setNavTab(id: NavTab): void {
+  panels.nav = id;
   save();
 }
 

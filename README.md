@@ -23,7 +23,7 @@ machines this kind of art came from stored it that way.
 Draw (pencil, eraser, fill, picker, line, rect, ellipse), select and move a shape
 or a box of pixels, cut and paste it — within a sprite, or into one of its parts
 — move whole parts with the Move tool, manage the palette, step frames with
-onion-skinning, and preview the animation at size. A paste floats: it sits over
+onion-skinning, and press play to watch it run on the canvas itself. A paste floats: it sits over
 what it landed on until you deselect, select something else or draw, so you can
 shove it into place and the art it passed over comes back.
 
@@ -92,11 +92,15 @@ makes one door serve both sides. Nesting is allowed to four deep; a `use` is a
 leaf. **This is not layers**: each part is still one grid per frame, edited on its
 own, composited only at draw time.
 
-**Clips** name a run of frame indices, so a strip that is an animation in one
+**Animations** name a run of frame indices, so a strip that is a movement in one
 place and a set of states in another can say which: `{"shut": [0], "swing": [0,
-1, 2], "open": [2]}`. Indices rather than a range and a direction — reversing is
-reading the list backwards and a repeat is a hold, so neither needs a field.
-There are no durations: a consumer's clock is its own.
+1, 2], "open": [2]}`. The word Godot and Unity both use for the thing you ask for
+by name — a video app's "clip" is a piece of footage, which this is not. Indices
+rather than a range and a direction: reversing is reading the list backwards and
+a repeat is a hold, so neither needs a field. There are no durations — a
+consumer's clock is its own. In the editor they are lanes under the frame strip,
+each bar covering the frames it names; click a cell to add or drop a frame, drag
+to sweep a run.
 
 Which frame each part shows, and whether it is drawn at all, is **runtime state**
 and is not in the file. A door that has fallen off is the consumer not drawing
@@ -148,6 +152,6 @@ just check      # lint, format, typecheck, test — the whole gate, and what CI 
 
 First customer: [scene](https://github.com/eetu/scene)'s neon-drive visualiser,
 whose sprites live in `packages/player/src/sprites`. Its reader speaks the whole
-format — parts (inline and `use`), palette variants, clips — so a sprite split
+format — parts (inline and `use`), palette variants, animations — so a sprite split
 into parts here draws assembled there, and the car's wheel contact points are
 read off its parts rather than kept as a constant.
