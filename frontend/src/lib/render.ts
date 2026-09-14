@@ -8,8 +8,9 @@
 import { cellColour, flipRows, isPartRef, type Part, type SpriteBody, TRANSPARENT } from "dab-core";
 
 /** How one node is drawn. The editor dims everything but the node being edited;
- *  the preview draws the whole thing full, because that is what will be drawn. */
-export type NodeStyle = "full" | "dim" | "outline";
+ *  the preview draws the whole thing full, because that is what will be drawn.
+ *  `ghost` is the onion skin — a frame that is not this one. */
+export type NodeStyle = "full" | "dim" | "outline" | "ghost";
 
 export type PaintOptions = {
   /** Which frame a node shows. A part's frame is its own — that is the point of
@@ -49,6 +50,29 @@ function drained(hex: string): string {
   return `rgba(${mix(r)},${mix(g)},${mix(b)},${a})`;
 }
 
+/**
+ * The onion skin's colour, and how far a cell is pulled toward it.
+ *
+ * Tinted rather than merely faint, which is what every animation tool that has
+ * had this feature for thirty years does — Aseprite washes the past blue and
+ * the future red. A ghost in the art's OWN colours is a ghost that can be read
+ * as the art, and after Duplicate, where the frame behind is the same drawing,
+ * it is indistinguishable from it. Cool, because the thing it must never be
+ * mistaken for is the accent, and because a wash toward blue reads as distance.
+ */
+const GHOST_INK = { r: 90, g: 150, b: 255 };
+const GHOST_WASH = 0.75;
+
+/** A colour washed toward the ghost ink, keeping its own lightness so the
+ *  drawing's shape survives the tint. */
+function ghosted(hex: string): string {
+  if (hex[0] !== "#" || (hex.length !== 7 && hex.length !== 9)) return hex;
+  const n = parseInt(hex.slice(1, 7), 16);
+  const mix = (c: number, to: number) => Math.round(c + (to - c) * GHOST_WASH);
+  const a = hex.length === 9 ? parseInt(hex.slice(7, 9), 16) / 255 : 1;
+  return `rgba(${mix((n >> 16) & 255, GHOST_INK.r)},${mix((n >> 8) & 255, GHOST_INK.g)},${mix(n & 255, GHOST_INK.b)},${a})`;
+}
+
 /** A silhouette is the cells with a hole or the void on one of their sides. */
 const onEdge = (rows: string[], x: number, y: number): boolean =>
   (rows[y - 1]?.[x] ?? TRANSPARENT) === TRANSPARENT ||
@@ -68,8 +92,18 @@ export function paintRows(
   oy: number,
   variant: string | null,
   style: NodeStyle = "full",
+  /**
+   * How solid to paint it, for a caller drawing a ghost of something.
+   *
+   * It has to be a parameter rather than a `globalAlpha` the caller sets around
+   * the call, because this function sets that itself for the dim style — so the
+   * onion skin, which did exactly that, has been drawing the previous frame at
+   * full strength. A duplicated frame under a turned one then reads as one
+   * frame holding both, which is how it was found.
+   */
+  alpha = 1,
 ): void {
-  g.globalAlpha = style === "dim" ? DIM_ALPHA : 1;
+  g.globalAlpha = style === "dim" ? DIM_ALPHA : alpha;
   for (let y = 0; y < rows.length; y++) {
     const row = rows[y];
     for (let x = 0; x < row.length; x++) {
@@ -77,7 +111,8 @@ export function paintRows(
       if (style === "outline" && !onEdge(rows, x, y)) continue;
       const colour = style === "outline" ? OUTLINE_INK : cellColour(node, row[x], variant);
       if (!colour) continue;
-      g.fillStyle = style === "dim" ? drained(colour) : colour;
+      g.fillStyle =
+        style === "dim" ? drained(colour) : style === "ghost" ? ghosted(colour) : colour;
       g.fillRect(ox + x, oy + y, 1, 1);
     }
   }

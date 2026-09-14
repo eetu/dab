@@ -112,6 +112,90 @@ test("the last frame of a run cannot be clicked away, and says why", async () =>
   expect(editor.statusBad).toBe(true);
 });
 
+/** Drag one element onto another and let go, as the browser does it: dragstart
+ *  on the thing, dragover on the target (which side of it decides the landing),
+ *  drop. The same events `../nib`'s layer list is reordered by. */
+async function dragOnto(from: Element, to: HTMLElement, side: "left" | "right" = "left") {
+  const b = to.getBoundingClientRect();
+  const clientX = side === "left" ? b.left + b.width / 4 : b.left + (b.width * 3) / 4;
+  const clientY = b.top + b.height / 2;
+  const dataTransfer = new DataTransfer();
+  from.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+  to.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer, clientX, clientY }));
+  await sleep(20);
+  to.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer, clientX, clientY }));
+  await sleep(40);
+}
+
+test("a frame is dragged to a new place, and the animations follow it", async () => {
+  addAnimation("swing");
+  await sleep(40);
+  const { setAnimationFrames } = await import("../lib/editor.svelte");
+  setAnimationFrames("swing", [0, 1]);
+  await sleep(40);
+
+  const thumbs = () => [...host.querySelectorAll(".timeline .frame")] as HTMLElement[];
+  const art = () => activeNode().frames.map((f) => f[0]);
+  expect(art()).toEqual(["A.", ".A", "AA", ".."]);
+
+  // Frame 4 to the front: picked up whole, dropped on frame 1's leading half.
+  await dragOnto(thumbs()[3], thumbs()[0], "left");
+  expect(art()).toEqual(["..", "A.", ".A", "AA"]);
+  // The run named frames 1 and 2; those are now 2 and 3, and it says so.
+  expect(activeNode().animations?.swing).toEqual([1, 2]);
+
+  // One undo entry for the whole drag.
+  const { undoEdit } = await import("../lib/editor.svelte");
+  undoEdit();
+  await sleep(40);
+  expect(art()).toEqual(["A.", ".A", "AA", ".."]);
+});
+
+test("a click on a thumbnail still picks the frame rather than moving it", async () => {
+  const thumb = host.querySelector(".timeline .frame .pick") as HTMLElement;
+  const before = activeNode().frames.map((f) => f[0]);
+  editor.frame = 2;
+  await sleep(20);
+  thumb.click();
+  await sleep(40);
+  expect(editor.frame).toBe(0);
+  expect(activeNode().frames.map((f) => f[0])).toEqual(before);
+});
+
+test("the selected run shows its steps, and a step drags to a new place in it", async () => {
+  addAnimation("swing");
+  const { setAnimationFrames } = await import("../lib/editor.svelte");
+  setAnimationFrames("swing", [0, 1, 2]);
+  editor.animation = "swing";
+  await sleep(60);
+
+  const steps = () => [...host.querySelectorAll(".timeline .step")] as HTMLElement[];
+  expect(steps().map((s) => s.textContent?.trim())).toEqual(["1", "2", "3"]);
+
+  // The last step to the front: the ORDER changes, the membership does not.
+  await dragOnto(steps()[2], steps()[0], "left");
+  expect(activeNode().animations?.swing).toEqual([2, 0, 1]);
+  expect(steps().map((s) => s.textContent?.trim())).toEqual(["3", "1", "2"]);
+});
+
+test("a run that plays in strip order hides its steps until it is selected", async () => {
+  addAnimation("swing");
+  const { setAnimationFrames } = await import("../lib/editor.svelte");
+  setAnimationFrames("swing", [0, 1]);
+  editor.animation = null;
+  await sleep(60);
+  // Nothing to say: the bar's own extent is the whole truth.
+  expect(host.querySelector(".timeline .step")).toBeNull();
+
+  // A reversed one says it whether or not it is selected.
+  setAnimationFrames("swing", [1, 0]);
+  await sleep(60);
+  expect([...host.querySelectorAll(".timeline .step")].map((s) => s.textContent?.trim())).toEqual([
+    "2",
+    "1",
+  ]);
+});
+
 test("a reversed run is numbered, because position cannot say the order", async () => {
   addAnimation("shut");
   await sleep(60);

@@ -48,8 +48,10 @@
       <p>
         Frames run along the bottom; onion skin shows the previous one. An animation names a run of
         frames (<code>swing: 0 1 2</code>) and appears as a lane under them: click a cell to put
-        that frame in or take it out, drag to sweep a run, and a repeated frame is a hold. Press
-        play and the sprite runs
+        that frame in or take it out, drag to sweep a run, and a repeated frame is a hold. Drag a
+        thumbnail to reorder the strip, and the animations follow. Click an animation's name to see
+        its steps in playing order — point at one to light the frame it plays, drag them to reorder
+        the run itself, double-click the name to rename. Press play and the sprite runs
         <em>on the canvas</em>: no grid, no marquee, the fps on a bar over the art, and Esc puts
         your frame back. The loupe (last button on the rail) puts a small window over the canvas
         showing the sprite at ×1 — how it reads at the size it is drawn, moving when it moves. Drag
@@ -63,9 +65,12 @@
         <strong>Tilt</strong> are hinges: the art turns out of the picture and gets narrower about a
         hinge line you drag onto it — a door opening toward you, a bonnet lifting. Set
         <em>frames</em> and Apply writes the whole run, one frame per step, with an animation naming
-        it. Every step comes off the original, so the last frame is as clean as the first and the
-        palette settles. Quarter spins are exact; other angles invent blend colours and the bar says
-        how many before you pay. A sprite with parts does not turn whole —
+        it. The mode also stays open along the strip: pick another frame, give it its own angle, and
+        Apply puts the lot down at once — a frame the session has turned is outlined dashed. Rotate…
+        is on a frame's own menu too. Every step comes off the original, so the last frame is as
+        clean as the first and the palette settles. Quarter spins are exact; other angles invent
+        blend colours and the bar says how many before you pay. A sprite with parts does not turn
+        whole —
         <em>Flatten to a sprite</em> bakes the assembly into one grid that does.
       </p>
     </section>

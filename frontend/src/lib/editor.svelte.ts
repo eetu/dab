@@ -51,7 +51,7 @@ import {
   unusedChars,
   withNode,
 } from "dab-core";
-import { SvelteSet } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { closeMenu } from "./menu.svelte";
 
@@ -776,6 +776,9 @@ export const turning = $state({
   /** How many frames Apply writes, stepping from where the art is now to the
    *  angle on the dial. 1 is a single turn, which is what this mode always was. */
   frames: 1,
+  /** The frames this session has given an angle to — what the strip marks, so
+   *  walking back along it says which ones are already turned. */
+  marked: [] as number[],
   /** Sub-samples per axis. 1 is nearest neighbour: jagged, and free. */
   smooth: 1,
   /** The whole node, rather than what is selected. */
@@ -854,6 +857,8 @@ export function beginTurn(whole: boolean) {
   turning.added = 0;
   turning.axis = "z";
   turning.frames = 1;
+  turning.marked = [];
+  dials = new SvelteMap();
   // The near edge of what is turning: a door is hinged at one of its sides, and
   // that is where the handle starts. Dragged from there.
   turning.hinge = source.x;
@@ -900,25 +905,88 @@ export function setTurnFrames(n: number) {
 }
 
 /**
- * One angle, sampled from the pristine source against a given palette.
+ * One angle, sampled from a pristine source against a given palette.
  *
  * The axis picks the sampler, and they are different operations rather than one
  * with a flag: `z` turns the art in the picture plane and needs the corners the
  * box did not have, while a hinge foreshortens it about a line and never needs
  * a pixel more than it started with.
  */
-const sampleTurn = (angle: number, palette: Record<string, string>) => {
+const sampleTurn = (
+  angle: number,
+  palette: Record<string, string>,
+  rows = source!.rows,
+  // The bar's own dial by default, one frame's remembered dial when a session
+  // is redrawing the others.
+  dial: Dial = turning,
+) => {
   const s = source!;
-  if (turning.axis === "z") {
-    return rotateRows(s.rows, palette, angle, { samples: turning.smooth, grow: true });
+  if (dial.axis === "z") {
+    return rotateRows(rows, palette, angle, { samples: dial.smooth, grow: true });
   }
-  return hingeRows(s.rows, palette, angle, {
-    axis: turning.axis,
+  return hingeRows(rows, palette, angle, {
+    axis: dial.axis,
     // The block's own coordinates: a selection's hinge is a column of the node.
-    hinge: turning.hinge - (turning.axis === "x" ? s.y : s.x),
-    samples: turning.smooth,
+    hinge: dial.hinge - (dial.axis === "x" ? s.y : s.x),
+    samples: dial.smooth,
   });
 };
+
+/**
+ * A turn is a session over FRAMES, not one shot at one of them.
+ *
+ * A door swings over the four frames it is drawn on, and the angles are not the
+ * same four. So the mode stays open while you walk the strip: each frame keeps
+ * the dial it was left at, the preview shows all of them at once, and Apply puts
+ * the whole session down as one undo entry. What is remembered is the DIAL, not
+ * the pixels — every frame re-samples the pristine art at every redraw, which is
+ * the same rule one frame always followed, now said in the plural.
+ */
+type Dial = { angle: number; axis: Axis; hinge: number; smooth: number };
+let dials = new SvelteMap<number, Dial>();
+
+/** The dial for the frame being edited, created at zero the first time it is
+ *  visited — visiting a frame is not yet turning it. */
+function dialNow(): Dial {
+  const at = frameNow();
+  let d = dials.get(at);
+  if (!d) {
+    d = { angle: 0, axis: turning.axis, hinge: turning.hinge, smooth: turning.smooth };
+    dials.set(at, d);
+  }
+  return d;
+}
+
+/** Keep the bar and the dial for this frame in step, both ways. */
+function syncDial() {
+  const d = dialNow();
+  d.angle = turning.angle;
+  d.axis = turning.axis;
+  d.hinge = turning.hinge;
+  d.smooth = turning.smooth;
+  turning.marked = [...dials].filter(([, v]) => v.angle !== 0).map(([i]) => i);
+}
+
+/**
+ * Move the session to another frame, keeping what the others were left at.
+ *
+ * The strip calls this instead of setting `editor.frame`, because the mode owns
+ * the surface while it is open: a bare frame change would leave the preview of
+ * one frame's turn drawn on another's art.
+ */
+export function turnFrame(at: number) {
+  if (!turning.on || !turning.whole || turning.frames > 1) return;
+  const node = activeNode();
+  if (at < 0 || at >= node.frames.length) return;
+  syncDial();
+  editor.frame = at;
+  const d = dialNow();
+  turning.angle = d.angle;
+  turning.axis = d.axis;
+  turning.hinge = d.hinge;
+  turning.smooth = d.smooth;
+  showTurn();
+}
 
 /** The angles a run would write, in order — the dial is the LAST of them, and
  *  the frame you are on is the first, which is why it is not in the list. */
@@ -941,6 +1009,8 @@ function runSteps() {
  *  pristine `before` every time, so cancelling is just letting go. */
 function showTurn() {
   if (!source || !turning.on) return;
+  syncDial();
+  if (turning.whole && turning.frames === 1) return showTurnedFrames();
   const r = sampleTurn(turning.angle, source.palette);
   // What the whole run would cost, not what this one frame costs: the number is
   // there to be read before Apply, and Apply writes the run.
@@ -991,6 +1061,56 @@ function showTurn() {
   // box IS the stage, and the canvas centres that.
   const dx = Math.round((W - source.w) / 2);
   const dy = Math.round((H - source.h) / 2);
+  if (editor.path.length && (dx || dy)) {
+    const name = editor.path[editor.path.length - 1];
+    next = withNode(next, editor.path.slice(0, -1), (n) => ({
+      ...n,
+      parts: n.parts?.map((p) => (p.name === name ? { ...p, x: p.x - dx, y: p.y - dy } : p)),
+    }));
+  }
+  editor.sprite = next;
+}
+
+/**
+ * The preview of a whole-node session: every frame that has been given an angle,
+ * each sampled from the art it started as.
+ *
+ * The palette is threaded through the frames in order, so the second frame of a
+ * swing asks for blends the first one already paid for — the same economy a run
+ * of generated frames gets, for the same reason.
+ */
+function showTurnedFrames() {
+  const s = source!;
+  const pristine = nodeAt(s.before, editor.path)?.frames ?? [];
+  let palette = s.palette;
+  // A plain record, not a Map: this one is built and read inside this call, so
+  // nothing about it needs to be reactive.
+  const turned: Record<number, { rows: string[]; w: number; h: number }> = {};
+  for (const [at, d] of [...dials].sort(([a], [b]) => a - b)) {
+    const rows = pristine[at];
+    if (!rows || d.angle === 0) continue;
+    const r = sampleTurn(d.angle, palette, rows, d);
+    palette = r.palette;
+    turned[at] = { rows: r.rows, w: r.w, h: r.h };
+  }
+  turning.added = Object.keys(palette).length - Object.keys(s.palette).length;
+
+  // The box holds the widest turn of the lot, and every other frame is padded
+  // into it — never cropped, so turning frame 2 cannot trim frame 1.
+  const all = Object.values(turned);
+  const W = Math.max(s.w, ...all.map((t) => t.w));
+  const H = Math.max(s.h, ...all.map((t) => t.h));
+  let next = withNode(s.before, editor.path, (n) => ({
+    ...resizeSprite(n, W, H, "center"),
+    palette,
+    frames: n.frames.map((f, i) => {
+      const t = turned[i];
+      return t ? fitRows(t.rows, t.w, t.h, W, H) : fitRows(f, n.w, n.h, W, H);
+    }),
+  }));
+  // A part keeps its CENTRE as the box grows, or the art orbits its own corner.
+  const dx = Math.round((W - s.w) / 2);
+  const dy = Math.round((H - s.h) / 2);
   if (editor.path.length && (dx || dy)) {
     const name = editor.path[editor.path.length - 1];
     next = withNode(next, editor.path.slice(0, -1), (n) => ({
@@ -1086,13 +1206,16 @@ export function applyTurn() {
     );
   }
   const added = turning.added;
+  // How many frames this session actually turned: a door swung over four of them
+  // is one gesture, and the bar should say so rather than "rotated".
+  const spun = turning.marked.length;
   endTurn();
   // The aftermath, said out loud. A second spin of the same pixels replaces the
   // last spin's blends and orphans them — the palette menu can sweep those, but
   // only if you know they are there.
   const dead = unusedChars(activeNode()).length;
   editor.status =
-    `rotated${added ? ` — ${added} colour${added > 1 ? "s" : ""} added` : ""}` +
+    `turned${spun > 1 ? ` ${spun} frames` : ""}${added ? ` — ${added} colour${added > 1 ? "s" : ""} added` : ""}` +
     (dead ? ` · ${dead} unused (the palette's ⋯ removes them)` : "");
   editor.statusBad = false;
 }
@@ -1113,11 +1236,13 @@ export function cancelTurn() {
 
 function endTurn() {
   source = null;
+  dials = new SvelteMap();
   turning.on = false;
   turning.angle = 0;
   turning.added = 0;
   turning.axis = "z";
   turning.frames = 1;
+  turning.marked = [];
 }
 
 // ---------- flatten ----------
@@ -1242,9 +1367,22 @@ export function clearVariantColour(name: string, ch: string) {
 // Each takes the frame to act on, defaulting to the one being edited: the
 // header buttons act on "this frame", a thumbnail's menu on the one under the
 // cursor, and both are the same verb.
-export const addFrame = (at: number = frameNow()) => commitNode((n) => addFrameTo(n, at));
-export const duplicateFrame = (at: number = frameNow()) =>
+/**
+ * A new frame, and the cursor moves onto it.
+ *
+ * Adding a frame and staying on the old one is a click that appears to do
+ * nothing — and worse after Duplicate, where the copy is identical to what you
+ * are still looking at, so the strip grew and the canvas did not change. The
+ * next thing anyone does with a new frame is draw on it.
+ */
+export const addFrame = (at: number = frameNow()) => {
+  commitNode((n) => addFrameTo(n, at));
+  editor.frame = Math.min(at + 1, activeNode().frames.length - 1);
+};
+export const duplicateFrame = (at: number = frameNow()) => {
   commitNode((n) => duplicateFrameIn(n, at));
+  editor.frame = Math.min(at + 1, activeNode().frames.length - 1);
+};
 export function removeFrame(at: number = frameNow()) {
   if (activeNode().frames.length <= 1) return;
   commitNode((n) => removeFrameFrom(n, at));

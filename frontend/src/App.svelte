@@ -686,11 +686,16 @@
   role="application"
   aria-label="Sprite editor"
   ondragover={(e) => {
+    // FILES only. The timeline drags frames and steps about with the same
+    // events, and without this the whole app lit up as a drop target every time
+    // a thumbnail moved two places to the left.
+    if (!e.dataTransfer?.types.includes("Files")) return;
     e.preventDefault();
     dropping = true;
   }}
   ondragleave={() => (dropping = false)}
   ondrop={(e) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
     e.preventDefault();
     void drop(e);
   }}

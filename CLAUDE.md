@@ -86,6 +86,48 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   and `../scene` already uses `Clip` for a piece of video. Files written as
   `clips` are still read — `fromJson` renames the key on the way in, at every
   depth, and the next save writes `animations`.
+- **A bar says which frames; a sequence says in what order.** The lane's cells
+  answer membership — click one to put a frame in or take it out, drag to sweep a
+  run — and position cannot express "1 3 2" or a hold, so a run that does not
+  simply play in strip order also shows its STEPS: a row of draggable chips in
+  playing order, under its bar. The selected run shows them too, which is what
+  clicking a lane's name is for (double-click renames, the deeper action behind
+  the obvious one). A step is a position in the run, not a frame: two steps can
+  name one frame, and that is what a hold is.
+- **Reordering is the PLATFORM's drag and drop, as `../nib`'s layer list does
+  it.** `draggable`, `dragover` reading which half of the target the pointer is
+  over, `dropbefore`/`dropafter` markers, `dragend` to clear — the same names and
+  the same shape as the sibling, so one app teaches the other. A pointer-driven
+  version of this worked in Chrome and did nothing in Safari, which was the hint:
+  Safari was already trying to start a native drag on the press, took the
+  gesture, and stopped sending pointermoves. Doing it the browser's way is less
+  code and brings the drag image, the cursor, Escape-to-abandon and edge
+  autoscroll with it. Two deviations from nib, both because a thumbnail is not a
+  text row: the marker is drawn OUTSIDE the box, since opaque art to within 3px
+  of the border swallows an inset bar; and the app's own file-drop handlers guard
+  on `dataTransfer.types` including `Files`, or every frame moved two places lit
+  the whole window as a drop target.
+- **What is carried is an index, and it lands in its own kind.** A frame drags in
+  the strip, a step within one run; `dragOver` calls `preventDefault` only over
+  something the lifted thing can land on, so the cursor refuses the rest without
+  a word from us. `moveFrame` carries every animation's indices through the same
+  permutation, so the runs follow the art. One drop is one undo entry.
+- **The strip is pictures; the numbers live where a sequence needs them.** A
+  thumbnail says which frame it is better than a label over the art does, so
+  there is none — the play head is a dot in the corner (accent on the border
+  already means selected, and the two are often different frames). Numbers stay
+  on the lane cells and the step chips, because a run has to name frames to say
+  "1 2 3 4 3 2"; pointing at a step lights the frame it plays, which is a better
+  link than a number on every thumbnail forever.
+- **The onion skin is tinted, not merely faint.** It answers the one question
+  playing and the thumbnails cannot: does this frame line up with the last. A
+  ghost drawn in the art's own colours can be read as the art — and after
+  Duplicate, where the frame behind IS the same drawing, it is indistinguishable
+  from it. So the previous frame is washed toward a cool blue (`ghost` in
+  `render.ts`, beside `dim` and `outline`), the way every animation tool since
+  the lightbox has done it. It keeps out of a turn: the mode rebuilds the frame
+  from pristine art at every tick, and a ghost under that reads as part of what
+  is being turned.
 - **The surface plays; there is no second canvas.** P (or the strip's ▶) puts the
   canvas in the play mode: the run walks, the grid, ants, part boxes and onion go
   away, the tools are inert, and what is on screen is what a consumer draws.
@@ -152,6 +194,15 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   artist's to draw), and the sign does not matter — toward and away project the
   same. The hinge is a handle ON the art, like the rotate pivot, because the line
   a turn is about belongs on the thing being turned.
+- **A turn is a session over frames, not one shot at one of them.** A door swings
+  over the frames it is drawn on and the angles are not the same, so the mode
+  stays open while you walk the strip: picking a frame keeps what the others were
+  left at, coming back to one restores its dial, and Apply puts the whole session
+  down as one undo entry. What is remembered per frame is the DIAL, never the
+  pixels — every redraw re-samples the pristine art, which is the rule one frame
+  always followed, now said in the plural. The strip marks a frame the session
+  has angled with a dashed accent border: dashed because it is not its own yet,
+  and cancelling takes them all back together.
 - **A turn can write a RUN of frames, and name it.** Closed to open in four is
   the whole reason a door has frames, and doing it by hand is four turns of the
   same block. The frames stepper writes one frame per step from where the art is

@@ -11,8 +11,6 @@
   // The bar is built from one cell per frame rather than a span, because a run
   // here is an arbitrary list — reversed, with holds — so it can have gaps, and
   // a gap is a hole in the bar rather than a lie about its extent.
-  import ChevronLeft from "@lucide/svelte/icons/chevron-left";
-  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
   import Eclipse from "@lucide/svelte/icons/eclipse";
   import Pause from "@lucide/svelte/icons/pause";
@@ -27,6 +25,7 @@
     addAnimation,
     addFrame,
     appendToAnimation,
+    beginTurn,
     canPlay,
     duplicateFrame,
     editor,
@@ -40,6 +39,8 @@
     setAnimationFrames,
     setPlaying,
     shownFrame,
+    turnFrame,
+    turning,
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
@@ -51,6 +52,25 @@
   const node = $derived(activeNode());
   const frames = $derived(node.frames);
   const lanes = $derived(Object.entries(node.animations ?? {}));
+
+  /** A run shows its SEQUENCE — draggable steps — when it is the one selected,
+   *  or when it does not simply play in strip order. Position cannot say "1 3 2"
+   *  or "hold frame 2", so something has to, and a bar of cells cannot be it. */
+  const sequenced = (name: string, run: number[]) => editor.animation === name || !ascending(run);
+
+  /** Which grid row each lane sits on: a sequenced one takes two. Counted
+   *  rather than indexed, or the lanes under an expanded one sit on its steps. */
+  const laneRows = $derived.by(() => {
+    let row = 2;
+    return lanes.map(([name, list]) => {
+      const at = row;
+      row += sequenced(name, list) ? 2 : 1;
+      return at;
+    });
+  });
+  const afterLanes = $derived(
+    2 + lanes.reduce((n, [name, list]) => n + (sequenced(name, list) ? 2 : 1), 0),
+  );
   const where = $derived(editor.path.length ? editor.path.join("/") : editor.sprite.name);
 
   // The play head belongs to the surface — the strip only follows it, so the
@@ -60,6 +80,100 @@
   /** A run being swept out by a drag along one lane. Held here rather than
    *  committed, so a whole sweep is one undo entry. */
   let sweep: { name: string; from: number; to: number; moved: boolean } | null = $state(null);
+
+  /**
+   * Reordering is the PLATFORM's drag and drop, as `../nib`'s layer list does it.
+   *
+   * A pointer-driven version worked in Chrome and did nothing in Safari, for the
+   * reason it should have been a hint: Safari was already trying to start a
+   * native drag on the press, took the gesture, and stopped sending pointermoves.
+   * Doing it the browser's way costs less code and brings the rest with it — the
+   * drag image under the cursor, the cursor itself, Escape to abandon, and the
+   * autoscroll when a long strip runs off the edge.
+   *
+   * What is carried is an index, not a thing: a frame of the node being edited,
+   * or a step of one run. `where` keeps the two apart, so a step cannot land in
+   * the strip and a frame cannot land in a run.
+   */
+  let lifted: { where: "frame" | "step"; name?: string; at: number } | null = $state(null);
+  /** The frame or step the pointer is over, and which side of it. */
+  let over: { where: "frame" | "step"; name?: string; at: number; after: boolean } | null =
+    $state(null);
+
+  const dropAt = (e: DragEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return (e.clientX - r.left) / r.width > 0.5;
+  };
+
+  /** Where a drop would put it, counting the thing being moved out of the way:
+   *  the gap past itself is one place further left than the gap number says. */
+  function landing(from: number, at: number, after: boolean) {
+    const gap = at + (after ? 1 : 0);
+    return gap > from ? gap - 1 : gap;
+  }
+
+  function liftFrame(e: DragEvent, i: number) {
+    if (readOnly() || frames.length < 2) return e.preventDefault();
+    lifted = { where: "frame", at: i };
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  }
+
+  function liftStep(e: DragEvent, name: string, j: number) {
+    if (readOnly()) return e.preventDefault();
+    lifted = { where: "step", name, at: j };
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  }
+
+  /** Only over something the lifted thing can land on — a step drags within its
+   *  own run, and a frame within the strip. preventDefault is what says so: no
+   *  call, no drop, and the cursor says no without a word from us. */
+  function dragOver(e: DragEvent, where: "frame" | "step", at: number, name?: string) {
+    if (!lifted || lifted.where !== where || lifted.name !== name) return;
+    e.preventDefault();
+    over = { where, name, at, after: dropAt(e) };
+  }
+
+  function drop(e: DragEvent, list?: number[]) {
+    // The app's own drop is for FILES — a frame landing in the strip is not a
+    // sprite arriving from the desktop.
+    e.preventDefault();
+    e.stopPropagation();
+    if (lifted && over && lifted.where === over.where && lifted.name === over.name) {
+      const to = landing(lifted.at, over.at, over.after);
+      if (to !== lifted.at) {
+        if (lifted.where === "frame") moveFrame(lifted.at, to);
+        else if (list && over.name) {
+          const next = [...list];
+          const [moved] = next.splice(lifted.at, 1);
+          next.splice(to, 0, moved);
+          setAnimationFrames(over.name, next);
+        }
+      }
+    }
+    endDrag();
+  }
+
+  const endDrag = () => {
+    lifted = null;
+    over = null;
+  };
+
+  /**
+   * The frame a hovered step names.
+   *
+   * The strip is pictures, not numbers: a thumbnail says which frame it is
+   * better than a label over the art ever did. What the label was still good for
+   * was reading a run — "1 2 3 4 3 2" has to point at something — so pointing at
+   * a step lights the frame it plays instead. A link on demand beats a number on
+   * every thumbnail forever.
+   */
+  let linked = $state<number | null>(null);
+
+  const marks = (where: "frame" | "step", at: number, name?: string) => ({
+    lifted: lifted?.where === where && lifted.name === name && lifted.at === at,
+    before: over?.where === where && over.name === name && over.at === at && !over.after,
+    after: over?.where === where && over.name === name && over.at === at && over.after,
+  });
 
   const span = (s: { from: number; to: number }) => {
     const [a, b] = s.from <= s.to ? [s.from, s.to] : [s.to, s.from];
@@ -177,7 +291,21 @@
    *  thumbnail under the cursor — same verbs, said where you are pointing. */
   function frameMenu(e: MouseEvent, i: number) {
     const why = readOnly();
+    const parted = !!activeNode().parts?.length;
     const items: MenuItem[] = [
+      // The way in from the strip: turn THIS frame, and keep turning along it —
+      // the mode stays open while you pick the next one.
+      {
+        label: turning.on ? "Turn this frame" : "Rotate…",
+        hint: parted ? "a node with parts does not turn — flatten it first" : (why ?? undefined),
+        disabled: !!why || parted,
+        run: () => {
+          if (turning.on) return turnFrame(i);
+          editor.frame = i;
+          beginTurn(true);
+        },
+      },
+      { kind: "separator" },
       { label: "Duplicate", hint: why ?? undefined, disabled: !!why, run: () => duplicateFrame(i) },
       { label: "Add frame after", disabled: !!why, run: () => addFrame(i) },
       {
@@ -206,6 +334,39 @@
       }
     }
     openMenu(e, `Frame ${i + 1}`, items);
+  }
+
+  /** One STEP's verbs. A step is a position in the run, not a frame: removing
+   *  one leaves the frame where it is, and holding it plays it twice. */
+  function stepMenu(e: MouseEvent, name: string, list: number[], j: number) {
+    const why = readOnly();
+    const at = (next: number[]) => () => setAnimationFrames(name, next);
+    const swap = (k: number) => {
+      const next = [...list];
+      [next[j], next[k]] = [next[k], next[j]];
+      return next;
+    };
+    openMenu(e, `${name} · step ${j + 1}`, [
+      { label: `Go to frame ${list[j] + 1}`, run: () => (editor.frame = list[j]) },
+      {
+        label: "Hold longer",
+        hint: why ?? "the same frame twice in a row is a pause",
+        disabled: !!why,
+        run: at([...list.slice(0, j + 1), list[j], ...list.slice(j + 1)]),
+      },
+      { kind: "separator" },
+      { label: "Move earlier", disabled: j <= 0 || !!why, run: at(swap(j - 1)) },
+      { label: "Move later", disabled: j >= list.length - 1 || !!why, run: at(swap(j + 1)) },
+      { kind: "separator" },
+      {
+        label: "Remove",
+        hint:
+          list.length === 1 ? "the last step would leave the animation empty" : (why ?? undefined),
+        disabled: list.length === 1 || !!why,
+        danger: true,
+        run: at(list.filter((_, k) => k !== j)),
+      },
+    ]);
   }
 
   /** One animation's verbs, on its name. The order-level edits live here because
@@ -309,43 +470,45 @@
     <!-- The frames themselves, one per column. Everything below lines up with
          these, which is the whole point of the arrangement. -->
     {#each frames as _, i (i)}
+      {@const mark = marks("frame", i)}
+      <!-- The whole thumbnail is the drag: the browser picks it up, draws it
+           under the cursor and cancels on Escape, and the click inside it still
+           selects the frame, because that is what `draggable` is for. -->
       <div
         class="frame"
         class:on={i === editor.frame}
         class:playing={editor.playing && i === playFrame}
+        class:linked={linked === i}
+        class:turned={turning.marked.includes(i)}
+        class:lifted={mark.lifted}
+        class:dropbefore={mark.before}
+        class:dropafter={mark.after}
         style:grid-column={i + 2}
+        draggable={frames.length > 1}
         oncontextmenu={(e) => frameMenu(e, i)}
+        ondragstart={(e) => liftFrame(e, i)}
+        ondragover={(e) => dragOver(e, "frame", i)}
+        ondragleave={() => (over?.where === "frame" && over.at === i ? (over = null) : null)}
+        ondrop={(e) => drop(e)}
+        ondragend={endDrag}
         role="presentation"
       >
-        <button class="pick" onclick={() => (editor.frame = i)} title={`Frame ${i + 1}`}>
+        <!-- While a turn is open, picking a frame moves the SESSION to it: the
+             mode owns the surface, and a bare frame change would leave one
+             frame's preview drawn over another's art. -->
+        <button
+          class="pick"
+          onclick={() => (turning.on ? turnFrame(i) : (editor.frame = i))}
+          title={frames.length > 1 ? `Frame ${i + 1} — drag to reorder` : `Frame ${i + 1}`}
+        >
           <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
         </button>
-        <!-- Reorder and number on one fixed row, so selecting a frame cannot
-             change the strip's height and shuffle the others sideways. -->
-        <div class="foot">
-          <button
-            onclick={() => moveFrame(i, i - 1)}
-            disabled={i === 0}
-            aria-label="Move earlier"
-            title="Move earlier"
-          >
-            <ChevronLeft size={11} />
-          </button>
-          <span>{i + 1}</span>
-          <button
-            onclick={() => moveFrame(i, i + 1)}
-            disabled={i === frames.length - 1}
-            aria-label="Move later"
-            title="Move later"
-          >
-            <ChevronRight size={11} />
-          </button>
-        </div>
       </div>
     {/each}
 
     {#each lanes as [name, list], lane (name)}
       {@const run = runOf(name, list)}
+      {@const row = laneRows[lane]}
       {@const playing = editor.animation === name && editor.playing}
       {@const numbered = !ascending(run)}
       <!-- The name, in the gutter: it stays put while the frames scroll, and a
@@ -353,7 +516,7 @@
       <div
         class="name"
         class:on={editor.animation === name}
-        style:grid-row={lane + 2}
+        style:grid-row={row}
         oncontextmenu={(e) => laneMenu(e, name, list)}
         role="presentation"
       >
@@ -366,7 +529,14 @@
         >
           {#if playing}<Pause size={11} />{:else}<Play size={11} />{/if}
         </IconButton>
-        <button class="label" onclick={() => void rename(name)} title={`${name} — rename…`}>
+        <!-- Click picks the animation, double-click renames it: the deeper
+             action behind the double, where the obvious one is the single. -->
+        <button
+          class="label"
+          onclick={() => (editor.animation = name)}
+          ondblclick={() => void rename(name)}
+          title={`${name} — click to show its steps, double-click to rename`}
+        >
           {name}
         </button>
         <span class="count">{list.length}</span>
@@ -381,7 +551,7 @@
           class:head={playing && playFrame === i}
           class:sweeping={sweep?.name === name && sweep.moved}
           style:grid-column={i + 2}
-          style:grid-row={lane + 2}
+          style:grid-row={row}
           aria-label={at.length
             ? `Take frame ${i + 1} out of ${name}`
             : `Put frame ${i + 1} in ${name}`}
@@ -404,12 +574,45 @@
           {/if}
         </button>
       {/each}
+
+      {#if sequenced(name, list)}
+        <!-- The run in playing ORDER, which the bar above cannot say: a reversal
+             and a hold are both "these frames" and differ only in sequence.
+             Under the bar rather than instead of it — the bar answers which
+             frames, this answers in what order. -->
+        <div class="seq" style:grid-row={row + 1} role="list">
+          {#each list as f, j (j)}
+            {@const mark = marks("step", j, name)}
+            <button
+              class="step"
+              class:lifted={mark.lifted}
+              class:dropbefore={mark.before}
+              class:dropafter={mark.after}
+              class:head={playing && editor.playhead % list.length === j}
+              title={`Step ${j + 1} — frame ${f + 1}. Drag to reorder, click to go there.`}
+              draggable="true"
+              ondragstart={(e) => liftStep(e, name, j)}
+              ondragover={(e) => dragOver(e, "step", j, name)}
+              ondragleave={() =>
+                over?.where === "step" && over.name === name && over.at === j
+                  ? (over = null)
+                  : null}
+              ondrop={(e) => drop(e, list)}
+              ondragend={endDrag}
+              onpointerenter={() => (linked = f)}
+              onpointerleave={() => (linked === f ? (linked = null) : null)}
+              onclick={() => (editor.frame = f)}
+              oncontextmenu={(e) => stepMenu(e, name, list, j)}>{f + 1}</button
+            >
+          {/each}
+        </div>
+      {/if}
     {/each}
 
     <!-- Under the lanes, in the gutter, where the next one will appear. -->
     <button
       class="add"
-      style:grid-row={lanes.length + 2}
+      style:grid-row={afterLanes}
       title={`Name frame ${editor.frame + 1} as an animation — a consumer asks for it by name`}
       onclick={() => addAnimation(nextName())}
     >
@@ -435,9 +638,9 @@
     scrollbar-color: var(--halo-border) transparent;
   }
   .frame {
+    position: relative;
     grid-row: 1;
     display: grid;
-    gap: 0.15rem;
     padding: 0.2rem;
     border: 1px solid var(--halo-border);
     border-radius: 5px;
@@ -446,11 +649,58 @@
   .frame.on {
     border-color: var(--halo-accent);
   }
+  /* The one being carried goes quiet; the browser is already drawing it under
+     the cursor, and two copies of it is one too many. */
+  .frame.lifted,
+  .step.lifted {
+    opacity: 0.35;
+  }
+  /* The edge the drop lands against, in `../nib`'s words — dropbefore and
+     dropafter — but drawn OUTSIDE the box rather than inset as nib draws it: a
+     layer row is mostly text on its own ground, where a thumbnail is opaque art
+     to within 3px of its border and swallows an inset bar whole. */
+  .frame.dropbefore,
+  .step.dropbefore {
+    box-shadow: -4px 0 0 0 var(--halo-accent);
+  }
+  .frame.dropafter,
+  .step.dropafter {
+    box-shadow: 4px 0 0 0 var(--halo-accent);
+  }
   /* The play head marks the NUMBER, not a second ring on the box — accent on
      the frame border already means selected, and one word per meaning. */
-  .frame.playing .foot > span {
-    color: var(--halo-accent);
-    font-weight: 600;
+  /* The play head, as a mark on the art rather than a number: a dot in the
+     corner where the number used to be. Accent on the border already means
+     SELECTED, and the two are often different frames. */
+  .frame.playing::after {
+    content: "";
+    position: absolute;
+    left: 0.35rem;
+    top: 0.35rem;
+    width: 0.3rem;
+    height: 0.3rem;
+    border-radius: 50%;
+    background: var(--halo-accent);
+    box-shadow: 0 0 0 2px var(--halo-bg-main);
+  }
+  /* The frame a hovered step names. Quieter than selection, because it is the
+     pointer asking a question rather than the document answering one. */
+  .frame.linked {
+    border-color: var(--halo-accent);
+    background: var(--halo-accent-soft);
+  }
+  /* A frame this turn session has given an angle to. Dashed, because it is not
+     yet its own — nothing is written until Apply, and cancelling takes them all
+     back together. */
+  .frame.turned {
+    border-style: dashed;
+    border-color: var(--halo-accent);
+  }
+  /* Nothing here is text to select: a press is either a click or the start of a
+     drag, and a half-selected number is neither. */
+  .frame,
+  .step {
+    user-select: none;
   }
   .pick {
     display: block;
@@ -460,30 +710,6 @@
     border-radius: 3px;
     cursor: pointer;
     overflow: hidden;
-  }
-  .foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.65rem;
-    color: var(--halo-text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .foot button {
-    background: none;
-    border: 0;
-    padding: 0;
-    color: var(--halo-text-light);
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-  }
-  .foot button:hover:not(:disabled) {
-    color: var(--halo-text-main);
-  }
-  .foot button:disabled {
-    opacity: 0.25;
-    cursor: default;
   }
   /* The gutter sticks, so scrolling a long strip never leaves a row of bars
      with no names on it. */
@@ -572,6 +798,47 @@
   }
   .ord {
     pointer-events: none;
+  }
+  /* The run in order, under the bar it belongs to. It spans every frame column
+     but is a row of its own steps, because the steps are not frames — two of
+     them can name one frame, and that is what a hold IS. */
+  .seq {
+    grid-column: 2 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.1rem 0;
+    min-width: 0;
+  }
+  .step {
+    flex: none;
+    min-width: 1.3rem;
+    padding: 0.05rem 0.25rem;
+    border: 1px solid var(--halo-border);
+    border-radius: 3px;
+    background: var(--halo-bg-main);
+    color: var(--halo-text-muted);
+    font: inherit;
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    cursor: grab;
+    /* Same reason as the frame grip: a press-and-move on a button is a native
+       element drag in Safari unless it is told not to be. */
+    user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+  }
+  .step:hover {
+    border-color: var(--halo-accent);
+    color: var(--halo-accent);
+  }
+  .step:active {
+    cursor: grabbing;
+  }
+  .step.head {
+    background: var(--halo-accent);
+    border-color: var(--halo-accent);
+    color: var(--halo-bg-main);
   }
   .add {
     display: flex;

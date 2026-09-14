@@ -20,6 +20,7 @@ import {
   setHinge,
   setTurn,
   setTurnFrames,
+  turnFrame,
   turning,
 } from "../lib/editor.svelte";
 
@@ -153,6 +154,70 @@ test("a spin writes its run too, growing the box once for the widest step", asyn
     expect(f.length).toBe(node.h);
     for (const row of f) expect(row.length).toBe(node.w);
   }
+});
+
+test("a turn walks the strip, keeping what each frame was left at", async () => {
+  // Three copies of the same door, to be swung a little further on each.
+  const { duplicateFrame } = await import("../lib/editor.svelte");
+  duplicateFrame();
+  duplicateFrame();
+  await sleep(40);
+  editor.frame = 0;
+  await sleep(20);
+
+  beginTurn(true);
+  setAxis("y");
+  setHinge(0);
+  setTurn(30);
+  await sleep(30);
+  // Move along the strip: the mode stays open and the dial starts at zero for a
+  // frame it has not visited.
+  turnFrame(1);
+  await sleep(20);
+  expect(turning.on).toBe(true);
+  expect(turning.angle).toBe(0);
+  setTurn(60);
+  await sleep(30);
+  // Back to the first: its own angle comes back with it.
+  turnFrame(0);
+  await sleep(20);
+  expect(turning.angle).toBe(30);
+  // Both are marked as carrying an angle; the third was never touched.
+  expect([...turning.marked].sort()).toEqual([0, 1]);
+
+  applyTurn();
+  await sleep(40);
+  const node = activeNode();
+  const width = (f: string[]) => f[0].replace(/\.+$/, "").length;
+  // Frame 1 swung 30°, frame 2 swung 60° — narrower still — and frame 3 is the
+  // art as it was.
+  expect(width(node.frames[0])).toBeGreaterThan(width(node.frames[1]));
+  expect(width(node.frames[2])).toBe(4);
+  expect(editor.status).toContain("2 frames");
+
+  // One undo entry for the session, however many frames it touched.
+  const { undoEdit } = await import("../lib/editor.svelte");
+  undoEdit();
+  await sleep(20);
+  expect(activeNode().frames.every((f) => width(f) === 4)).toBe(true);
+});
+
+test("cancelling a session takes every frame back, not just the last", async () => {
+  const { duplicateFrame } = await import("../lib/editor.svelte");
+  duplicateFrame();
+  await sleep(40);
+  editor.frame = 0;
+  const before = activeNode().frames.map((f) => [...f]);
+
+  beginTurn(true);
+  setAxis("y");
+  setTurn(40);
+  turnFrame(1);
+  setTurn(70);
+  await sleep(40);
+  cancelTurn();
+  await sleep(20);
+  expect(activeNode().frames.map((f) => [...f])).toEqual(before);
 });
 
 test("a selection turns one block, not a run", async () => {
