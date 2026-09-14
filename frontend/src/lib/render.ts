@@ -68,8 +68,18 @@ export function paintRows(
   oy: number,
   variant: string | null,
   style: NodeStyle = "full",
+  /**
+   * How solid to paint it, for a caller drawing a ghost of something.
+   *
+   * It has to be a parameter rather than a `globalAlpha` the caller sets around
+   * the call, because this function sets that itself for the dim style — so the
+   * onion skin, which did exactly that, has been drawing the previous frame at
+   * full strength. A duplicated frame under a turned one then reads as one
+   * frame holding both, which is how it was found.
+   */
+  alpha = 1,
 ): void {
-  g.globalAlpha = style === "dim" ? DIM_ALPHA : 1;
+  g.globalAlpha = style === "dim" ? DIM_ALPHA : alpha;
   for (let y = 0; y < rows.length; y++) {
     const row = rows[y];
     for (let x = 0; x < row.length; x++) {

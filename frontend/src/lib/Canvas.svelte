@@ -822,8 +822,15 @@
     if (!g) return;
 
     // Track every dependency the paint below reads.
+    //
+    // Not while a turn is previewing: the mode owns the surface, and a faint
+    // copy of the neighbouring frame under a turned one reads as ONE frame
+    // holding both — which is exactly what it looks like after Duplicate, where
+    // the neighbour is the same art.
     const prev =
-      editor.onion && editor.frame > 0 && drawable ? node.frames[editor.frame - 1] : null;
+      editor.onion && editor.frame > 0 && drawable && !turning.on
+        ? node.frames[editor.frame - 1]
+        : null;
     const pts = preview;
     const hint = hoverShape;
     const mq = marquee;
@@ -838,12 +845,10 @@
 
     g.clearRect(0, 0, el.width, el.height);
     // The frame behind, faint: the reason multi-frame sprites line up at all.
-    // The active node's own, because that is the strip being drawn.
-    if (prev) {
-      g.globalAlpha = 0.28;
-      paintRows(g, prev, node, origin.x, origin.y, editor.variant);
-      g.globalAlpha = 1;
-    }
+    // The active node's own, because that is the strip being drawn. The
+    // faintness is the painter's business — setting globalAlpha around the call
+    // did nothing, because paintRows sets it too.
+    if (prev) paintRows(g, prev, node, origin.x, origin.y, editor.variant, "full", 0.28);
     paintAssembly(g, sprite, -box.x, -box.y, paintOpts);
     // Preview sits on top at full strength — it is about to be real.
     if (pts.length && drawable) {

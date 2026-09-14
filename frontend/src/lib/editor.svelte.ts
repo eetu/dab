@@ -1367,9 +1367,22 @@ export function clearVariantColour(name: string, ch: string) {
 // Each takes the frame to act on, defaulting to the one being edited: the
 // header buttons act on "this frame", a thumbnail's menu on the one under the
 // cursor, and both are the same verb.
-export const addFrame = (at: number = frameNow()) => commitNode((n) => addFrameTo(n, at));
-export const duplicateFrame = (at: number = frameNow()) =>
+/**
+ * A new frame, and the cursor moves onto it.
+ *
+ * Adding a frame and staying on the old one is a click that appears to do
+ * nothing — and worse after Duplicate, where the copy is identical to what you
+ * are still looking at, so the strip grew and the canvas did not change. The
+ * next thing anyone does with a new frame is draw on it.
+ */
+export const addFrame = (at: number = frameNow()) => {
+  commitNode((n) => addFrameTo(n, at));
+  editor.frame = Math.min(at + 1, activeNode().frames.length - 1);
+};
+export const duplicateFrame = (at: number = frameNow()) => {
   commitNode((n) => duplicateFrameIn(n, at));
+  editor.frame = Math.min(at + 1, activeNode().frames.length - 1);
+};
 export function removeFrame(at: number = frameNow()) {
   if (activeNode().frames.length <= 1) return;
   commitNode((n) => removeFrameFrom(n, at));
