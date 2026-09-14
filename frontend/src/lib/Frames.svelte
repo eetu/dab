@@ -30,6 +30,7 @@
     canPlay,
     duplicateFrame,
     editor,
+    gesture,
     moveAnimation,
     moveFrame,
     readOnly,
@@ -51,6 +52,25 @@
   const node = $derived(activeNode());
   const frames = $derived(node.frames);
   const lanes = $derived(Object.entries(node.animations ?? {}));
+
+  /** A run shows its SEQUENCE — draggable steps — when it is the one selected,
+   *  or when it does not simply play in strip order. Position cannot say "1 3 2"
+   *  or "hold frame 2", so something has to, and a bar of cells cannot be it. */
+  const sequenced = (name: string, run: number[]) => editor.animation === name || !ascending(run);
+
+  /** Which grid row each lane sits on: a sequenced one takes two. Counted
+   *  rather than indexed, or the lanes under an expanded one sit on its steps. */
+  const laneRows = $derived.by(() => {
+    let row = 2;
+    return lanes.map(([name, list]) => {
+      const at = row;
+      row += sequenced(name, list) ? 2 : 1;
+      return at;
+    });
+  });
+  const afterLanes = $derived(
+    2 + lanes.reduce((n, [name, list]) => n + (sequenced(name, list) ? 2 : 1), 0),
+  );
   const where = $derived(editor.path.length ? editor.path.join("/") : editor.sprite.name);
 
   // The play head belongs to the surface — the strip only follows it, so the
@@ -60,6 +80,77 @@
   /** A run being swept out by a drag along one lane. Held here rather than
    *  committed, so a whole sweep is one undo entry. */
   let sweep: { name: string; from: number; to: number; moved: boolean } | null = $state(null);
+
+  /** A thumbnail on its way to another place in the strip. `at` is where it
+   *  would land — the gap it is hovering, not the frame it is over. */
+  let carry: { from: number; at: number } | null = $state(null);
+  /** A step of the selected run on its way to another place in that run. */
+  let step: { name: string; from: number; at: number } | null = $state(null);
+
+  /**
+   * The travel that tells a drag from a click.
+   *
+   * Below it nothing happens at all — no pointer capture, no marker — because a
+   * captured pointer retargets its release and the thumbnail's own button would
+   * never see the click that selects the frame.
+   */
+  const TRAVEL = 4;
+
+  /** Which gap of a row of boxes a pointer is over: 0 before the first, n after
+   *  the last. Midpoints, so the marker flips when the pointer passes a centre
+   *  rather than when it crosses an edge. */
+  function gapAt(boxes: HTMLElement[], x: number): number {
+    let at = boxes.length;
+    for (let i = 0; i < boxes.length; i++) {
+      const r = boxes[i].getBoundingClientRect();
+      if (x < r.left + r.width / 2) {
+        at = i;
+        break;
+      }
+    }
+    return at;
+  }
+
+  /**
+   * A drag of one thing in a row, as both of these are.
+   *
+   * `pick` says what is being moved, `land` where it wants to go, and the whole
+   * thing is one commit on release — a reorder that committed per pointermove
+   * would put a hundred entries on the undo stack for one gesture.
+   */
+  function carryDrag(
+    e: PointerEvent,
+    selector: string,
+    show: (at: number | null) => void,
+    land: (at: number) => void,
+  ) {
+    const host = (e.currentTarget as HTMLElement).parentElement;
+    if (!host) return;
+    const start = e.clientX;
+    const boxes = () => [...host.querySelectorAll(selector)] as HTMLElement[];
+    let live = false;
+    let at: number | null = null;
+
+    const move = (ev: PointerEvent) => {
+      if (!live && Math.abs(ev.clientX - start) < TRAVEL) return;
+      live = true;
+      at = gapAt(boxes(), ev.clientX);
+      show(at);
+    };
+    const done = (drop: boolean) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      gesture.abort = null;
+      show(null);
+      if (drop && at !== null) land(at);
+    };
+    const up = () => done(true);
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    // Escape's first rung: let go of the drag and put nothing down.
+    gesture.abort = () => done(false);
+  }
 
   const span = (s: { from: number; to: number }) => {
     const [a, b] = s.from <= s.to ? [s.from, s.to] : [s.to, s.from];
@@ -120,6 +211,42 @@
     sweep = null;
     if (s.moved) setAnimationFrames(name, span(s));
     else toggle(name, list, s.from);
+  }
+
+  /** Drag a thumbnail to another place in the strip. The animations follow it:
+   *  `moveFrame` carries every run's indices through the same permutation. */
+  function carryFrame(e: PointerEvent, from: number) {
+    if (readOnly() || frames.length < 2) return;
+    carryDrag(
+      e,
+      ".frame",
+      (at) => (carry = at === null ? null : { from, at }),
+      (at) => {
+        // The gap counts the frame being moved, so dropping past itself is one
+        // place further left than the gap number says.
+        const to = at > from ? at - 1 : at;
+        if (to !== from) moveFrame(from, to);
+      },
+    );
+  }
+
+  /** Drag a step of the shown run to another place IN that run — the order a
+   *  bar cannot express, and the one thing the old chip row was good for. */
+  function carryStep(e: PointerEvent, name: string, list: number[], from: number) {
+    if (readOnly()) return;
+    carryDrag(
+      e,
+      ".step",
+      (at) => (step = at === null ? null : { name, from, at }),
+      (at) => {
+        const to = at > from ? at - 1 : at;
+        if (to === from) return;
+        const next = [...list];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        setAnimationFrames(name, next);
+      },
+    );
   }
 
   /** `animation`, `animation 2`, … — a name to rename rather than a prompt to fill. */
@@ -206,6 +333,39 @@
       }
     }
     openMenu(e, `Frame ${i + 1}`, items);
+  }
+
+  /** One STEP's verbs. A step is a position in the run, not a frame: removing
+   *  one leaves the frame where it is, and holding it plays it twice. */
+  function stepMenu(e: MouseEvent, name: string, list: number[], j: number) {
+    const why = readOnly();
+    const at = (next: number[]) => () => setAnimationFrames(name, next);
+    const swap = (k: number) => {
+      const next = [...list];
+      [next[j], next[k]] = [next[k], next[j]];
+      return next;
+    };
+    openMenu(e, `${name} · step ${j + 1}`, [
+      { label: `Go to frame ${list[j] + 1}`, run: () => (editor.frame = list[j]) },
+      {
+        label: "Hold longer",
+        hint: why ?? "the same frame twice in a row is a pause",
+        disabled: !!why,
+        run: at([...list.slice(0, j + 1), list[j], ...list.slice(j + 1)]),
+      },
+      { kind: "separator" },
+      { label: "Move earlier", disabled: j <= 0 || !!why, run: at(swap(j - 1)) },
+      { label: "Move later", disabled: j >= list.length - 1 || !!why, run: at(swap(j + 1)) },
+      { kind: "separator" },
+      {
+        label: "Remove",
+        hint:
+          list.length === 1 ? "the last step would leave the animation empty" : (why ?? undefined),
+        disabled: list.length === 1 || !!why,
+        danger: true,
+        run: at(list.filter((_, k) => k !== j)),
+      },
+    ]);
   }
 
   /** One animation's verbs, on its name. The order-level edits live here because
@@ -313,11 +473,19 @@
         class="frame"
         class:on={i === editor.frame}
         class:playing={editor.playing && i === playFrame}
+        class:lifted={carry?.from === i}
+        class:before={carry?.at === i}
+        class:after={carry?.at === frames.length && i === frames.length - 1}
         style:grid-column={i + 2}
         oncontextmenu={(e) => frameMenu(e, i)}
+        onpointerdown={(e) => carryFrame(e, i)}
         role="presentation"
       >
-        <button class="pick" onclick={() => (editor.frame = i)} title={`Frame ${i + 1}`}>
+        <button
+          class="pick"
+          onclick={() => (editor.frame = i)}
+          title={`Frame ${i + 1} — drag to reorder`}
+        >
           <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
         </button>
         <!-- Reorder and number on one fixed row, so selecting a frame cannot
@@ -346,6 +514,7 @@
 
     {#each lanes as [name, list], lane (name)}
       {@const run = runOf(name, list)}
+      {@const row = laneRows[lane]}
       {@const playing = editor.animation === name && editor.playing}
       {@const numbered = !ascending(run)}
       <!-- The name, in the gutter: it stays put while the frames scroll, and a
@@ -353,7 +522,7 @@
       <div
         class="name"
         class:on={editor.animation === name}
-        style:grid-row={lane + 2}
+        style:grid-row={row}
         oncontextmenu={(e) => laneMenu(e, name, list)}
         role="presentation"
       >
@@ -366,7 +535,14 @@
         >
           {#if playing}<Pause size={11} />{:else}<Play size={11} />{/if}
         </IconButton>
-        <button class="label" onclick={() => void rename(name)} title={`${name} — rename…`}>
+        <!-- Click picks the animation, double-click renames it: the deeper
+             action behind the double, where the obvious one is the single. -->
+        <button
+          class="label"
+          onclick={() => (editor.animation = name)}
+          ondblclick={() => void rename(name)}
+          title={`${name} — click to show its steps, double-click to rename`}
+        >
           {name}
         </button>
         <span class="count">{list.length}</span>
@@ -381,7 +557,7 @@
           class:head={playing && playFrame === i}
           class:sweeping={sweep?.name === name && sweep.moved}
           style:grid-column={i + 2}
-          style:grid-row={lane + 2}
+          style:grid-row={row}
           aria-label={at.length
             ? `Take frame ${i + 1} out of ${name}`
             : `Put frame ${i + 1} in ${name}`}
@@ -404,12 +580,34 @@
           {/if}
         </button>
       {/each}
+
+      {#if sequenced(name, list)}
+        <!-- The run in playing ORDER, which the bar above cannot say: a reversal
+             and a hold are both "these frames" and differ only in sequence.
+             Under the bar rather than instead of it — the bar answers which
+             frames, this answers in what order. -->
+        <div class="seq" style:grid-row={row + 1} role="list">
+          {#each list as f, j (j)}
+            <button
+              class="step"
+              class:lifted={step?.name === name && step.from === j}
+              class:before={step?.name === name && step.at === j}
+              class:after={step?.name === name && step.at === list.length && j === list.length - 1}
+              class:head={playing && editor.playhead % list.length === j}
+              title={`Step ${j + 1} — frame ${f + 1}. Drag to reorder, click to go there.`}
+              onpointerdown={(e) => carryStep(e, name, list, j)}
+              onclick={() => (editor.frame = f)}
+              oncontextmenu={(e) => stepMenu(e, name, list, j)}>{f + 1}</button
+            >
+          {/each}
+        </div>
+      {/if}
     {/each}
 
     <!-- Under the lanes, in the gutter, where the next one will appear. -->
     <button
       class="add"
-      style:grid-row={lanes.length + 2}
+      style:grid-row={afterLanes}
       title={`Name frame ${editor.frame + 1} as an animation — a consumer asks for it by name`}
       onclick={() => addAnimation(nextName())}
     >
@@ -445,6 +643,23 @@
   }
   .frame.on {
     border-color: var(--halo-accent);
+  }
+  /* Where a dragged thing would land, drawn in the gap it would land in. The
+     thing being carried goes quiet so the marker is the only thing moving. */
+  .frame.lifted,
+  .step.lifted {
+    opacity: 0.35;
+  }
+  /* A solid bar in the gap, not a hairline: the marker is the only thing saying
+     where the drop lands, and at a glance a 1px line beside a 1px border is a
+     border. The box is opaque, so a shifted shadow shows only as that bar. */
+  .frame.before,
+  .step.before {
+    box-shadow: -4px 0 0 0 var(--halo-accent);
+  }
+  .frame.after,
+  .step.after {
+    box-shadow: 4px 0 0 0 var(--halo-accent);
   }
   /* The play head marks the NUMBER, not a second ring on the box — accent on
      the frame border already means selected, and one word per meaning. */
@@ -572,6 +787,42 @@
   }
   .ord {
     pointer-events: none;
+  }
+  /* The run in order, under the bar it belongs to. It spans every frame column
+     but is a row of its own steps, because the steps are not frames — two of
+     them can name one frame, and that is what a hold IS. */
+  .seq {
+    grid-column: 2 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.1rem 0;
+    min-width: 0;
+  }
+  .step {
+    flex: none;
+    min-width: 1.3rem;
+    padding: 0.05rem 0.25rem;
+    border: 1px solid var(--halo-border);
+    border-radius: 3px;
+    background: var(--halo-bg-main);
+    color: var(--halo-text-muted);
+    font: inherit;
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    cursor: grab;
+  }
+  .step:hover {
+    border-color: var(--halo-accent);
+    color: var(--halo-accent);
+  }
+  .step:active {
+    cursor: grabbing;
+  }
+  .step.head {
+    background: var(--halo-accent);
+    border-color: var(--halo-accent);
+    color: var(--halo-bg-main);
   }
   .add {
     display: flex;

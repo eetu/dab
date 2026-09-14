@@ -48,8 +48,10 @@
       <p>
         Frames run along the bottom; onion skin shows the previous one. An animation names a run of
         frames (<code>swing: 0 1 2</code>) and appears as a lane under them: click a cell to put
-        that frame in or take it out, drag to sweep a run, and a repeated frame is a hold. Press
-        play and the sprite runs
+        that frame in or take it out, drag to sweep a run, and a repeated frame is a hold. Drag a
+        thumbnail to reorder the frames — the animations follow. Click an animation's name to see
+        its steps in playing order and drag those to reorder the run itself; double-click renames.
+        Press play and the sprite runs
         <em>on the canvas</em>: no grid, no marquee, the fps on a bar over the art, and Esc puts
         your frame back. The loupe (last button on the rail) puts a small window over the canvas
         showing the sprite at ×1 — how it reads at the size it is drawn, moving when it moves. Drag

@@ -86,6 +86,22 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   and `../scene` already uses `Clip` for a piece of video. Files written as
   `clips` are still read — `fromJson` renames the key on the way in, at every
   depth, and the next save writes `animations`.
+- **A bar says which frames; a sequence says in what order.** The lane's cells
+  answer membership — click one to put a frame in or take it out, drag to sweep a
+  run — and position cannot express "1 3 2" or a hold, so a run that does not
+  simply play in strip order also shows its STEPS: a row of draggable chips in
+  playing order, under its bar. The selected run shows them too, which is what
+  clicking a lane's name is for (double-click renames, the deeper action behind
+  the obvious one). A step is a position in the run, not a frame: two steps can
+  name one frame, and that is what a hold is.
+- **Dragging reorders, and one drag is one undo entry.** Thumbnails drag in the
+  strip (`moveFrame` carries every run's indices through the same permutation),
+  steps drag within their run. Both go through one helper: nothing happens below
+  four pixels of travel, because a captured pointer retargets its release and the
+  thumbnail's own button would never see the click that selects the frame. The
+  marker is a solid bar in the GAP the drop would land in — a hairline beside a
+  1px border reads as a border — and the thing being carried goes quiet. Escape
+  abandons the drag through `gesture.abort`, the same rung the canvas uses.
 - **The surface plays; there is no second canvas.** P (or the strip's ▶) puts the
   canvas in the play mode: the run walks, the grid, ants, part boxes and onion go
   away, the tools are inert, and what is on screen is what a consumer draws.
