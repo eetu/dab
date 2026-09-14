@@ -25,6 +25,7 @@
     addAnimation,
     addFrame,
     appendToAnimation,
+    beginTurn,
     canPlay,
     duplicateFrame,
     editor,
@@ -38,6 +39,8 @@
     setAnimationFrames,
     setPlaying,
     shownFrame,
+    turnFrame,
+    turning,
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
@@ -288,7 +291,21 @@
    *  thumbnail under the cursor — same verbs, said where you are pointing. */
   function frameMenu(e: MouseEvent, i: number) {
     const why = readOnly();
+    const parted = !!activeNode().parts?.length;
     const items: MenuItem[] = [
+      // The way in from the strip: turn THIS frame, and keep turning along it —
+      // the mode stays open while you pick the next one.
+      {
+        label: turning.on ? "Turn this frame" : "Rotate…",
+        hint: parted ? "a node with parts does not turn — flatten it first" : (why ?? undefined),
+        disabled: !!why || parted,
+        run: () => {
+          if (turning.on) return turnFrame(i);
+          editor.frame = i;
+          beginTurn(true);
+        },
+      },
+      { kind: "separator" },
       { label: "Duplicate", hint: why ?? undefined, disabled: !!why, run: () => duplicateFrame(i) },
       { label: "Add frame after", disabled: !!why, run: () => addFrame(i) },
       {
@@ -462,6 +479,7 @@
         class:on={i === editor.frame}
         class:playing={editor.playing && i === playFrame}
         class:linked={linked === i}
+        class:turned={turning.marked.includes(i)}
         class:lifted={mark.lifted}
         class:dropbefore={mark.before}
         class:dropafter={mark.after}
@@ -475,9 +493,12 @@
         ondragend={endDrag}
         role="presentation"
       >
+        <!-- While a turn is open, picking a frame moves the SESSION to it: the
+             mode owns the surface, and a bare frame change would leave one
+             frame's preview drawn over another's art. -->
         <button
           class="pick"
-          onclick={() => (editor.frame = i)}
+          onclick={() => (turning.on ? turnFrame(i) : (editor.frame = i))}
           title={frames.length > 1 ? `Frame ${i + 1} — drag to reorder` : `Frame ${i + 1}`}
         >
           <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
@@ -667,6 +688,13 @@
   .frame.linked {
     border-color: var(--halo-accent);
     background: var(--halo-accent-soft);
+  }
+  /* A frame this turn session has given an angle to. Dashed, because it is not
+     yet its own — nothing is written until Apply, and cancelling takes them all
+     back together. */
+  .frame.turned {
+    border-style: dashed;
+    border-color: var(--halo-accent);
   }
   /* Nothing here is text to select: a press is either a click or the start of a
      drag, and a half-selected number is neither. */

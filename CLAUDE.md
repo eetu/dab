@@ -185,6 +185,15 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   artist's to draw), and the sign does not matter — toward and away project the
   same. The hinge is a handle ON the art, like the rotate pivot, because the line
   a turn is about belongs on the thing being turned.
+- **A turn is a session over frames, not one shot at one of them.** A door swings
+  over the frames it is drawn on and the angles are not the same, so the mode
+  stays open while you walk the strip: picking a frame keeps what the others were
+  left at, coming back to one restores its dial, and Apply puts the whole session
+  down as one undo entry. What is remembered per frame is the DIAL, never the
+  pixels — every redraw re-samples the pristine art, which is the rule one frame
+  always followed, now said in the plural. The strip marks a frame the session
+  has angled with a dashed accent border: dashed because it is not its own yet,
+  and cancelling takes them all back together.
 - **A turn can write a RUN of frames, and name it.** Closed to open in four is
   the whole reason a door has frames, and doing it by hand is four turns of the
   same block. The frames stepper writes one frame per step from where the art is

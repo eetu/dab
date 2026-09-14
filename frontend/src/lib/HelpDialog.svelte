@@ -65,9 +65,12 @@
         <strong>Tilt</strong> are hinges: the art turns out of the picture and gets narrower about a
         hinge line you drag onto it — a door opening toward you, a bonnet lifting. Set
         <em>frames</em> and Apply writes the whole run, one frame per step, with an animation naming
-        it. Every step comes off the original, so the last frame is as clean as the first and the
-        palette settles. Quarter spins are exact; other angles invent blend colours and the bar says
-        how many before you pay. A sprite with parts does not turn whole —
+        it. The mode also stays open along the strip: pick another frame, give it its own angle, and
+        Apply puts the lot down at once — a frame the session has turned is outlined dashed. Rotate…
+        is on a frame's own menu too. Every step comes off the original, so the last frame is as
+        clean as the first and the palette settles. Quarter spins are exact; other angles invent
+        blend colours and the bar says how many before you pay. A sprite with parts does not turn
+        whole —
         <em>Flatten to a sprite</em> bakes the assembly into one grid that does.
       </p>
     </section>

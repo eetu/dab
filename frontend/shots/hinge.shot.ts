@@ -16,6 +16,7 @@ import {
   setHinge,
   setTurn,
   setTurnFrames,
+  turnFrame,
   turning,
 } from "../src/lib/editor.svelte";
 import { open, SPRITES } from "./rig";
@@ -55,6 +56,33 @@ test("a door part mid-swing, hinge on the art", async () => {
   await rig.settle(200);
   expect(document.querySelector('[aria-label="Hinge"]'), "no hinge handle").toBeTruthy();
   await rig.shot("24-hinge-swing");
+});
+
+test("a session walking the strip: two frames turned, a third under the dial", async () => {
+  const rig = await open(carWithDoor());
+  onTestFinished(() => {
+    if (turning.on) cancelTurn();
+    rig.stop();
+  });
+  selectNode(["door"]);
+  await rig.settle(150);
+  const { duplicateFrame } = await import("../src/lib/editor.svelte");
+  duplicateFrame();
+  duplicateFrame();
+  editor.frame = 0;
+  await rig.settle(150);
+
+  beginTurn(true);
+  setAxis("y");
+  setHinge(0);
+  setTurn(25);
+  turnFrame(1);
+  setTurn(50);
+  turnFrame(2);
+  setTurn(70);
+  await rig.settle(200);
+  expect(turning.marked.length, "the session lost its earlier frames").toBe(3);
+  await rig.shot("28-turn-session");
 });
 
 test("the run it wrote, as lanes under the frames", async () => {
