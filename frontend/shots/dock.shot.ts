@@ -63,10 +63,11 @@ test("a frame mid-drag, with the gap it would land in marked", async () => {
   // Held, not dropped: the picture is of the marker, which only exists while a
   // drag is live.
   const thumbs = [...document.querySelectorAll(".timeline .frame")] as HTMLElement[];
-  const from = thumbs[4].getBoundingClientRect();
+  const grip = thumbs[4].querySelector(".grip") as HTMLElement;
+  const from = grip.getBoundingClientRect();
   const to = thumbs[1].getBoundingClientRect();
   const base = { bubbles: true, pointerId: 5, pointerType: "mouse" };
-  thumbs[4].dispatchEvent(
+  grip.dispatchEvent(
     new PointerEvent("pointerdown", {
       ...base,
       clientX: from.left + from.width / 2,

@@ -88,11 +88,14 @@
   let step: { name: string; from: number; at: number } | null = $state(null);
 
   /**
-   * The travel that tells a drag from a click.
+   * The travel that tells a drag from a click, where one control has to be both.
    *
    * Below it nothing happens at all — no pointer capture, no marker — because a
-   * captured pointer retargets its release and the thumbnail's own button would
-   * never see the click that selects the frame.
+   * captured pointer retargets its release and a chip that also answers clicks
+   * would never see one. A GRIP needs none of this: it has no click to protect,
+   * so it takes the pointer at once, which is also the only thing Safari will
+   * reliably let us drag. A press-and-move on a button wrapping a canvas is a
+   * native element drag there, and the pointermoves simply stop arriving.
    */
   const TRAVEL = 4;
 
@@ -120,34 +123,67 @@
    */
   function carryDrag(
     e: PointerEvent,
-    selector: string,
-    show: (at: number | null) => void,
-    land: (at: number) => void,
+    opts: {
+      selector: string;
+      /** A grip starts dragging on the press; a control that also clicks waits
+       *  for travel before it commits to being a drag. */
+      grip?: boolean;
+      show: (at: number | null) => void;
+      land: (at: number) => void;
+    },
   ) {
-    const host = (e.currentTarget as HTMLElement).parentElement;
+    const el = e.currentTarget as HTMLElement;
+    const host = el.closest(".timeline");
     if (!host) return;
     const start = e.clientX;
-    const boxes = () => [...host.querySelectorAll(selector)] as HTMLElement[];
-    let live = false;
-    let at: number | null = null;
+    const boxes = () => [...host.querySelectorAll(opts.selector)] as HTMLElement[];
+    let live = !!opts.grip;
+    let at: number | null = live ? gapAt(boxes(), start) : null;
+
+    if (opts.grip) {
+      // No click to lose, so take the pointer and the default with it: the
+      // press must not also start a selection or a native element drag.
+      e.preventDefault();
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* a synthetic pointer — the window listeners below still track it */
+      }
+      opts.show(at);
+    }
 
     const move = (ev: PointerEvent) => {
       if (!live && Math.abs(ev.clientX - start) < TRAVEL) return;
-      live = true;
+      if (!live) {
+        // Past the threshold the click is forfeit anyway, so take the pointer:
+        // a drag that leaves the element still ends on it, and the browser
+        // stops eyeing the gesture as a selection of its own.
+        live = true;
+        try {
+          el.setPointerCapture(ev.pointerId);
+        } catch {
+          /* a synthetic pointer — the window listeners still track it */
+        }
+      }
       at = gapAt(boxes(), ev.clientX);
-      show(at);
+      opts.show(at);
     };
     const done = (drop: boolean) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
       gesture.abort = null;
-      show(null);
-      if (drop && at !== null) land(at);
+      opts.show(null);
+      if (drop && at !== null) opts.land(at);
     };
     const up = () => done(true);
+    // A cancelled pointer — the OS taking the gesture, a lost capture — puts
+    // nothing down. Without this the drag stayed live with no way to end it.
+    const cancel = () => done(false);
 
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
     // Escape's first rung: let go of the drag and put nothing down.
     gesture.abort = () => done(false);
   }
@@ -213,32 +249,33 @@
     else toggle(name, list, s.from);
   }
 
-  /** Drag a thumbnail to another place in the strip. The animations follow it:
-   *  `moveFrame` carries every run's indices through the same permutation. */
+  /** Drag a frame to another place in the strip, BY ITS NUMBER — the grip sits
+   *  between the two arrows that do the same thing one step at a time. The
+   *  animations follow it: `moveFrame` carries every run's indices through the
+   *  same permutation. */
   function carryFrame(e: PointerEvent, from: number) {
     if (readOnly() || frames.length < 2) return;
-    carryDrag(
-      e,
-      ".frame",
-      (at) => (carry = at === null ? null : { from, at }),
-      (at) => {
+    carryDrag(e, {
+      selector: ".frame",
+      grip: true,
+      show: (at) => (carry = at === null ? null : { from, at }),
+      land: (at) => {
         // The gap counts the frame being moved, so dropping past itself is one
         // place further left than the gap number says.
         const to = at > from ? at - 1 : at;
         if (to !== from) moveFrame(from, to);
       },
-    );
+    });
   }
 
   /** Drag a step of the shown run to another place IN that run — the order a
    *  bar cannot express, and the one thing the old chip row was good for. */
   function carryStep(e: PointerEvent, name: string, list: number[], from: number) {
     if (readOnly()) return;
-    carryDrag(
-      e,
-      ".step",
-      (at) => (step = at === null ? null : { name, from, at }),
-      (at) => {
+    carryDrag(e, {
+      selector: ".step",
+      show: (at) => (step = at === null ? null : { name, from, at }),
+      land: (at) => {
         const to = at > from ? at - 1 : at;
         if (to === from) return;
         const next = [...list];
@@ -246,7 +283,7 @@
         next.splice(to, 0, moved);
         setAnimationFrames(name, next);
       },
-    );
+    });
   }
 
   /** `animation`, `animation 2`, … — a name to rename rather than a prompt to fill. */
@@ -478,14 +515,9 @@
         class:after={carry?.at === frames.length && i === frames.length - 1}
         style:grid-column={i + 2}
         oncontextmenu={(e) => frameMenu(e, i)}
-        onpointerdown={(e) => carryFrame(e, i)}
         role="presentation"
       >
-        <button
-          class="pick"
-          onclick={() => (editor.frame = i)}
-          title={`Frame ${i + 1} — drag to reorder`}
-        >
+        <button class="pick" onclick={() => (editor.frame = i)} title={`Frame ${i + 1}`}>
           <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
         </button>
         <!-- Reorder and number on one fixed row, so selecting a frame cannot
@@ -499,7 +531,16 @@
           >
             <ChevronLeft size={11} />
           </button>
-          <span>{i + 1}</span>
+          <!-- The number is the grip. It was a dead span between two buttons
+               that move this frame one step; dragging it moves the frame as
+               far as you like, which is the same verb without the counting. -->
+          <button
+            class="grip"
+            disabled={frames.length < 2}
+            aria-label={`Drag frame ${i + 1} to reorder`}
+            title={frames.length < 2 ? `Frame ${i + 1}` : "Drag to reorder"}
+            onpointerdown={(e) => carryFrame(e, i)}>{i + 1}</button
+          >
           <button
             onclick={() => moveFrame(i, i + 1)}
             disabled={i === frames.length - 1}
@@ -663,9 +704,28 @@
   }
   /* The play head marks the NUMBER, not a second ring on the box — accent on
      the frame border already means selected, and one word per meaning. */
-  .frame.playing .foot > span {
+  .frame.playing .foot > .grip {
     color: var(--halo-accent);
     font-weight: 600;
+  }
+  /* A wide target for a small number: this is the thing you grab, and the two
+     arrows either side of it are 11px each. */
+  .grip {
+    flex: 1;
+    padding: 0 0.3rem;
+    cursor: grab;
+    font-variant-numeric: tabular-nums;
+    /* Safari drags the element itself otherwise, and the pointermoves stop. */
+    user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+  }
+  .grip:active:not(:disabled) {
+    cursor: grabbing;
+  }
+  .grip:disabled {
+    cursor: default;
+    opacity: 1;
   }
   .pick {
     display: block;
@@ -811,6 +871,11 @@
     font-size: 0.65rem;
     font-variant-numeric: tabular-nums;
     cursor: grab;
+    /* Same reason as the frame grip: a press-and-move on a button is a native
+       element drag in Safari unless it is told not to be. */
+    user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
   }
   .step:hover {
     border-color: var(--halo-accent);

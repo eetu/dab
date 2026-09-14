@@ -114,7 +114,7 @@ test("the last frame of a run cannot be clicked away, and says why", async () =>
 
 /** Drag one element onto another and let go — the pointer gestures the strip
  *  and the lanes are driven by, travelling far enough to count as a drag. */
-async function dragOnto(from: HTMLElement, to: HTMLElement, side: "left" | "right" = "left") {
+async function dragOnto(from: Element, to: HTMLElement, side: "left" | "right" = "left") {
   const a = from.getBoundingClientRect();
   const b = to.getBoundingClientRect();
   const x = side === "left" ? b.left + b.width / 4 : b.left + (b.width * 3) / 4;
@@ -144,8 +144,8 @@ test("a frame is dragged to a new place, and the animations follow it", async ()
   const art = () => activeNode().frames.map((f) => f[0]);
   expect(art()).toEqual(["A.", ".A", "AA", ".."]);
 
-  // Frame 4 to the front.
-  await dragOnto(thumbs()[3], thumbs()[0], "left");
+  // Frame 4 to the front, by its grip — the number between the two arrows.
+  await dragOnto(thumbs()[3].querySelector(".grip")!, thumbs()[0], "left");
   expect(art()).toEqual(["..", "A.", ".A", "AA"]);
   // The run named frames 1 and 2; those are now 2 and 3, and it says so.
   expect(activeNode().animations?.swing).toEqual([1, 2]);
