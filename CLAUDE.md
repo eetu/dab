@@ -94,14 +94,24 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   clicking a lane's name is for (double-click renames, the deeper action behind
   the obvious one). A step is a position in the run, not a frame: two steps can
   name one frame, and that is what a hold is.
-- **Dragging reorders, and one drag is one undo entry.** Thumbnails drag in the
-  strip (`moveFrame` carries every run's indices through the same permutation),
-  steps drag within their run. Both go through one helper: nothing happens below
-  four pixels of travel, because a captured pointer retargets its release and the
-  thumbnail's own button would never see the click that selects the frame. The
-  marker is a solid bar in the GAP the drop would land in — a hairline beside a
-  1px border reads as a border — and the thing being carried goes quiet. Escape
-  abandons the drag through `gesture.abort`, the same rung the canvas uses.
+- **A frame drags by its NUMBER, and the number says so.** Safari treats a
+  press-and-move on a button wrapping a canvas as a native element drag: it takes
+  the gesture and the pointermoves stop, so a threshold that tells a drag from a
+  click is never crossed and nothing moves. A grip has no click to protect, so it
+  takes the pointer and the default on the press — the one thing every engine
+  allows — and the frame number was already sitting between the two arrows that
+  move a frame one step at a time, doing nothing. It carries grip dots because a
+  number alone reads as a label. Steps in a lane still have to be both, so they
+  keep the four-pixel threshold and take the pointer the moment it is crossed,
+  with `user-select`, `-webkit-user-drag` and `touch-action` off.
+- **A drag says where AND what.** A marker is a solid bar in the GAP the drop
+  lands in (a hairline beside a 1px border reads as a border), the thing being
+  carried goes quiet, and a ghost of it follows the cursor — with five
+  near-identical wheel frames a marker on its own is just a line. The document's
+  cursor is `grabbing` for the duration, because a cursor set on the element is
+  the element's business and a drag has left it. One commit on release, so a
+  reorder is one undo entry; `pointercancel` drops nothing; Escape abandons it
+  through `gesture.abort`, the same rung the canvas uses.
 - **The surface plays; there is no second canvas.** P (or the strip's ▶) puts the
   canvas in the play mode: the run walks, the grid, ants, part boxes and onion go
   away, the tools are inert, and what is on screen is what a consumer draws.

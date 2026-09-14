@@ -11,10 +11,9 @@
   // The bar is built from one cell per frame rather than a span, because a run
   // here is an arbitrary list — reversed, with holds — so it can have gaps, and
   // a gap is a hole in the bar rather than a lie about its extent.
-  import ChevronLeft from "@lucide/svelte/icons/chevron-left";
-  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
   import Eclipse from "@lucide/svelte/icons/eclipse";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import Plus from "@lucide/svelte/icons/plus";
@@ -86,6 +85,10 @@
   let carry: { from: number; at: number } | null = $state(null);
   /** A step of the selected run on its way to another place in that run. */
   let step: { name: string; from: number; at: number } | null = $state(null);
+  /** The thing in hand, under the cursor. A marker in a gap says where it would
+   *  land; this says WHAT is landing there, which the gap alone cannot — with
+   *  five near-identical wheel frames, the marker on its own is a line. */
+  let ghost: { x: number; y: number; frame: number | null; label: string } | null = $state(null);
 
   /**
    * The travel that tells a drag from a click, where one control has to be both.
@@ -128,6 +131,8 @@
       /** A grip starts dragging on the press; a control that also clicks waits
        *  for travel before it commits to being a drag. */
       grip?: boolean;
+      /** What to draw under the cursor while it is in hand. */
+      carried: { frame: number | null; label: string };
       show: (at: number | null) => void;
       land: (at: number) => void;
     },
@@ -140,6 +145,12 @@
     let live = !!opts.grip;
     let at: number | null = live ? gapAt(boxes(), start) : null;
 
+    /** Grabbing until the drop, wherever the pointer wanders: the cursor is the
+     *  document's while a drag is live, not the element's. */
+    const hold = (on: boolean) => {
+      document.documentElement.style.cursor = on ? "grabbing" : "";
+    };
+
     if (opts.grip) {
       // No click to lose, so take the pointer and the default with it: the
       // press must not also start a selection or a native element drag.
@@ -149,6 +160,8 @@
       } catch {
         /* a synthetic pointer — the window listeners below still track it */
       }
+      hold(true);
+      ghost = { x: e.clientX, y: e.clientY, ...opts.carried };
       opts.show(at);
     }
 
@@ -159,6 +172,7 @@
         // a drag that leaves the element still ends on it, and the browser
         // stops eyeing the gesture as a selection of its own.
         live = true;
+        hold(true);
         try {
           el.setPointerCapture(ev.pointerId);
         } catch {
@@ -166,6 +180,7 @@
         }
       }
       at = gapAt(boxes(), ev.clientX);
+      ghost = { x: ev.clientX, y: ev.clientY, ...opts.carried };
       opts.show(at);
     };
     const done = (drop: boolean) => {
@@ -173,6 +188,8 @@
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", cancel);
       gesture.abort = null;
+      hold(false);
+      ghost = null;
       opts.show(null);
       if (drop && at !== null) opts.land(at);
     };
@@ -258,6 +275,7 @@
     carryDrag(e, {
       selector: ".frame",
       grip: true,
+      carried: { frame: from, label: `${from + 1}` },
       show: (at) => (carry = at === null ? null : { from, at }),
       land: (at) => {
         // The gap counts the frame being moved, so dropping past itself is one
@@ -274,6 +292,7 @@
     if (readOnly()) return;
     carryDrag(e, {
       selector: ".step",
+      carried: { frame: list[from], label: `step ${from + 1}` },
       show: (at) => (step = at === null ? null : { name, from, at }),
       land: (at) => {
         const to = at > from ? at - 1 : at;
@@ -520,36 +539,23 @@
         <button class="pick" onclick={() => (editor.frame = i)} title={`Frame ${i + 1}`}>
           <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
         </button>
-        <!-- Reorder and number on one fixed row, so selecting a frame cannot
-             change the strip's height and shuffle the others sideways. -->
-        <div class="foot">
-          <button
-            onclick={() => moveFrame(i, i - 1)}
-            disabled={i === 0}
-            aria-label="Move earlier"
-            title="Move earlier"
-          >
-            <ChevronLeft size={11} />
-          </button>
-          <!-- The number is the grip. It was a dead span between two buttons
-               that move this frame one step; dragging it moves the frame as
-               far as you like, which is the same verb without the counting. -->
-          <button
-            class="grip"
-            disabled={frames.length < 2}
-            aria-label={`Drag frame ${i + 1} to reorder`}
-            title={frames.length < 2 ? `Frame ${i + 1}` : "Drag to reorder"}
-            onpointerdown={(e) => carryFrame(e, i)}>{i + 1}</button
-          >
-          <button
-            onclick={() => moveFrame(i, i + 1)}
-            disabled={i === frames.length - 1}
-            aria-label="Move later"
-            title="Move later"
-          >
-            <ChevronRight size={11} />
-          </button>
-        </div>
+        <!-- The number is the grip, and it sits ON the art in the corner rather
+             than on a row of its own: the row cost every thumbnail its own line
+             of chrome, and a badge over a corner costs nothing. Dragging it
+             moves the frame as far as you like — the step-at-a-time arrows it
+             replaces are in the menu, where the verbs are. The dots are there
+             so that is findable without being told: a number alone reads as a
+             label, and this one is a handle. -->
+        <button
+          class="grip"
+          disabled={frames.length < 2}
+          aria-label={`Drag frame ${i + 1} to reorder`}
+          title={frames.length < 2 ? `Frame ${i + 1}` : "Drag to reorder"}
+          onpointerdown={(e) => carryFrame(e, i)}
+        >
+          {#if frames.length > 1}<GripVertical size={9} />{/if}
+          {i + 1}
+        </button>
       </div>
     {/each}
 
@@ -657,6 +663,18 @@
   </div>
 </Panel>
 
+<!-- What is in hand, under the cursor, outside the timeline's scroller so it is
+     not clipped by it. Inert to the pointer: it is a picture of the thing being
+     moved, and the drop is decided by where the POINTER is. -->
+{#if ghost}
+  <div class="ghost" style:left={`${ghost.x}px`} style:top={`${ghost.y}px`}>
+    {#if ghost.frame !== null && node.frames[ghost.frame]}
+      <Thumbnail {node} frame={ghost.frame} variant={editor.variant} height="2.4rem" />
+    {/if}
+    <span>{ghost.label}</span>
+  </div>
+{/if}
+
 <style>
   .timeline {
     display: grid;
@@ -674,9 +692,9 @@
     scrollbar-color: var(--halo-border) transparent;
   }
   .frame {
+    position: relative;
     grid-row: 1;
     display: grid;
-    gap: 0.15rem;
     padding: 0.2rem;
     border: 1px solid var(--halo-border);
     border-radius: 5px;
@@ -704,15 +722,28 @@
   }
   /* The play head marks the NUMBER, not a second ring on the box — accent on
      the frame border already means selected, and one word per meaning. */
-  .frame.playing .foot > .grip {
+  .frame.playing .grip {
+    border-color: var(--halo-accent);
     color: var(--halo-accent);
     font-weight: 600;
   }
-  /* A wide target for a small number: this is the thing you grab, and the two
-     arrows either side of it are 11px each. */
+  /* A badge in the corner of the art, not a row under it: the row cost every
+     thumbnail a line of its own. Its ground is solid so the number reads over
+     whatever is drawn behind it. */
   .grip {
-    flex: 1;
-    padding: 0 0.3rem;
+    position: absolute;
+    left: 0.2rem;
+    top: 0.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.02rem;
+    padding: 0 0.18rem 0 0.05rem;
+    border: 1px solid var(--halo-border);
+    border-radius: 3px;
+    background: var(--halo-bg-main);
+    color: var(--halo-text-muted);
+    font-size: 0.62rem;
+    line-height: 1.35;
     cursor: grab;
     font-variant-numeric: tabular-nums;
     /* Safari drags the element itself otherwise, and the pointermoves stop. */
@@ -727,6 +758,37 @@
     cursor: default;
     opacity: 1;
   }
+  /* The dots sit back until the pointer is near: on five thumbnails at once
+     they would be five pieces of furniture competing with the art. */
+  .grip :global(svg) {
+    opacity: 0.6;
+  }
+  .frame:hover .grip:not(:disabled) {
+    background: var(--halo-bg-light);
+    color: var(--halo-text-main);
+  }
+  .frame:hover .grip :global(svg) {
+    opacity: 1;
+  }
+  /* Under the cursor, and out of the way of the drop it is deciding. */
+  .ghost {
+    position: fixed;
+    z-index: 20;
+    transform: translate(0.6rem, 0.6rem);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.3rem;
+    border: 1px solid var(--halo-accent);
+    border-radius: 5px;
+    background: var(--halo-bg-main);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    color: var(--halo-accent);
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.9;
+    pointer-events: none;
+  }
   .pick {
     display: block;
     padding: 0;
@@ -735,30 +797,6 @@
     border-radius: 3px;
     cursor: pointer;
     overflow: hidden;
-  }
-  .foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.65rem;
-    color: var(--halo-text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .foot button {
-    background: none;
-    border: 0;
-    padding: 0;
-    color: var(--halo-text-light);
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-  }
-  .foot button:hover:not(:disabled) {
-    color: var(--halo-text-main);
-  }
-  .foot button:disabled {
-    opacity: 0.25;
-    cursor: default;
   }
   /* The gutter sticks, so scrolling a long strip never leaves a row of bars
      with no names on it. */
