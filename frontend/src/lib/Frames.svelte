@@ -13,7 +13,6 @@
   // a gap is a hole in the bar rather than a lie about its extent.
   import Copy from "@lucide/svelte/icons/copy";
   import Eclipse from "@lucide/svelte/icons/eclipse";
-  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import Plus from "@lucide/svelte/icons/plus";
@@ -29,7 +28,6 @@
     canPlay,
     duplicateFrame,
     editor,
-    gesture,
     moveAnimation,
     moveFrame,
     readOnly,
@@ -80,130 +78,99 @@
    *  committed, so a whole sweep is one undo entry. */
   let sweep: { name: string; from: number; to: number; moved: boolean } | null = $state(null);
 
-  /** A thumbnail on its way to another place in the strip. `at` is where it
-   *  would land — the gap it is hovering, not the frame it is over. */
-  let carry: { from: number; at: number } | null = $state(null);
-  /** A step of the selected run on its way to another place in that run. */
-  let step: { name: string; from: number; at: number } | null = $state(null);
-  /** The thing in hand, under the cursor. A marker in a gap says where it would
-   *  land; this says WHAT is landing there, which the gap alone cannot — with
-   *  five near-identical wheel frames, the marker on its own is a line. */
-  let ghost: { x: number; y: number; frame: number | null; label: string } | null = $state(null);
-
   /**
-   * The travel that tells a drag from a click, where one control has to be both.
+   * Reordering is the PLATFORM's drag and drop, as `../nib`'s layer list does it.
    *
-   * Below it nothing happens at all — no pointer capture, no marker — because a
-   * captured pointer retargets its release and a chip that also answers clicks
-   * would never see one. A GRIP needs none of this: it has no click to protect,
-   * so it takes the pointer at once, which is also the only thing Safari will
-   * reliably let us drag. A press-and-move on a button wrapping a canvas is a
-   * native element drag there, and the pointermoves simply stop arriving.
+   * A pointer-driven version worked in Chrome and did nothing in Safari, for the
+   * reason it should have been a hint: Safari was already trying to start a
+   * native drag on the press, took the gesture, and stopped sending pointermoves.
+   * Doing it the browser's way costs less code and brings the rest with it — the
+   * drag image under the cursor, the cursor itself, Escape to abandon, and the
+   * autoscroll when a long strip runs off the edge.
+   *
+   * What is carried is an index, not a thing: a frame of the node being edited,
+   * or a step of one run. `where` keeps the two apart, so a step cannot land in
+   * the strip and a frame cannot land in a run.
    */
-  const TRAVEL = 4;
+  let lifted: { where: "frame" | "step"; name?: string; at: number } | null = $state(null);
+  /** The frame or step the pointer is over, and which side of it. */
+  let over: { where: "frame" | "step"; name?: string; at: number; after: boolean } | null =
+    $state(null);
 
-  /** Which gap of a row of boxes a pointer is over: 0 before the first, n after
-   *  the last. Midpoints, so the marker flips when the pointer passes a centre
-   *  rather than when it crosses an edge. */
-  function gapAt(boxes: HTMLElement[], x: number): number {
-    let at = boxes.length;
-    for (let i = 0; i < boxes.length; i++) {
-      const r = boxes[i].getBoundingClientRect();
-      if (x < r.left + r.width / 2) {
-        at = i;
-        break;
-      }
-    }
-    return at;
+  const dropAt = (e: DragEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return (e.clientX - r.left) / r.width > 0.5;
+  };
+
+  /** Where a drop would put it, counting the thing being moved out of the way:
+   *  the gap past itself is one place further left than the gap number says. */
+  function landing(from: number, at: number, after: boolean) {
+    const gap = at + (after ? 1 : 0);
+    return gap > from ? gap - 1 : gap;
   }
 
-  /**
-   * A drag of one thing in a row, as both of these are.
-   *
-   * `pick` says what is being moved, `land` where it wants to go, and the whole
-   * thing is one commit on release — a reorder that committed per pointermove
-   * would put a hundred entries on the undo stack for one gesture.
-   */
-  function carryDrag(
-    e: PointerEvent,
-    opts: {
-      selector: string;
-      /** A grip starts dragging on the press; a control that also clicks waits
-       *  for travel before it commits to being a drag. */
-      grip?: boolean;
-      /** What to draw under the cursor while it is in hand. */
-      carried: { frame: number | null; label: string };
-      show: (at: number | null) => void;
-      land: (at: number) => void;
-    },
-  ) {
-    const el = e.currentTarget as HTMLElement;
-    const host = el.closest(".timeline");
-    if (!host) return;
-    const start = e.clientX;
-    const boxes = () => [...host.querySelectorAll(opts.selector)] as HTMLElement[];
-    let live = !!opts.grip;
-    let at: number | null = live ? gapAt(boxes(), start) : null;
+  function liftFrame(e: DragEvent, i: number) {
+    if (readOnly() || frames.length < 2) return e.preventDefault();
+    lifted = { where: "frame", at: i };
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  }
 
-    /** Grabbing until the drop, wherever the pointer wanders: the cursor is the
-     *  document's while a drag is live, not the element's. */
-    const hold = (on: boolean) => {
-      document.documentElement.style.cursor = on ? "grabbing" : "";
-    };
+  function liftStep(e: DragEvent, name: string, j: number) {
+    if (readOnly()) return e.preventDefault();
+    lifted = { where: "step", name, at: j };
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  }
 
-    if (opts.grip) {
-      // No click to lose, so take the pointer and the default with it: the
-      // press must not also start a selection or a native element drag.
-      e.preventDefault();
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch {
-        /* a synthetic pointer — the window listeners below still track it */
-      }
-      hold(true);
-      ghost = { x: e.clientX, y: e.clientY, ...opts.carried };
-      opts.show(at);
-    }
+  /** Only over something the lifted thing can land on — a step drags within its
+   *  own run, and a frame within the strip. preventDefault is what says so: no
+   *  call, no drop, and the cursor says no without a word from us. */
+  function dragOver(e: DragEvent, where: "frame" | "step", at: number, name?: string) {
+    if (!lifted || lifted.where !== where || lifted.name !== name) return;
+    e.preventDefault();
+    over = { where, name, at, after: dropAt(e) };
+  }
 
-    const move = (ev: PointerEvent) => {
-      if (!live && Math.abs(ev.clientX - start) < TRAVEL) return;
-      if (!live) {
-        // Past the threshold the click is forfeit anyway, so take the pointer:
-        // a drag that leaves the element still ends on it, and the browser
-        // stops eyeing the gesture as a selection of its own.
-        live = true;
-        hold(true);
-        try {
-          el.setPointerCapture(ev.pointerId);
-        } catch {
-          /* a synthetic pointer — the window listeners still track it */
+  function drop(e: DragEvent, list?: number[]) {
+    // The app's own drop is for FILES — a frame landing in the strip is not a
+    // sprite arriving from the desktop.
+    e.preventDefault();
+    e.stopPropagation();
+    if (lifted && over && lifted.where === over.where && lifted.name === over.name) {
+      const to = landing(lifted.at, over.at, over.after);
+      if (to !== lifted.at) {
+        if (lifted.where === "frame") moveFrame(lifted.at, to);
+        else if (list && over.name) {
+          const next = [...list];
+          const [moved] = next.splice(lifted.at, 1);
+          next.splice(to, 0, moved);
+          setAnimationFrames(over.name, next);
         }
       }
-      at = gapAt(boxes(), ev.clientX);
-      ghost = { x: ev.clientX, y: ev.clientY, ...opts.carried };
-      opts.show(at);
-    };
-    const done = (drop: boolean) => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", cancel);
-      gesture.abort = null;
-      hold(false);
-      ghost = null;
-      opts.show(null);
-      if (drop && at !== null) opts.land(at);
-    };
-    const up = () => done(true);
-    // A cancelled pointer — the OS taking the gesture, a lost capture — puts
-    // nothing down. Without this the drag stayed live with no way to end it.
-    const cancel = () => done(false);
-
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", cancel);
-    // Escape's first rung: let go of the drag and put nothing down.
-    gesture.abort = () => done(false);
+    }
+    endDrag();
   }
+
+  const endDrag = () => {
+    lifted = null;
+    over = null;
+  };
+
+  /**
+   * The frame a hovered step names.
+   *
+   * The strip is pictures, not numbers: a thumbnail says which frame it is
+   * better than a label over the art ever did. What the label was still good for
+   * was reading a run — "1 2 3 4 3 2" has to point at something — so pointing at
+   * a step lights the frame it plays instead. A link on demand beats a number on
+   * every thumbnail forever.
+   */
+  let linked = $state<number | null>(null);
+
+  const marks = (where: "frame" | "step", at: number, name?: string) => ({
+    lifted: lifted?.where === where && lifted.name === name && lifted.at === at,
+    before: over?.where === where && over.name === name && over.at === at && !over.after,
+    after: over?.where === where && over.name === name && over.at === at && over.after,
+  });
 
   const span = (s: { from: number; to: number }) => {
     const [a, b] = s.from <= s.to ? [s.from, s.to] : [s.to, s.from];
@@ -264,45 +231,6 @@
     sweep = null;
     if (s.moved) setAnimationFrames(name, span(s));
     else toggle(name, list, s.from);
-  }
-
-  /** Drag a frame to another place in the strip, BY ITS NUMBER — the grip sits
-   *  between the two arrows that do the same thing one step at a time. The
-   *  animations follow it: `moveFrame` carries every run's indices through the
-   *  same permutation. */
-  function carryFrame(e: PointerEvent, from: number) {
-    if (readOnly() || frames.length < 2) return;
-    carryDrag(e, {
-      selector: ".frame",
-      grip: true,
-      carried: { frame: from, label: `${from + 1}` },
-      show: (at) => (carry = at === null ? null : { from, at }),
-      land: (at) => {
-        // The gap counts the frame being moved, so dropping past itself is one
-        // place further left than the gap number says.
-        const to = at > from ? at - 1 : at;
-        if (to !== from) moveFrame(from, to);
-      },
-    });
-  }
-
-  /** Drag a step of the shown run to another place IN that run — the order a
-   *  bar cannot express, and the one thing the old chip row was good for. */
-  function carryStep(e: PointerEvent, name: string, list: number[], from: number) {
-    if (readOnly()) return;
-    carryDrag(e, {
-      selector: ".step",
-      carried: { frame: list[from], label: `step ${from + 1}` },
-      show: (at) => (step = at === null ? null : { name, from, at }),
-      land: (at) => {
-        const to = at > from ? at - 1 : at;
-        if (to === from) return;
-        const next = [...list];
-        const [moved] = next.splice(from, 1);
-        next.splice(to, 0, moved);
-        setAnimationFrames(name, next);
-      },
-    });
   }
 
   /** `animation`, `animation 2`, … — a name to rename rather than a prompt to fill. */
@@ -525,36 +453,34 @@
     <!-- The frames themselves, one per column. Everything below lines up with
          these, which is the whole point of the arrangement. -->
     {#each frames as _, i (i)}
+      {@const mark = marks("frame", i)}
+      <!-- The whole thumbnail is the drag: the browser picks it up, draws it
+           under the cursor and cancels on Escape, and the click inside it still
+           selects the frame, because that is what `draggable` is for. -->
       <div
         class="frame"
         class:on={i === editor.frame}
         class:playing={editor.playing && i === playFrame}
-        class:lifted={carry?.from === i}
-        class:before={carry?.at === i}
-        class:after={carry?.at === frames.length && i === frames.length - 1}
+        class:linked={linked === i}
+        class:lifted={mark.lifted}
+        class:dropbefore={mark.before}
+        class:dropafter={mark.after}
         style:grid-column={i + 2}
+        draggable={frames.length > 1}
         oncontextmenu={(e) => frameMenu(e, i)}
+        ondragstart={(e) => liftFrame(e, i)}
+        ondragover={(e) => dragOver(e, "frame", i)}
+        ondragleave={() => (over?.where === "frame" && over.at === i ? (over = null) : null)}
+        ondrop={(e) => drop(e)}
+        ondragend={endDrag}
         role="presentation"
       >
-        <button class="pick" onclick={() => (editor.frame = i)} title={`Frame ${i + 1}`}>
-          <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
-        </button>
-        <!-- The number is the grip, and it sits ON the art in the corner rather
-             than on a row of its own: the row cost every thumbnail its own line
-             of chrome, and a badge over a corner costs nothing. Dragging it
-             moves the frame as far as you like — the step-at-a-time arrows it
-             replaces are in the menu, where the verbs are. The dots are there
-             so that is findable without being told: a number alone reads as a
-             label, and this one is a handle. -->
         <button
-          class="grip"
-          disabled={frames.length < 2}
-          aria-label={`Drag frame ${i + 1} to reorder`}
-          title={frames.length < 2 ? `Frame ${i + 1}` : "Drag to reorder"}
-          onpointerdown={(e) => carryFrame(e, i)}
+          class="pick"
+          onclick={() => (editor.frame = i)}
+          title={frames.length > 1 ? `Frame ${i + 1} — drag to reorder` : `Frame ${i + 1}`}
         >
-          {#if frames.length > 1}<GripVertical size={9} />{/if}
-          {i + 1}
+          <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
         </button>
       </div>
     {/each}
@@ -635,14 +561,25 @@
              frames, this answers in what order. -->
         <div class="seq" style:grid-row={row + 1} role="list">
           {#each list as f, j (j)}
+            {@const mark = marks("step", j, name)}
             <button
               class="step"
-              class:lifted={step?.name === name && step.from === j}
-              class:before={step?.name === name && step.at === j}
-              class:after={step?.name === name && step.at === list.length && j === list.length - 1}
+              class:lifted={mark.lifted}
+              class:dropbefore={mark.before}
+              class:dropafter={mark.after}
               class:head={playing && editor.playhead % list.length === j}
               title={`Step ${j + 1} — frame ${f + 1}. Drag to reorder, click to go there.`}
-              onpointerdown={(e) => carryStep(e, name, list, j)}
+              draggable="true"
+              ondragstart={(e) => liftStep(e, name, j)}
+              ondragover={(e) => dragOver(e, "step", j, name)}
+              ondragleave={() =>
+                over?.where === "step" && over.name === name && over.at === j
+                  ? (over = null)
+                  : null}
+              ondrop={(e) => drop(e, list)}
+              ondragend={endDrag}
+              onpointerenter={() => (linked = f)}
+              onpointerleave={() => (linked === f ? (linked = null) : null)}
               onclick={() => (editor.frame = f)}
               oncontextmenu={(e) => stepMenu(e, name, list, j)}>{f + 1}</button
             >
@@ -662,18 +599,6 @@
     </button>
   </div>
 </Panel>
-
-<!-- What is in hand, under the cursor, outside the timeline's scroller so it is
-     not clipped by it. Inert to the pointer: it is a picture of the thing being
-     moved, and the drop is decided by where the POINTER is. -->
-{#if ghost}
-  <div class="ghost" style:left={`${ghost.x}px`} style:top={`${ghost.y}px`}>
-    {#if ghost.frame !== null && node.frames[ghost.frame]}
-      <Thumbnail {node} frame={ghost.frame} variant={editor.variant} height="2.4rem" />
-    {/if}
-    <span>{ghost.label}</span>
-  </div>
-{/if}
 
 <style>
   .timeline {
@@ -703,91 +628,51 @@
   .frame.on {
     border-color: var(--halo-accent);
   }
-  /* Where a dragged thing would land, drawn in the gap it would land in. The
-     thing being carried goes quiet so the marker is the only thing moving. */
+  /* The one being carried goes quiet; the browser is already drawing it under
+     the cursor, and two copies of it is one too many. */
   .frame.lifted,
   .step.lifted {
     opacity: 0.35;
   }
-  /* A solid bar in the gap, not a hairline: the marker is the only thing saying
-     where the drop lands, and at a glance a 1px line beside a 1px border is a
-     border. The box is opaque, so a shifted shadow shows only as that bar. */
-  .frame.before,
-  .step.before {
+  /* The edge the drop lands against, in `../nib`'s words — dropbefore and
+     dropafter — but drawn OUTSIDE the box rather than inset as nib draws it: a
+     layer row is mostly text on its own ground, where a thumbnail is opaque art
+     to within 3px of its border and swallows an inset bar whole. */
+  .frame.dropbefore,
+  .step.dropbefore {
     box-shadow: -4px 0 0 0 var(--halo-accent);
   }
-  .frame.after,
-  .step.after {
+  .frame.dropafter,
+  .step.dropafter {
     box-shadow: 4px 0 0 0 var(--halo-accent);
   }
   /* The play head marks the NUMBER, not a second ring on the box — accent on
      the frame border already means selected, and one word per meaning. */
-  .frame.playing .grip {
-    border-color: var(--halo-accent);
-    color: var(--halo-accent);
-    font-weight: 600;
-  }
-  /* A badge in the corner of the art, not a row under it: the row cost every
-     thumbnail a line of its own. Its ground is solid so the number reads over
-     whatever is drawn behind it. */
-  .grip {
+  /* The play head, as a mark on the art rather than a number: a dot in the
+     corner where the number used to be. Accent on the border already means
+     SELECTED, and the two are often different frames. */
+  .frame.playing::after {
+    content: "";
     position: absolute;
-    left: 0.2rem;
-    top: 0.2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.02rem;
-    padding: 0 0.18rem 0 0.05rem;
-    border: 1px solid var(--halo-border);
-    border-radius: 3px;
-    background: var(--halo-bg-main);
-    color: var(--halo-text-muted);
-    font-size: 0.62rem;
-    line-height: 1.35;
-    cursor: grab;
-    font-variant-numeric: tabular-nums;
-    /* Safari drags the element itself otherwise, and the pointermoves stop. */
+    left: 0.35rem;
+    top: 0.35rem;
+    width: 0.3rem;
+    height: 0.3rem;
+    border-radius: 50%;
+    background: var(--halo-accent);
+    box-shadow: 0 0 0 2px var(--halo-bg-main);
+  }
+  /* The frame a hovered step names. Quieter than selection, because it is the
+     pointer asking a question rather than the document answering one. */
+  .frame.linked {
+    border-color: var(--halo-accent);
+    background: var(--halo-accent-soft);
+  }
+  /* Nothing here is text to select: a press is either a click or the start of a
+     drag, and a half-selected number is neither. */
+  .frame,
+  .step {
     user-select: none;
-    -webkit-user-drag: none;
-    touch-action: none;
-  }
-  .grip:active:not(:disabled) {
-    cursor: grabbing;
-  }
-  .grip:disabled {
-    cursor: default;
-    opacity: 1;
-  }
-  /* The dots sit back until the pointer is near: on five thumbnails at once
-     they would be five pieces of furniture competing with the art. */
-  .grip :global(svg) {
-    opacity: 0.6;
-  }
-  .frame:hover .grip:not(:disabled) {
-    background: var(--halo-bg-light);
-    color: var(--halo-text-main);
-  }
-  .frame:hover .grip :global(svg) {
-    opacity: 1;
-  }
-  /* Under the cursor, and out of the way of the drop it is deciding. */
-  .ghost {
-    position: fixed;
-    z-index: 20;
-    transform: translate(0.6rem, 0.6rem);
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.15rem 0.3rem;
-    border: 1px solid var(--halo-accent);
-    border-radius: 5px;
-    background: var(--halo-bg-main);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-    color: var(--halo-accent);
-    font-size: 0.65rem;
-    font-variant-numeric: tabular-nums;
-    opacity: 0.9;
-    pointer-events: none;
   }
   .pick {
     display: block;

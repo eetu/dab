@@ -112,24 +112,18 @@ test("the last frame of a run cannot be clicked away, and says why", async () =>
   expect(editor.statusBad).toBe(true);
 });
 
-/** Drag one element onto another and let go — the pointer gestures the strip
- *  and the lanes are driven by, travelling far enough to count as a drag. */
+/** Drag one element onto another and let go, as the browser does it: dragstart
+ *  on the thing, dragover on the target (which side of it decides the landing),
+ *  drop. The same events `../nib`'s layer list is reordered by. */
 async function dragOnto(from: Element, to: HTMLElement, side: "left" | "right" = "left") {
-  const a = from.getBoundingClientRect();
   const b = to.getBoundingClientRect();
-  const x = side === "left" ? b.left + b.width / 4 : b.left + (b.width * 3) / 4;
-  const y = b.top + b.height / 2;
-  const base = { bubbles: true, pointerId: 9, pointerType: "mouse" };
-  from.dispatchEvent(
-    new PointerEvent("pointerdown", {
-      ...base,
-      clientX: a.left + a.width / 2,
-      clientY: a.top + a.height / 2,
-    }),
-  );
-  window.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: x, clientY: y }));
+  const clientX = side === "left" ? b.left + b.width / 4 : b.left + (b.width * 3) / 4;
+  const clientY = b.top + b.height / 2;
+  const dataTransfer = new DataTransfer();
+  from.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+  to.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer, clientX, clientY }));
   await sleep(20);
-  window.dispatchEvent(new PointerEvent("pointerup", { ...base, clientX: x, clientY: y }));
+  to.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer, clientX, clientY }));
   await sleep(40);
 }
 
@@ -144,8 +138,8 @@ test("a frame is dragged to a new place, and the animations follow it", async ()
   const art = () => activeNode().frames.map((f) => f[0]);
   expect(art()).toEqual(["A.", ".A", "AA", ".."]);
 
-  // Frame 4 to the front, by its grip — the number between the two arrows.
-  await dragOnto(thumbs()[3].querySelector(".grip")!, thumbs()[0], "left");
+  // Frame 4 to the front: picked up whole, dropped on frame 1's leading half.
+  await dragOnto(thumbs()[3], thumbs()[0], "left");
   expect(art()).toEqual(["..", "A.", ".A", "AA"]);
   // The run named frames 1 and 2; those are now 2 and 3, and it says so.
   expect(activeNode().animations?.swing).toEqual([1, 2]);

@@ -61,30 +61,24 @@ test("a frame mid-drag, with the gap it would land in marked", async () => {
   await rig.settle(200);
 
   // Held, not dropped: the picture is of the marker, which only exists while a
-  // drag is live.
+  // drag is live. The browser's own drag image is not in a synthesised drag —
+  // in a real one it is the thumbnail, under the cursor.
   const thumbs = [...document.querySelectorAll(".timeline .frame")] as HTMLElement[];
-  const grip = thumbs[4].querySelector(".grip") as HTMLElement;
-  const from = grip.getBoundingClientRect();
   const to = thumbs[1].getBoundingClientRect();
-  const base = { bubbles: true, pointerId: 5, pointerType: "mouse" };
-  grip.dispatchEvent(
-    new PointerEvent("pointerdown", {
-      ...base,
-      clientX: from.left + from.width / 2,
-      clientY: from.top + from.height / 2,
-    }),
-  );
-  window.dispatchEvent(
-    new PointerEvent("pointermove", {
-      ...base,
+  const dataTransfer = new DataTransfer();
+  thumbs[4].dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+  thumbs[1].dispatchEvent(
+    new DragEvent("dragover", {
+      bubbles: true,
+      dataTransfer,
       clientX: to.left + to.width / 4,
       clientY: to.top + to.height / 2,
     }),
   );
   await rig.settle(120);
-  expect(document.querySelector(".timeline .frame.before"), "no drop marker").toBeTruthy();
+  expect(document.querySelector(".timeline .frame.dropbefore"), "no drop marker").toBeTruthy();
   await rig.shot("26-frame-drag");
-  window.dispatchEvent(new PointerEvent("pointerup", base));
+  thumbs[4].dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
 });
 
 test("a run's steps, in playing order under its bar", async () => {

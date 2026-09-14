@@ -94,24 +94,31 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   clicking a lane's name is for (double-click renames, the deeper action behind
   the obvious one). A step is a position in the run, not a frame: two steps can
   name one frame, and that is what a hold is.
-- **A frame drags by its NUMBER, and the number says so.** Safari treats a
-  press-and-move on a button wrapping a canvas as a native element drag: it takes
-  the gesture and the pointermoves stop, so a threshold that tells a drag from a
-  click is never crossed and nothing moves. A grip has no click to protect, so it
-  takes the pointer and the default on the press — the one thing every engine
-  allows — and the frame number was already sitting between the two arrows that
-  move a frame one step at a time, doing nothing. It carries grip dots because a
-  number alone reads as a label. Steps in a lane still have to be both, so they
-  keep the four-pixel threshold and take the pointer the moment it is crossed,
-  with `user-select`, `-webkit-user-drag` and `touch-action` off.
-- **A drag says where AND what.** A marker is a solid bar in the GAP the drop
-  lands in (a hairline beside a 1px border reads as a border), the thing being
-  carried goes quiet, and a ghost of it follows the cursor — with five
-  near-identical wheel frames a marker on its own is just a line. The document's
-  cursor is `grabbing` for the duration, because a cursor set on the element is
-  the element's business and a drag has left it. One commit on release, so a
-  reorder is one undo entry; `pointercancel` drops nothing; Escape abandons it
-  through `gesture.abort`, the same rung the canvas uses.
+- **Reordering is the PLATFORM's drag and drop, as `../nib`'s layer list does
+  it.** `draggable`, `dragover` reading which half of the target the pointer is
+  over, `dropbefore`/`dropafter` markers, `dragend` to clear — the same names and
+  the same shape as the sibling, so one app teaches the other. A pointer-driven
+  version of this worked in Chrome and did nothing in Safari, which was the hint:
+  Safari was already trying to start a native drag on the press, took the
+  gesture, and stopped sending pointermoves. Doing it the browser's way is less
+  code and brings the drag image, the cursor, Escape-to-abandon and edge
+  autoscroll with it. Two deviations from nib, both because a thumbnail is not a
+  text row: the marker is drawn OUTSIDE the box, since opaque art to within 3px
+  of the border swallows an inset bar; and the app's own file-drop handlers guard
+  on `dataTransfer.types` including `Files`, or every frame moved two places lit
+  the whole window as a drop target.
+- **What is carried is an index, and it lands in its own kind.** A frame drags in
+  the strip, a step within one run; `dragOver` calls `preventDefault` only over
+  something the lifted thing can land on, so the cursor refuses the rest without
+  a word from us. `moveFrame` carries every animation's indices through the same
+  permutation, so the runs follow the art. One drop is one undo entry.
+- **The strip is pictures; the numbers live where a sequence needs them.** A
+  thumbnail says which frame it is better than a label over the art does, so
+  there is none — the play head is a dot in the corner (accent on the border
+  already means selected, and the two are often different frames). Numbers stay
+  on the lane cells and the step chips, because a run has to name frames to say
+  "1 2 3 4 3 2"; pointing at a step lights the frame it plays, which is a better
+  link than a number on every thumbnail forever.
 - **The surface plays; there is no second canvas.** P (or the strip's ▶) puts the
   canvas in the play mode: the run walks, the grid, ants, part boxes and onion go
   away, the tools are inert, and what is on screen is what a consumer draws.
