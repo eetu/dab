@@ -844,11 +844,13 @@
     void flashOn; // and the flash changes what the selection looks like
 
     g.clearRect(0, 0, el.width, el.height);
-    // The frame behind, faint: the reason multi-frame sprites line up at all.
-    // The active node's own, because that is the strip being drawn. The
-    // faintness is the painter's business — setting globalAlpha around the call
-    // did nothing, because paintRows sets it too.
-    if (prev) paintRows(g, prev, node, origin.x, origin.y, editor.variant, "full", 0.28);
+    // The frame behind, faint and washed cool: the reason multi-frame sprites
+    // line up at all. The active node's own, because that is the strip being
+    // drawn. Tinted rather than merely faint, as every animation tool since the
+    // lightbox does it — a ghost in the art's own colours can be read as the
+    // art, which after Duplicate it is. Both are the painter's business:
+    // setting globalAlpha around the call did nothing, since paintRows sets it.
+    if (prev) paintRows(g, prev, node, origin.x, origin.y, editor.variant, "ghost", 0.45);
     paintAssembly(g, sprite, -box.x, -box.y, paintOpts);
     // Preview sits on top at full strength — it is about to be real.
     if (pts.length && drawable) {

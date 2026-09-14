@@ -68,9 +68,12 @@ test("the frame behind is still there while drawing", async () => {
   editor.tool = "eraser";
   paint([[0, 0]], true);
   await sleep(60);
-  const [, , , alpha] = pixel(0, 0);
+  const [r, , b, alpha] = pixel(0, 0);
   expect(alpha, "the onion skin is not drawing").toBeGreaterThan(0);
   expect(alpha, "the onion skin is drawing at full strength").toBeLessThan(200);
+  // And washed cool: the art is red, so a ghost that is still redder than it is
+  // blue is a ghost that can be mistaken for the drawing.
+  expect(b, "the onion skin is not tinted").toBeGreaterThan(r);
 });
 
 test("and it keeps out of a turn, which is where it read as one frame", async () => {

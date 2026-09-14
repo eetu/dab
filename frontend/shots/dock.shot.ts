@@ -81,6 +81,30 @@ test("a frame mid-drag, with the gap it would land in marked", async () => {
   thumbs[4].dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
 });
 
+test("the onion skin: the frame behind, washed cool", async () => {
+  const rig = await open(SPRITES.car());
+  onTestFinished(() => {
+    editor.onion = false;
+    rig.stop();
+  });
+  // Two frames of the same car, the second shifted along — the case the onion
+  // exists for: does this frame line up with the last.
+  const rows = SPRITES.car().frames[0];
+  loadSprite(
+    {
+      ...SPRITES.car(),
+      name: "drift",
+      frames: [rows, rows.map((r) => `.${r.slice(0, -1)}`)],
+    },
+    "drift.json",
+  );
+  await rig.settle(150);
+  editor.onion = true;
+  editor.frame = 1;
+  await rig.settle(200);
+  await rig.shot("29-onion");
+});
+
 test("a run's steps, in playing order under its bar", async () => {
   const rig = await open(SPRITES.car());
   onTestFinished(rig.stop);

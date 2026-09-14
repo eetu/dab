@@ -119,6 +119,15 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   on the lane cells and the step chips, because a run has to name frames to say
   "1 2 3 4 3 2"; pointing at a step lights the frame it plays, which is a better
   link than a number on every thumbnail forever.
+- **The onion skin is tinted, not merely faint.** It answers the one question
+  playing and the thumbnails cannot: does this frame line up with the last. A
+  ghost drawn in the art's own colours can be read as the art — and after
+  Duplicate, where the frame behind IS the same drawing, it is indistinguishable
+  from it. So the previous frame is washed toward a cool blue (`ghost` in
+  `render.ts`, beside `dim` and `outline`), the way every animation tool since
+  the lightbox has done it. It keeps out of a turn: the mode rebuilds the frame
+  from pristine art at every tick, and a ghost under that reads as part of what
+  is being turned.
 - **The surface plays; there is no second canvas.** P (or the strip's ▶) puts the
   canvas in the play mode: the run walks, the grid, ants, part boxes and onion go
   away, the tools are inert, and what is on screen is what a consumer draws.
