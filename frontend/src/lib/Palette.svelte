@@ -113,6 +113,10 @@
   let list: HTMLDivElement | null = $state(null);
   let drag = $state<{ ch: string; from: number; over: number } | null>(null);
   let moved = false;
+  /** Where the press landed. Travel is measured from here, not from the
+   *  swatch's centre: a swatch is wider than the dead zone, so a press near its
+   *  edge read as a drag on the first pixel of jitter and lost the click. */
+  let press = { x: 0, y: 0 };
 
   const DEAD_ZONE = 6;
 
@@ -120,21 +124,14 @@
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     drag = { ch, from, over: from };
     moved = false;
+    press = { x: e.clientX, y: e.clientY };
   }
 
   function slide(e: PointerEvent) {
     if (!drag || !list) return;
     const cells = [...list.querySelectorAll<HTMLElement>("[data-swatch]")];
     if (!cells.length) return;
-    const from = cells[drag.from].getBoundingClientRect();
-    if (
-      Math.hypot(
-        e.clientX - (from.left + from.width / 2),
-        e.clientY - (from.top + from.height / 2),
-      ) > DEAD_ZONE
-    ) {
-      moved = true;
-    }
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > DEAD_ZONE) moved = true;
     // Nearest centre, because a grid wraps: "the row above" is not a direction
     // a swatch can be dragged in, but "that one there" always is.
     let over = drag.over;

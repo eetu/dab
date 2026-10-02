@@ -26,7 +26,6 @@
     editor,
     fillAt,
     flipSelection,
-    floating,
     frameOf,
     gesture,
     hasSelection,
@@ -36,6 +35,7 @@
     paint,
     partAt,
     pasteClipboard,
+    pasteFloating,
     pathKey,
     pickAt,
     placePart,
@@ -358,11 +358,13 @@
     // node without anyone noticing. Say so rather than swallowing it.
     if (nodeHidden) {
       editor.status = `${editor.path.join("/")} is hidden — show it to draw on it`;
+      editor.statusBad = true;
       return;
     }
     // ⌥ over a brush takes the colour and leaves the tool where it was — the
     // pick is the one thing you want mid-stroke, and switching to the picker to
-    // get it costs two keys and your place. Select keeps ⌥ for subtract.
+    // get it costs two keys and your place. Select keeps ⌥ for its box, which
+    // then takes only the painted cells; Move never reaches this line.
     if (alt && editor.tool !== "select") return pickAt(p.x, p.y);
     if (editor.tool === "picker") return pickAt(p.x, p.y);
     if (editor.tool === "fill") return fillAt(p.x, p.y);
@@ -560,6 +562,7 @@
     pointers = pointers.filter((q) => q.id !== e.pointerId);
     if (pointers.length < 2) pinch = null;
     panning = false;
+    const travelled = committed;
     committed = false;
     gesture.abort = null;
     const p = cellAt(e) ?? hover;
@@ -568,6 +571,10 @@
       return;
     }
     if (moving) {
+      // A press inside the selection that never travelled is a click like any
+      // other, and picks the shape under it — or a marquee carried over from
+      // another frame, or a whole-frame paste, would swallow every click.
+      if (!travelled && p) selectShapeAt(p.x, p.y);
       moving = null;
       return;
     }
@@ -677,16 +684,19 @@
     const why = readOnly();
     const items: MenuItem[] = [];
 
-    if (hasSelection()) {
-      const size = `${selection.x1 - selection.x0 + 1}×${selection.y1 - selection.y0 + 1}`;
-      items.push(
-        { label: "Cut", hint: why ? undefined : size, disabled: !!why, run: cutSelection },
-        { label: "Copy", hint: size, run: copySelection },
-      );
-    }
+    // With nothing selected, cut and copy take the whole frame — the same as
+    // the keys, so the menu is not a second opinion about what ⌘C does.
+    const size = hasSelection()
+      ? `${selection.x1 - selection.x0 + 1}×${selection.y1 - selection.y0 + 1}`
+      : `frame ${frameOf(editor.path, node) + 1}`;
+    const noun = hasSelection() ? "" : " frame";
+    items.push(
+      { label: `Cut${noun}`, hint: why ? undefined : size, disabled: !!why, run: cutSelection },
+      { label: `Copy${noun}`, hint: size, run: copySelection },
+    );
     if (clipboard.stamp?.cells.length) {
       items.push({
-        label: hasSelection() ? "Paste" : "Paste here",
+        label: "Paste here",
         hint: why ? undefined : `${clipboard.stamp.w}×${clipboard.stamp.h}`,
         disabled: !!why || !inside,
         run: () => pasteClipboard(inside ? p : undefined),
@@ -801,7 +811,9 @@
 
   /** Whether a click would sample rather than paint, for the cursor to say so
    *  before the click rather than after it. */
-  const picking = $derived(editor.tool === "picker" || (alt && editor.tool !== "select"));
+  const picking = $derived(
+    editor.tool === "picker" || (alt && editor.tool !== "select" && editor.tool !== "move"),
+  );
 
   // Fit on load and on a pane resize — but never once the zoom has been touched
   // by hand, or the view would snap back mid-edit.
@@ -986,7 +998,7 @@
            it never hides the edge pixels it is describing. -->
       <div
         class="ants"
-        class:floating={floating.on}
+        class:floating={pasteFloating()}
         style:left={`${(origin.x + selection.x0) * px}px`}
         style:top={`${(origin.y + selection.y0) * px}px`}
         style:width={`${(selection.x1 - selection.x0 + 1) * px}px`}

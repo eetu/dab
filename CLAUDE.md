@@ -170,6 +170,14 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   it was covering a step ago. Deselecting, selecting elsewhere or drawing lets go
   of it. And a stamp is matte: transparent cells are gaps, never paint, or the
   empty corners of a box selection would rub holes in whatever it was dropped on.
+- **A selection belongs to the select tool.** Anything that selects arms it
+  (`setSelection`), and arming another tool lets go of the selection (`setTool`),
+  baking a paste. A marquee left behind under the pencil was state nobody was
+  looking at that the arrows and ⌫ still answered to. With nothing selected, copy
+  and cut take the whole frame, and a paste with nothing selected lands where its
+  block was copied from — so copying a frame onto the next is ⌘C . ⌘V. A float
+  belongs to the frame it was lifted on: stepping away hides its cue, and a nudge
+  on another frame bakes it rather than stamping its base over that frame.
 - **Only a paste says it is floating.** A move and a turn both carry a base the
   block was lifted out of, so there is nothing under them to lose; a paste is the
   one sitting over art that is not its own. It is said twice — accent ants where

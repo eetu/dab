@@ -16,7 +16,7 @@
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
 
-  import { editor, stageBox, type Tool, TOOLS } from "./editor.svelte";
+  import { editor, setTool, stageBox, type Tool, TOOLS } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
   import { panels, toggleLoupe } from "./panels.svelte";
   import { cell, fit, zoomIn, zoomOut } from "./viewport.svelte";
@@ -44,7 +44,7 @@
       label={t.label}
       hint={`${t.label} — ${t.hint} (${t.key.toUpperCase()})`}
       active={editor.tool === t.id}
-      onclick={() => (editor.tool = t.id)}
+      onclick={() => setTool(t.id)}
     >
       <Icon size={18} />
       <!-- The shortcut, on the button. Eight icons in a rail is past the point

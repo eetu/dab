@@ -19,7 +19,10 @@ import {
   nudgeSelection,
   paint,
   pasteClipboard,
+  pasteFloating,
+  selectAll,
   selection,
+  setTool,
   undoEdit,
 } from "../lib/editor.svelte";
 
@@ -276,4 +279,103 @@ test("drawing lets go of a floating paste, and the stroke survives a nudge", asy
   editor.tool = "select";
   nudgeSelection(0, -2);
   expect(rows()[2]).toBe(".RR..BR.");
+});
+
+const key = (k: string, opts: KeyboardEventInit = {}) =>
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, ...opts }));
+
+/** The blocks sprite with a blank second frame — the strip a copy-forward fills. */
+function twoFrames() {
+  const s = sprite();
+  loadSprite({ ...s, frames: [s.frames[0], s.frames[0].map(() => "........")] }, "blocks.json");
+}
+
+test("with nothing selected, copy takes the whole frame and paste lines it up", async () => {
+  twoFrames();
+  key("c", { metaKey: true });
+  expect(editor.status).toBe("copied frame 1");
+  key(".");
+  key("v", { metaKey: true });
+  expect(editor.sprite.frames[1]).toEqual(editor.sprite.frames[0]);
+  expect(editor.tool).toBe("select");
+  expect(pasteFloating()).toBe(true);
+});
+
+test("copying an empty frame says so instead of loading a paste of nothing", async () => {
+  twoFrames();
+  editor.frame = 1;
+  expect(copySelection()).toBe(false);
+  expect(editor.statusBad).toBe(true);
+});
+
+test("cut with nothing selected empties the frame, in one undo", async () => {
+  key("x", { metaKey: true });
+  expect(rows().every((r) => r === "........")).toBe(true);
+  undoEdit();
+  expect(rows()[1]).toBe(".RR.....");
+});
+
+test("a selection copied, then pasted with nothing selected, lands where it came from", async () => {
+  await drag(app.host, [[1, 1]]);
+  copySelection();
+  clearSelection();
+  pasteClipboard();
+  expect([selection.x0, selection.y0]).toEqual([1, 1]);
+});
+
+test("picking another tool lets go of the selection, and bakes a paste", async () => {
+  await drag(app.host, [[1, 1]]);
+  copySelection();
+  pasteClipboard({ x: 5, y: 4 });
+  key("b");
+  expect(editor.tool).toBe("pencil");
+  expect(hasSelection()).toBe(false);
+  expect(floating.on).toBe(false);
+  expect(rows()[4]).toBe(".....RR."); // baked, not cancelled
+});
+
+test("anything that selects arms the select tool", async () => {
+  setTool("pencil");
+  selectAll();
+  expect(editor.tool).toBe("select");
+});
+
+test("a float stays on its own frame: stepping away and nudging cannot clobber the next", async () => {
+  twoFrames();
+  await drag(app.host, [[1, 1]]);
+  nudgeSelection(1, 0); // lifts on frame 1
+  editor.frame = 1;
+  nudgeSelection(1, 0); // frame 2 is blank; nothing of frame 1 may land on it
+  expect(editor.sprite.frames[1].every((r) => r === "........")).toBe(true);
+  expect(editor.sprite.frames[0][1]).toBe("..RR....");
+});
+
+test("undo lets go of a lift, so the next nudge cannot redo it behind undo's back", async () => {
+  await drag(app.host, [[1, 1]]);
+  nudgeSelection(2, 0);
+  undoEdit();
+  expect(rows()[1]).toBe(".RR.....");
+  nudgeSelection(0, 1);
+  // A fresh lift of what is under the marquee now — empty cells — not the block.
+  expect(rows()[1]).toBe(".RR.....");
+});
+
+test("⇧-arrows step a selection by ten, as they do a part", async () => {
+  const wide = sprite();
+  loadSprite({ ...wide, w: 16, frames: [wide.frames[0].map((r) => r + "........")] }, null);
+  await sleep(60);
+  setTool("select");
+  await drag(app.host, [[1, 1]]);
+  key("ArrowRight", { shiftKey: true });
+  expect(selection.x0).toBe(11);
+});
+
+test("a click inside the selection picks the shape under it, as a click anywhere does", async () => {
+  twoFrames();
+  await drag(app.host, [[1, 1]]); // the 2x2 block on frame 1
+  editor.frame = 1;
+  paint([[2, 2]], true); // frame 2: a lone pixel under the marquee frame 1 left
+  await drag(app.host, [[2, 2]]);
+  expect(selection.cells.size).toBe(1);
+  expect([selection.x0, selection.y0]).toEqual([2, 2]);
 });

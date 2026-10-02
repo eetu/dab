@@ -204,10 +204,7 @@
       { kind: "separator" },
       {
         label: "Select all",
-        run: () => {
-          editor.tool = "select";
-          selectAll();
-        },
+        run: selectAll,
       },
       { label: "Add part…", run: openPartDialog },
     ];
