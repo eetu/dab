@@ -10,7 +10,10 @@
   const KEYS: [string, string][] = [
     ["⌘S", "Save — writes the file in place (Chrome/Edge), downloads elsewhere"],
     ["⌘Z / ⇧⌘Z", "Undo / redo — a whole drag, paste or turn is one entry"],
-    ["⌘A / ⌘C / ⌘X / ⌘V", "Select all, copy, cut, paste — pastes float until you let go"],
+    [
+      "⌘A / ⌘C / ⌘X / ⌘V",
+      "Select all, copy, cut, paste — with nothing selected, the whole frame; pastes float",
+    ],
     ["Esc", "Abort the drag, stop playing, cancel the floating paste, then deselect"],
     ["Arrows (⇧ ×10)", "Nudge the selection, or the selected part under Move; else step frames"],
     ["⌫", "Delete the selection, or the selected part under Move"],

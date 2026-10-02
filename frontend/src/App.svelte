@@ -32,7 +32,6 @@
     dropPaste,
     editor,
     flattenedNode,
-    floating,
     gesture,
     hasSelection,
     history,
@@ -40,10 +39,12 @@
     nudgePart,
     nudgeSelection,
     pasteClipboard,
+    pasteFloating,
     redoEdit,
     removePart,
     selectAll,
     setPlaying,
+    setTool,
     setTurn,
     sheet,
     spriteFromPart,
@@ -465,7 +466,6 @@
     // would know what to do with.
     if (meta && e.key.toLowerCase() === "a") {
       e.preventDefault();
-      editor.tool = "select";
       selectAll();
       return;
     }
@@ -481,7 +481,6 @@
     }
     if (meta && e.key.toLowerCase() === "v") {
       e.preventDefault();
-      editor.tool = "select";
       pasteClipboard();
       return;
     }
@@ -510,7 +509,7 @@
         setPlaying(false);
         return;
       }
-      if (floating.on) {
+      if (pasteFloating()) {
         cancelPaste();
         return;
       }
@@ -542,13 +541,13 @@
     }
     const tool = TOOLS.find((x) => x.key === e.key.toLowerCase());
     if (tool) {
-      editor.tool = tool.id as Tool;
+      setTool(tool.id);
       return;
     }
     // The arrows move the thing in hand: a marked block of pixels, or the
     // selected part under the Move tool. With neither, they step frames.
     if (e.key.startsWith("Arrow")) {
-      const step = e.shiftKey ? (hasSelection() ? 4 : 10) : 1;
+      const step = e.shiftKey ? 10 : 1;
       const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
       const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
       if (hasSelection()) {
@@ -833,7 +832,7 @@
          screen and never over the art. Ahead of the message, and nowhere near
          the region toggles: this is about the document, they are about the
          furniture. -->
-    {#if floating.on}
+    {#if pasteFloating()}
       <span class="afloat" data-testid="afloat">
         Floating
         <button title="Put it down here and stop floating" onclick={dropPaste}>Drop</button>

@@ -76,7 +76,7 @@ export const TOOLS: { id: Tool; label: string; key: string; hint: string }[] = [
     id: "select",
     label: "Select",
     key: "m",
-    hint: "Click a shape or drag a box, then drag it — arrows nudge, ⌘C/X/V, ⌫ clears",
+    hint: "Click a shape or drag a box (⌥ takes only painted cells), then drag it — arrows nudge, ⌘C/X/V, ⌫ clears",
   },
   {
     id: "move",
@@ -298,6 +298,9 @@ function settle() {
 export function undoEdit() {
   const prev = undo.pop();
   if (!prev) return;
+  // A float re-stamps its base on the next nudge, and that base is from before
+  // the undo — keeping it would quietly put back what was just taken back.
+  dropFloat();
   redo.push(cloneSprite(editor.sprite));
   editor.sprite = prev;
   editor.dirty = true;
@@ -308,6 +311,7 @@ export function undoEdit() {
 export function redoEdit() {
   const next = redo.pop();
   if (!next) return;
+  dropFloat();
   undo.push(cloneSprite(editor.sprite));
   editor.sprite = next;
   editor.dirty = true;
@@ -496,8 +500,9 @@ export const selection = $state({
   flash: 0,
 });
 
-/** The lifted block mid-move, and the frame it was lifted out of. */
-let float: { stamp: Stamp; base: string[]; x: number; y: number } | null = null;
+/** The lifted block mid-move, the frame it was lifted out of, and which frame
+ *  of the strip that was — a base re-stamped onto another frame overwrites it. */
+let float: { stamp: Stamp; base: string[]; x: number; y: number; frame: number } | null = null;
 
 /**
  * Whether the float is a PASTE, rather than a lift.
@@ -507,11 +512,34 @@ let float: { stamp: Stamp; base: string[]; x: number; y: number } | null = null;
  * to lose. So only a paste has anything to say, and it is the only one that
  * changes how the marquee looks.
  */
-export const floating = $state({ on: false });
-export const clipboard = $state({ stamp: null as Stamp | null });
+export const floating = $state({ on: false, frame: 0 });
+
+/** Whether a paste floats on the frame being looked at. Stepping away leaves it
+ *  floating on its own frame, and the cue goes with it: the chip and the accent
+ *  ants are about what is on screen. */
+export const pasteFloating = () => floating.on && floating.frame === frameNow();
+
+/** What was copied, and where its top-left sat — where a paste lands when
+ *  nothing is selected, so a frame copied onto the next one lines up. */
+export const clipboard = $state({ stamp: null as Stamp | null, x: 0, y: 0 });
 
 export const hasSelection = () => selection.cells.size > 0;
 export const isSelected = (x: number, y: number) => selection.cells.has(key(x, y));
+
+/**
+ * Arm a tool. Leaving Select lets go of the selection, baking a floating paste
+ * the way any other "doing something else" does: a marquee left behind under
+ * the pencil is state nobody is looking at, and the arrows and ⌫ would still
+ * answer to it. The other half is in `setSelection` — anything that selects
+ * arms Select — so a selection and the select tool always come together.
+ *
+ * Inert during a turn: the mode owns the selection it is turning.
+ */
+export function setTool(tool: Tool) {
+  if (turning.on) return;
+  if (tool !== "select") clearSelection();
+  editor.tool = tool;
+}
 
 function setSelection(points: Iterable<readonly [number, number]>) {
   const cells = new SvelteSet<string>();
@@ -528,6 +556,7 @@ function setSelection(points: Iterable<readonly [number, number]>) {
   }
   selection.cells = cells;
   if (cells.size) {
+    editor.tool = "select";
     selection.x0 = x0;
     selection.y0 = y0;
     selection.x1 = x1;
@@ -629,13 +658,15 @@ export const gesture = $state({ abort: null as (() => void) | null });
  */
 export function nudgeSelection(dx: number, dy: number) {
   if (!hasSelection() || blocked() || (dx === 0 && dy === 0)) return;
+  // A float lifted on another frame is baked there; this frame lifts its own.
+  if (float && float.frame !== frameNow()) dropFloat();
   const rows = rowsNow();
   if (!float) {
     const pts = [...selection.cells].map((k) => k.split(",").map(Number) as [number, number]);
     const stamp = readStamp(rows, pts);
     const base = setPixels(rows, pts, TRANSPARENT);
     commit(withFrame(base));
-    float = { stamp, base, x: selection.x0, y: selection.y0 };
+    float = { stamp, base, x: selection.x0, y: selection.y0, frame: frameNow() };
   }
   float.x += dx;
   float.y += dy;
@@ -661,21 +692,50 @@ export function deleteSelection() {
   if (next !== rows) commit(withFrame(next));
 }
 
-export function copySelection() {
-  if (!hasSelection()) return;
-  const rows = rowsNow();
-  const pts = [...selection.cells].map((k) => k.split(",").map(Number) as [number, number]);
-  clipboard.stamp = readStamp(rows, pts);
+/** What copy and cut take: the selection, or the whole frame when nothing is
+ *  selected — copying the last frame onto the next is the commonest copy in an
+ *  animation, and it should not need ⌘A first. */
+function copyTarget(): { pts: [number, number][]; what: string } {
+  if (hasSelection()) {
+    const pts = [...selection.cells].map((k) => k.split(",").map(Number) as [number, number]);
+    return { pts, what: `${selection.x1 - selection.x0 + 1}×${selection.y1 - selection.y0 + 1}` };
+  }
+  const { w, h } = activeNode();
+  return { pts: allCells(w, h), what: `frame ${frameNow() + 1}` };
 }
 
+/** Copy the selection, or the whole frame. False when there was nothing to take:
+ *  stamps are matte, so a block of nothing would paste as nothing. */
+export function copySelection(): boolean {
+  const { pts, what } = copyTarget();
+  const rows = rowsNow();
+  if (pts.every(([x, y]) => (rows[y]?.[x] ?? TRANSPARENT) === TRANSPARENT)) {
+    editor.status = `nothing to copy — ${hasSelection() ? "the selection" : what} is empty`;
+    editor.statusBad = true;
+    return false;
+  }
+  clipboard.stamp = readStamp(rows, pts);
+  clipboard.x = Math.min(...pts.map(([x]) => x));
+  clipboard.y = Math.min(...pts.map(([, y]) => y));
+  editor.status = `copied ${what}`;
+  editor.statusBad = false;
+  return true;
+}
+
+/** Copy, then wipe what was copied — the selection, or the whole frame. */
 export function cutSelection() {
-  copySelection();
-  deleteSelection();
+  if (blocked()) return;
+  const { pts, what } = copyTarget();
+  if (!copySelection()) return;
+  dropFloat();
+  const rows = rowsNow();
+  commit(withFrame(setPixels(rows, pts, TRANSPARENT)));
+  editor.status = `cut ${what}`;
 }
 
 /**
  * Put the clipboard down at the top-left of the current selection, or where it
- * was cut from if nothing is selected, and select it — so a paste lands ready
+ * was copied from if nothing is selected, and select it — so a paste lands ready
  * to be dragged into place.
  *
  * A paste FLOATS: the frame it lands on is kept as the float's base, so nudging
@@ -692,13 +752,14 @@ export function pasteClipboard(at?: { x: number; y: number }) {
   const stamp = clipboard.stamp;
   if (!stamp?.cells.length || blocked()) return;
   dropFloat();
-  const x = at?.x ?? (hasSelection() ? selection.x0 : 0);
-  const y = at?.y ?? (hasSelection() ? selection.y0 : 0);
+  const x = at?.x ?? (hasSelection() ? selection.x0 : clipboard.x);
+  const y = at?.y ?? (hasSelection() ? selection.y0 : clipboard.y);
   const rows = rowsNow();
   // One undo entry covers the paste and wherever it is shoved to afterwards.
   commit(withFrame(stampCells(rows, stamp, x, y)));
-  float = { stamp, base: rows, x, y };
+  float = { stamp, base: rows, x, y, frame: frameNow() };
   floating.on = true;
+  floating.frame = frameNow();
   setSelection(stamp.cells.map((c) => [x + c.dx, y + c.dy] as [number, number]));
 }
 
@@ -725,7 +786,7 @@ export function flipSelection(dir: Flip) {
   const x = selection.x0;
   const y = selection.y0;
   commit(withFrame(stampCells(base, flipped, x, y)));
-  float = { stamp: flipped, base, x, y };
+  float = { stamp: flipped, base, x, y, frame: frameNow() };
   setSelection(
     flipped.cells
       .filter((c) => c.ch !== TRANSPARENT)
@@ -1198,7 +1259,7 @@ export function applyTurn() {
     const bx = x + Math.round((w - r.w) / 2);
     const by = y + Math.round((h - r.h) / 2);
     const stamp = readStamp(r.rows, allCells(r.w, r.h));
-    float = { stamp, base, x: bx, y: by };
+    float = { stamp, base, x: bx, y: by, frame: frameNow() };
     setSelection(
       stamp.cells
         .filter((c) => c.ch !== TRANSPARENT)
