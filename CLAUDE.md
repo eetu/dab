@@ -8,10 +8,17 @@ vocabulary this follows), `../raspi` (deploy).
 ## Layout
 
 ```text
-core/        the format, its validator, and every pure operation on a sprite
-             (pixels, shapes, flood, blocks, frames, palette, variants, parts,
-             animations, JSON). Private to this repo; node-only tests.
-frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest
+core/        the format, its validator, and every pure operation on a sprite.
+             One module per concern in src/ (format, tree, validate, geometry,
+             blocks, colour, rotation, flatten, shapes, frames, palette, json),
+             re-exported by index.ts; patch.ts and mapper.ts are shared between
+             them and stay off the surface. A test file per module; node-only.
+frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
+             src/lib/editor/ is the store, one module per concern, layered so
+             imports only point down: state → tree → selection → history → the
+             verbs (drawing, blocks, turn, frames, palette, variants, animations,
+             parts) → document. src/lib/editor.svelte.ts is its public surface;
+             commit and the other shared helpers stay among the modules.
 backend/     axum binary: serves frontend/dist with an SPA fallback, plus /status.
              No store and no upload route — the editor reaches the disk through
              the browser, so the server never sees a sprite.
