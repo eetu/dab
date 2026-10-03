@@ -51,7 +51,6 @@
     setTurn,
     sheet,
     spriteFromPart,
-    stageBox,
     type Tool,
     TOOLS,
     turning,
@@ -115,7 +114,7 @@
   import SettingsDialog from "./lib/SettingsDialog.svelte";
   import { watchTheme } from "./lib/theme.svelte";
   import ToolRail from "./lib/ToolRail.svelte";
-  import { type Backdrop, BACKDROPS, fit, zoomIn, zoomOut } from "./lib/viewport.svelte";
+  import { type Backdrop, BACKDROPS, fitStage, zoomIn, zoomOut } from "./lib/viewport.svelte";
 
   let backdrop = $state<Backdrop>("checker");
   let settingsOpen = $state(false);
@@ -600,7 +599,7 @@
       return;
     }
     // View keys, as in nib: 0 fits, +/− step the zoom.
-    if (e.key === "0") fit(stageBox().w, stageBox().h);
+    if (e.key === "0") fitStage();
     if (e.key === "+" || e.key === "=" || e.key === "]") zoomIn();
     if (e.key === "-" || e.key === "_" || e.key === "[") zoomOut();
   }
@@ -618,6 +617,7 @@
   if (prefs.tool && TOOLS.some((t) => t.id === prefs.tool)) editor.tool = prefs.tool as Tool;
   if (prefs.onion !== undefined) editor.onion = prefs.onion;
   if (prefs.grid !== undefined) editor.grid = prefs.grid;
+  if (prefs.tile !== undefined) editor.tile = prefs.tile;
   if (prefs.fps) editor.fps = prefs.fps;
   if (prefs.backdrop && BACKDROPS.some((b) => b.id === prefs.backdrop)) {
     backdrop = prefs.backdrop as Backdrop;
@@ -630,6 +630,7 @@
       tool: editor.tool,
       onion: editor.onion,
       grid: editor.grid,
+      tile: editor.tile,
       fps: editor.fps,
       backdrop,
     });

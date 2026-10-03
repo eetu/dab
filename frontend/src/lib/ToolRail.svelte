@@ -16,10 +16,10 @@
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
 
-  import { editor, setTool, stageBox, type Tool, TOOLS } from "./editor.svelte";
+  import { editor, setTool, type Tool, TOOLS } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
   import { panels, toggleLoupe } from "./panels.svelte";
-  import { cell, fit, zoomIn, zoomOut } from "./viewport.svelte";
+  import { cell, fitStage, zoomIn, zoomOut } from "./viewport.svelte";
 
   const ICONS: Record<Tool, typeof Pencil> = {
     pencil: Pencil,
@@ -61,12 +61,7 @@
   <IconButton pill label="Zoom out" hint="Zoom out (−)" onclick={() => zoomOut()}>
     <ZoomOut size={18} />
   </IconButton>
-  <IconButton
-    pill
-    label="Fit to view"
-    hint="Fit to view (0)"
-    onclick={() => fit(stageBox().w, stageBox().h)}
-  >
+  <IconButton pill label="Fit to view" hint="Fit to view (0)" onclick={fitStage}>
     <Maximize size={18} />
   </IconButton>
   <!-- With the view controls, because that is what it is: a second view of the

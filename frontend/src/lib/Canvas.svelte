@@ -18,6 +18,7 @@
     type SpriteBody,
     TRANSPARENT,
   } from "dab-core";
+  import { untrack } from "svelte";
 
   import {
     activeNode,
@@ -82,7 +83,7 @@
   import { paintAssembly, paintRows } from "./render";
   import RotateBar from "./RotateBar.svelte";
   import TurnHandles from "./TurnHandles.svelte";
-  import { type Backdrop, cell, fit, panBy, viewport, zoomBy } from "./viewport.svelte";
+  import { type Backdrop, cell, fitStage, panBy, viewport, zoomBy } from "./viewport.svelte";
 
   type Props = {
     backdrop?: Backdrop;
@@ -93,6 +94,7 @@
 
   let pane: HTMLDivElement | null = $state(null);
   let canvas: HTMLCanvasElement | null = $state(null);
+  let tiles: HTMLCanvasElement | null = $state(null);
   let drag: { x: number; y: number } | null = $state(null);
   let hover: { x: number; y: number } | null = $state(null);
   let shift = $state(false);
@@ -652,7 +654,7 @@
         { kind: "separator" },
         playItem(),
         loupeItem(),
-        { label: "Fit to window", hint: "0", run: () => fit(box.w, box.h) },
+        { label: "Fit to window", hint: "0", run: fitStage },
         ...(hasSelection() ? [{ label: "Deselect", run: clearSelection } satisfies MenuItem] : []),
       ]);
       return;
@@ -810,11 +812,17 @@
   // Fit on load and on a pane resize — but never once the zoom has been touched
   // by hand, or the view would snap back mid-edit.
   $effect(() => {
-    const w = box.w;
-    const h = box.h;
+    void box.w;
+    void box.h;
     void viewport.paneW;
     void viewport.paneH;
-    if (!viewport.manual) fit(w, h);
+    if (!viewport.manual) untrack(fitStage);
+  });
+  // Turning the tiles on or off refits even a hand-set view: the copies are
+  // what was just asked to be seen.
+  $effect(() => {
+    void editor.tile;
+    untrack(fitStage);
   });
 
   $effect(() => {
@@ -918,6 +926,27 @@
     }
   });
 
+  // The tiling preview: the art as a consumer draws it — no underlay, no
+  // marquee, no hint — three by three, on the frame the stage is showing.
+  $effect(() => {
+    const el = tiles;
+    if (!el || !editor.tile) return;
+    el.width = box.w * 3;
+    el.height = box.h * 3;
+    const g = el.getContext("2d");
+    if (!g) return;
+    const opts = { ...paintOpts, style: () => "full" as const };
+    g.clearRect(0, 0, el.width, el.height);
+    // Not the middle: the stage is drawn there, and a copy under it would show
+    // through every see-through colour and every dimmed part.
+    for (let j = 0; j < 3; j++) {
+      for (let i = 0; i < 3; i++) {
+        if (i !== 1 || j !== 1)
+          paintAssembly(g, sprite, i * box.w - box.x, j * box.h - box.y, opts);
+      }
+    }
+  });
+
   /** Points the current drag would paint — drawn as an overlay, not committed. */
   const preview = $derived.by(() => {
     if (!drag || !hover || !isShape(editor.tool)) return [];
@@ -979,6 +1008,11 @@
     style:--cell={`${px}px`}
     class:grid={editor.grid && px >= 6 && !editor.playing}
   >
+    {#if editor.tile}
+      <!-- The stage, wrapped: eight copies round it, the one in the middle
+           under the real canvas. Behind it, so nothing here is ever drawn on. -->
+      <canvas bind:this={tiles} class="tiles" data-testid="tiles"></canvas>
+    {/if}
     <canvas bind:this={canvas} data-testid="canvas"></canvas>
     {#each editor.playing ? [] : ghosts as g (g.key)}
       <!-- A part with nothing drawn in it yet. Faint, and never over the art:
@@ -1064,6 +1098,18 @@
   }
   .pane[data-bg="light"] {
     background: #e9e9ee;
+  }
+  /* Faded a little, so the stage — the one drawn on — stands out from its
+     copies, and a seam still reads straight across them. */
+  .tiles {
+    opacity: 0.6;
+    position: absolute;
+    left: -100%;
+    top: -100%;
+    width: 300%;
+    height: 300%;
+    image-rendering: pixelated;
+    pointer-events: none;
   }
   .stage {
     position: absolute;
@@ -1199,6 +1245,8 @@
     }
   }
   canvas {
+    /* Positioned, so the tiles behind it (absolute, earlier) stay behind it. */
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;

@@ -65,6 +65,13 @@
       <input type="checkbox" bind:checked={editor.grid} />
       <span>Grid</span>
     </label>
+    <label
+      class="grid-toggle"
+      title="Wrap the sprite 3×3, so a tile's seams show while you draw them"
+    >
+      <input type="checkbox" bind:checked={editor.tile} />
+      <span>Tile</span>
+    </label>
   </div>
   {#if renamed}
     <p class="warn">
