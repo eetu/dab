@@ -51,6 +51,7 @@ export {
   addColour,
   adoptFromBundle,
   clashingChars,
+  importColours,
   movePaletteChar,
   paletteElsewhere,
   pushColour,
