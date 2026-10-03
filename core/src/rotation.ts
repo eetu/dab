@@ -1,7 +1,6 @@
 import { type Stamp } from "./blocks";
-import { channels, SAME_COLOUR } from "./colour";
-import { TRANSPARENT, withAlpha } from "./format";
-import { paletteMapper } from "./mapper";
+import { TRANSPARENT } from "./format";
+import { resample } from "./sample";
 
 export type Rotation = {
   rows: string[];
@@ -53,24 +52,8 @@ function quarterTurn(rows: string[], turns: number, w: number, h: number): strin
 /**
  * Turn a grid of characters by any angle, clockwise.
  *
- * Indexed art cannot interpolate: there is no character between `A` and `B`.
- * So either every destination pixel takes exactly one source pixel — crisp,
- * jagged, palette untouched — or the blends it wants become real palette
- * entries. `samples` is that dial. At 1 it is nearest-neighbour and nothing is
- * added; above that each destination pixel is averaged over samples² positions
- * and whatever comes out is matched against the palette, reusing an entry when
- * one is near enough and allocating when none is.
- *
- * Which is why a second rotation costs less than the first: it is matching
- * against a palette the first one already taught the blend colours to.
- *
- * Blending is in sRGB, not linear light. Linear is the physically correct
- * answer for photographs and the wrong one here — hand-placed pixel-art
- * antialiasing is chosen in sRGB, so a generated blend has to sit in the same
- * space as the ones an artist would have put there by hand. It is premultiplied
- * by opacity, so an edge against nothing fades to transparent rather than
- * toward some guessed background — that guess is what makes rotated sprites
- * look right in the editor and wrong in the game.
+ * `samples` is the smoothing dial, as `resample` describes: 1 is crisp and
+ * free, above that each pixel is averaged over samples² points.
  */
 export function rotateRows(
   rows: string[],
@@ -103,55 +86,23 @@ export function rotateRows(
   const W = grow ? Math.ceil(Math.abs(w * cos) + Math.abs(h * sin)) : w;
   const H = grow ? Math.ceil(Math.abs(w * sin) + Math.abs(h * cos)) : h;
   const n = Math.max(1, Math.round(opts.samples ?? 1));
-  const tolerance = opts.tolerance ?? SAME_COLOUR;
-
-  const { pal, added, charFor } = paletteMapper(palette, tolerance);
-
-  const out: string[] = [];
-  for (let y = 0; y < H; y++) {
-    let row = "";
-    for (let x = 0; x < W; x++) {
-      let R = 0;
-      let G = 0;
-      let B = 0;
-      let A = 0;
-      for (let sy = 0; sy < n; sy++) {
-        for (let sx = 0; sx < n; sx++) {
-          const u = x + (sx + 0.5) / n - W / 2;
-          const v = y + (sy + 0.5) / n - H / 2;
-          const px = Math.floor(u * cos + v * sin + w / 2);
-          const py = Math.floor(-u * sin + v * cos + h / 2);
-          if (py < 0 || py >= h || px < 0 || px >= w) continue;
-          const ch = rows[py][px];
-          const hex = ch === TRANSPARENT ? undefined : pal[ch];
-          if (!hex) continue;
-          const [r, g, b, a8] = channels(hex);
-          const a = a8 / 255;
-          R += r * a;
-          G += g * a;
-          B += b * a;
-          A += a;
-        }
-      }
-      const alpha = (A / (n * n)) * 255;
-      if (Math.round(alpha) <= 0) {
-        row += TRANSPARENT;
-        continue;
-      }
-      // Unpremultiply: R is the opacity-weighted sum, A the weight.
-      const hex2 = (v: number) =>
-        Math.max(0, Math.min(255, Math.round(v / A)))
-          .toString(16)
-          .padStart(2, "0");
-      row += charFor(withAlpha(`#${hex2(R)}${hex2(G)}${hex2(B)}`, alpha));
-    }
-    out.push(row);
-  }
-  return { rows: out, palette: pal, added, w: W, h: H };
+  const r = resample(
+    rows,
+    palette,
+    W,
+    H,
+    (dx, dy) => {
+      const u = dx - W / 2;
+      const v = dy - H / 2;
+      return [u * cos + v * sin + w / 2, -u * sin + v * cos + h / 2];
+    },
+    { nx: n, ny: n, tolerance: opts.tolerance },
+  );
+  return { ...r, w: W, h: H };
 }
 
 /** Rows as columns. A horizontal hinge is a vertical one with the grid on its
- *  side, so the sampler below is written once. */
+ *  side, so its back-map is written once. */
 const transpose = (rows: string[], w: number, h: number): string[] =>
   Array.from({ length: w }, (_, x) => Array.from({ length: h }, (_, y) => rows[y][x]).join(""));
 
@@ -198,54 +149,23 @@ export function hingeRows(
   if (k === 1) return { rows, palette, added: [], w, h };
 
   const n = Math.max(1, Math.round(opts.samples ?? 1));
-  const { pal, added, charFor } = paletteMapper(palette, opts.tolerance ?? SAME_COLOUR);
-
-  const out = Array.from({ length: along }, (_, y) => {
-    let row = "";
-    for (let x = 0; x < across; x++) {
-      if (k === 0) {
-        row += TRANSPARENT;
-        continue;
-      }
-      let R = 0;
-      let G = 0;
-      let B = 0;
-      let A = 0;
-      for (let s = 0; s < n; s++) {
-        // Destination back to source: a pixel of the door as drawn covers 1/k
-        // pixels of the door as it stood.
-        const u = hinge + (x + (s + 0.5) / n - hinge) / k;
-        const px = Math.floor(u);
-        if (px < 0 || px >= across) continue;
-        const ch = src[y][px];
-        const hex = ch === TRANSPARENT ? undefined : pal[ch];
-        if (!hex) continue;
-        const [r, g, b, a8] = channels(hex);
-        const a = a8 / 255;
-        R += r * a;
-        G += g * a;
-        B += b * a;
-        A += a;
-      }
-      const alpha = (A / n) * 255;
-      if (Math.round(alpha) <= 0) {
-        row += TRANSPARENT;
-        continue;
-      }
-      const hex2 = (v: number) =>
-        Math.max(0, Math.min(255, Math.round(v / A)))
-          .toString(16)
-          .padStart(2, "0");
-      row += charFor(withAlpha(`#${hex2(R)}${hex2(G)}${hex2(B)}`, alpha));
-    }
-    return row;
-  });
+  // Destination back to source: a pixel of the door as drawn covers 1/k pixels
+  // of the door as it stood. Edge-on, it covers nothing at all.
+  const r = resample(
+    src,
+    palette,
+    across,
+    along,
+    (dx, dy) => (k === 0 ? null : [hinge + (dx - hinge) / k, dy]),
+    { nx: n, ny: 1, tolerance: opts.tolerance },
+  );
+  const out = r.rows;
 
   // `out` is `along` rows of `across` characters, whichever axis this was.
   return {
     rows: axis === "y" ? out : transpose(out, across, along),
-    palette: pal,
-    added,
+    palette: r.palette,
+    added: r.added,
     w,
     h,
   };

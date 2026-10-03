@@ -29,7 +29,7 @@
 // a list of sprites rather than a list of inverse operations, and every tool is
 // testable without a canvas.
 //
-// patch.ts and mapper.ts are shared between these modules and kept out of the
+// patch.ts, mapper.ts and sample.ts are shared between these modules and kept out of the
 // package's surface.
 
 export * from "./blocks";
@@ -41,6 +41,7 @@ export * from "./frames";
 export * from "./geometry";
 export * from "./json";
 export * from "./palette";
+export * from "./perspective";
 export * from "./rotation";
 export * from "./shapes";
 export * from "./tree";
