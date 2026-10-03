@@ -77,6 +77,30 @@ alternate colours for some of the characters and inherits the rest, so one sign
 can be magenta in one place and cyan in another without being redrawn. Nothing
 about the characters is reserved — a variant is data, not a rule.
 
+**Colour cycles** are variants too. Deluxe Paint's cycle ranges — a run of
+palette entries rotated, so water flows and lights chase without a frame more —
+are written as one variant per phase, `water 1` … `water n`, each naming only
+the characters it turns. Phase 1 is the palette as drawn. A consumer cycles by
+drawing `water k` on its own clock, counting phases up to the first missing
+number; there is no key for a rate, because the clock is the consumer's.
+
+**Levels** are the subject drawn at other sizes — the deer beside the desk, the
+same deer across the field, a few pixels on the ridge. Scaling one drawing is no
+answer in pixel art, so each size is drawn, and lives in `levels` beside the
+sprite's own grid (which is the nearest):
+
+```json
+"levels": [
+  { "name": "far", "w": 13, "h": 12, "palette": { "…": "…" }, "frames": [ "…" ] }
+]
+```
+
+A level is in step with the sprite: the same number of frames, and the sprite's
+animations rather than its own, so a consumer can swap sizes mid-walk without
+remapping. It has its own palette and variants and no parts. Which size to draw
+at which distance — and any hysteresis or crossfade between two — is the
+consumer's.
+
 **Parts** are for subjects that are not one grid. A car has a body, two wheels,
 two doors, pop-up lamps and a trunk; each has its own state, and expressed as
 whole-car frames that is the product of every combination of them — three door

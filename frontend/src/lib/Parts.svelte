@@ -10,7 +10,7 @@
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import FlipHorizontal from "@lucide/svelte/icons/flip-horizontal";
   import Layers from "@lucide/svelte/icons/layers";
-  import { isPartRef, type Part, type SpriteBody } from "dab-core";
+  import { isPartRef, levelPath, type Part, type SpriteBody } from "dab-core";
 
   import { ask } from "./dialog.svelte";
   import {
@@ -22,8 +22,10 @@
     movePart,
     pathKey,
     placePart,
+    removeLevel,
     removePart,
     rename,
+    renameLevel,
     renamePart,
     resolvePart,
     selectAll,
@@ -34,6 +36,7 @@
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
+  import { openLevelDialog } from "./newlevel.svelte";
   import { openPartDialog } from "./partdialog.svelte";
   import { openResize } from "./resize.svelte";
   import Thumbnail from "./Thumbnail.svelte";
@@ -207,8 +210,35 @@
         run: selectAll,
       },
       { label: "Add part…", run: openPartDialog },
+      { label: "New level…", hint: "this subject at another size", run: openLevelDialog },
     ];
   }
+
+  /** A level's verbs: it is the subject at another size, so what it can be
+   *  asked is what its name is, whether to keep it, and for another one. */
+  function levelItems(name: string): MenuItem[] {
+    return [
+      {
+        label: "Rename…",
+        run: async () => {
+          const to = await ask({
+            title: "Rename level",
+            label: "Name",
+            value: name,
+            note: "What a consumer asks for this size by.",
+            confirm: "Rename",
+          });
+          if (to) renameLevel(name, to);
+        },
+      },
+      { label: "Canvas size…", run: () => (selectNode(levelPath(name)), openResize()) },
+      { label: "New level…", run: openLevelDialog },
+      { kind: "separator" },
+      { label: "Remove", danger: true, run: () => removeLevel(name) },
+    ];
+  }
+
+  const levels = $derived(editor.sprite.levels ?? []);
 </script>
 
 <div class="tree">
@@ -249,6 +279,9 @@
             {/if}
           </span>
           <span class="name">{row.path.at(-1) ?? editor.sprite.name}</span>
+          {#if !row.path.length && levels.length}<span class="size"
+              >{editor.sprite.w}×{editor.sprite.h}</span
+            >{/if}
           {#if ref}<span class="tag" title={`Borrowed from ${(row.part as { use: string }).use}`}
               >{(row.part as { use: string }).use}</span
             >{/if}
@@ -367,6 +400,48 @@
       frames, so a consumer can open one without touching the rest.
     </p>
   {/if}
+
+  {#if levels.length}
+    <!-- The same subject at other sizes. Not under the sprite's row: a level is
+         not a piece of the sprite but another drawing of all of it. -->
+    <h4>Levels</h4>
+    <ul>
+      {#each levels as level (level.name)}
+        {@const path = levelPath(level.name)}
+        <li
+          class:on={pathKey(path) === active}
+          style:--depth={0}
+          oncontextmenu={(e) => openMenu(e, level.name, levelItems(level.name))}
+        >
+          <button
+            class="pick"
+            onclick={() => selectNode(path)}
+            title={`Draw the ${level.name} level`}
+          >
+            <span class="shot">
+              <Thumbnail
+                node={level}
+                frame={Math.min(editor.frame, level.frames.length - 1)}
+                variant={editor.variant}
+                height="1.4rem"
+              />
+            </span>
+            <span class="name">{level.name}</span>
+            <span class="size">{level.w}×{level.h}</span>
+          </button>
+          <div class="acts">
+            <IconButton
+              size="sm"
+              label={`Actions for ${level.name}`}
+              onclick={(e) => openMenu(e, level.name, levelItems(level.name))}
+            >
+              <Ellipsis size={13} />
+            </IconButton>
+          </div>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </div>
 
 <style>
@@ -394,6 +469,19 @@
     min-width: 0;
     border: 1px solid transparent;
     border-radius: 4px;
+  }
+  h4 {
+    margin: 0.3rem 0 0;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--halo-text-light);
+  }
+  .size {
+    font-size: 0.68rem;
+    color: var(--halo-text-light);
+    font-variant-numeric: tabular-nums;
   }
   li.on {
     border-color: var(--halo-accent);

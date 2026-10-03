@@ -31,6 +31,7 @@
     deleteSelection,
     dropPaste,
     editor,
+    endPerspective,
     flattenedNode,
     gesture,
     hasSelection,
@@ -40,6 +41,7 @@
     nudgeSelection,
     pasteClipboard,
     pasteFloating,
+    perspective,
     redoEdit,
     removePart,
     selectAll,
@@ -77,8 +79,10 @@
   import HelpDialog from "./lib/HelpDialog.svelte";
   import IconButton from "./lib/IconButton.svelte";
   import Inspector from "./lib/Inspector.svelte";
+  import LevelDialog from "./lib/LevelDialog.svelte";
   import { typing } from "./lib/menu.svelte";
   import Navigator from "./lib/Navigator.svelte";
+  import { closeLevelDialog, levelDialog } from "./lib/newlevel.svelte";
   import NewSpriteDialog from "./lib/NewSpriteDialog.svelte";
   import Palette from "./lib/Palette.svelte";
   import {
@@ -424,7 +428,15 @@
     // stops propagation from inside its box — this is the backstop for a key
     // pressed while focus has wandered to the page, so `b` cannot switch tools
     // behind a veil.
-    if (dialog.open || resizer.open || partDialog.open || making || settingsOpen || helpOpen)
+    if (
+      dialog.open ||
+      resizer.open ||
+      partDialog.open ||
+      levelDialog.open ||
+      making ||
+      settingsOpen ||
+      helpOpen
+    )
       return;
     // The one key that means "explain this app".
     if (e.key === "?") {
@@ -449,6 +461,17 @@
         setTurn(turning.angle + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 10 : 1));
       }
       return;
+    }
+    // The perspective brush owns the canvas too, but every click in it is
+    // already a finished edit — so undo and save still answer, Escape or Enter
+    // puts the brush down, and nothing else reaches the tools behind it.
+    if (perspective.on) {
+      if (e.key === "Escape" || e.key === "Enter") {
+        e.preventDefault();
+        endPerspective();
+        return;
+      }
+      if (!meta || !["z", "s"].includes(e.key.toLowerCase())) return;
     }
     if (meta && e.key.toLowerCase() === "s") {
       e.preventDefault();
@@ -885,6 +908,7 @@
 <ContextMenu />
 <AskDialog />
 <AddPartDialog open={partDialog.open} onclose={closePartDialog} />
+<LevelDialog open={levelDialog.open} onclose={closeLevelDialog} />
 <ResizeDialog />
 <NewSpriteDialog open={making} onclose={() => (making = false)} />
 <SettingsDialog open={settingsOpen} onclose={() => (settingsOpen = false)} />

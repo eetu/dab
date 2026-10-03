@@ -59,7 +59,27 @@
         your frame back. The loupe (last button on the rail) puts a small window over the canvas
         showing the sprite at ×1 — how it reads at the size it is drawn, moving when it moves. Drag
         it to another corner; − and + change the size. A variant recolours characters without
-        redrawing; pick one to preview it, and it is what a consumer draws.
+        redrawing; pick one to preview it, and it is what a consumer draws. Shift-click a second
+        swatch to take a run of colours, and <em>Cycle these</em> rotates them — one variant per step,
+        played with the frames, so water flows and lights chase without a frame more. A cycle's colours
+        follow the palette.
+      </p>
+      <h3>Levels</h3>
+      <p>
+        A subject that comes nearer or goes farther is drawn at each size — the sprite's ⋯ → <em
+          >New level…</em
+        > makes a smaller (or larger) copy to draw over, listed under the parts. Click one to draw on
+        it. Levels step with the sprite: a frame added or moved anywhere is added or moved at every size,
+        and they play the sprite's animations. The loupe shows every size side by side.
+      </p>
+      <h3>Perspective</h3>
+      <p>
+        Copy something, then right-click → <em>Perspective brush</em>. The clipboard becomes a brush
+        laid on a plane: lean it back into a floor or a road, swing it into a wall, set how near the
+        eye is, and drag the round anchor to where the plane is at true size. Each click stamps the
+        brush there — bigger where the plane comes toward you, smaller toward the horizon — and is
+        its own undo. A grid cell is one brush, so a stamp per cell tiles the plane. Esc puts the
+        brush down.
       </p>
       <h3>Turning</h3>
       <p>

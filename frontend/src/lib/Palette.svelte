@@ -4,10 +4,13 @@
   // character is what ends up in the file and in the diff.
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Plus from "@lucide/svelte/icons/plus";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import {
     alphaOf,
     cellColour,
     COLOUR,
+    type Cycle,
+    cyclesOf,
     PALETTE_CHARS,
     TRANSPARENT,
     unusedChars,
@@ -18,11 +21,13 @@
   import {
     activeNode,
     addColour,
+    addCycle,
     addVariant,
     adoptFromBundle,
     allNodes,
     clashingChars,
     clearVariantColour,
+    cycleShowing,
     duplicateVariant,
     editor,
     movePaletteChar,
@@ -31,11 +36,15 @@
     pushPalette,
     pushTargets,
     removeColour,
+    removeCycle,
     removeUnusedColours,
     removeVariant,
     renameChar,
+    renameCycle,
     renameVariant,
+    reverseCycle,
     setColour,
+    setPlaying,
     setVariantColour,
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
@@ -49,6 +58,85 @@
   const entries = $derived(Object.entries(node.palette));
   const unused = $derived(new Set(unusedChars(node)));
   const variants = $derived(variantNames(node));
+  /** A cycle is several variants in the file and one thing here: its phases are
+   *  listed as a single row, where the first of them is declared. */
+  const cycles = $derived(cyclesOf(node));
+  const phaseOf = $derived(new Map(cycles.flatMap((c) => c.phases.map((p) => [p, c] as const))));
+  type Row = { kind: "variant"; name: string } | { kind: "cycle"; cycle: Cycle };
+  const rows = $derived(
+    variants.flatMap((name): Row[] => {
+      const c = phaseOf.get(name);
+      if (!c) return [{ kind: "variant", name }];
+      return name === c.phases[0] ? [{ kind: "cycle", cycle: c }] : [];
+    }),
+  );
+  const showing = $derived(cycleShowing());
+  /** The cycle on screen, when it is this node's — its phases are not edited
+   *  by hand, so the per-colour editor gives way to what the cycle turns. */
+  const showingHere = $derived(editor.variant ? (phaseOf.get(editor.variant) ?? null) : null);
+
+  // A RUN of swatches: click one, shift-click another, and everything between
+  // them in palette order is taken — the order a cycle turns them in, and the
+  // order you arranged them in by dragging. The ink is the anchor, the way the
+  // first click is in any list.
+  let runTo = $state<string | null>(null);
+  const run = $derived.by(() => {
+    const chars = entries.map(([ch]) => ch);
+    const a = chars.indexOf(editor.ink);
+    const b = runTo ? chars.indexOf(runTo) : -1;
+    if (a < 0 || b < 0 || a === b) return [];
+    return chars.slice(Math.min(a, b), Math.max(a, b) + 1);
+  });
+  const inRun = $derived(new Set(run));
+
+  function cycleRun() {
+    if (addCycle(run)) runTo = null;
+  }
+
+  /** "Cycle these", or why not yet. On a swatch's own menu only when that swatch
+   *  is in the run — offered on any other, it would cycle something you did not
+   *  point at. */
+  const cycleItem = (ch?: string): MenuItem =>
+    run.length > 1 && (!ch || inRun.has(ch))
+      ? { label: "Cycle these", hint: `${run.length} colours`, run: cycleRun }
+      : { label: "Cycle a run", hint: "shift-click to take one", disabled: true, run: () => {} };
+
+  /** A cycle's colours side by side, as hard stops — the row's swatch. */
+  const stripe = (c: Cycle) =>
+    `linear-gradient(to right, ${c.chars
+      .map((ch, i) => {
+        const hex = node.palette[ch] ?? "transparent";
+        return `${hex} ${(i / c.chars.length) * 100}% ${((i + 1) / c.chars.length) * 100}%`;
+      })
+      .join(", ")})`;
+
+  function cycleMenu(e: MouseEvent, c: Cycle) {
+    const on = showing?.name === c.name;
+    openMenu(e, c.name, [
+      {
+        label: on ? "Show the palette instead" : "Show it",
+        run: () => (editor.variant = on ? null : c.phases[0]),
+      },
+      {
+        label: "Play it",
+        hint: "P",
+        run: () => {
+          editor.variant = c.phases[0];
+          editor.playhead = 0;
+          setPlaying(true);
+        },
+      },
+      { label: "Reverse", hint: c.chars.join(" "), run: () => reverseCycle(c.name) },
+      { kind: "separator" },
+      {
+        label: "Remove",
+        hint: `${c.phases.length} variants`,
+        danger: true,
+        run: () => removeCycle(c.name),
+      },
+    ]);
+  }
+
   /** Past this, the 69-character budget is close enough to say out loud. */
   const BUDGET_NOTE_AT = 50;
 
@@ -166,6 +254,7 @@
     const clash = clashes.get(ch);
     return [
       { label: "Rename character…", hint: ch, run: () => (renaming = ch) },
+      cycleItem(ch),
       ...(send.length
         ? [
             {
@@ -241,6 +330,7 @@
             danger: true,
             run: removeUnusedColours,
           },
+          cycleItem(),
         ])}
     >
       <Ellipsis size={13} />
@@ -267,7 +357,10 @@
       class:on={editor.ink === TRANSPARENT}
       role="option"
       aria-selected={editor.ink === TRANSPARENT}
-      onclick={() => (editor.ink = TRANSPARENT)}
+      onclick={() => {
+        editor.ink = TRANSPARENT;
+        runTo = null;
+      }}
       oncontextmenu={(e) =>
         openMenu(e, "Transparent", [
           { label: "Paint with it", run: () => (editor.ink = TRANSPARENT) },
@@ -284,6 +377,7 @@
         data-swatch={ch}
         class="cell"
         class:on={editor.ink === ch}
+        class:in-run={inRun.has(ch)}
         class:unused={unused.has(ch)}
         class:clash={clashes.has(ch)}
         class:sheer={alphaOf(hex) < 255}
@@ -296,8 +390,13 @@
         onpointermove={slide}
         onpointerup={drop}
         onpointercancel={drop}
-        onclick={() => {
-          if (!moved) editor.ink = ch;
+        onclick={(e) => {
+          if (moved) return;
+          if (e.shiftKey && editor.ink !== TRANSPARENT) runTo = ch;
+          else {
+            editor.ink = ch;
+            runTo = null;
+          }
         }}
         ondblclick={(e) => {
           picking = ch;
@@ -311,6 +410,15 @@
       </button>
     {/each}
   </div>
+
+  {#if run.length > 1}
+    <div class="run">
+      <span>{run.length} colours, {run[0]} to {run[run.length - 1]}</span>
+      <button class="share" onclick={cycleRun} title="Rotate these colours, one variant per step">
+        <RefreshCw size={11} /> Cycle these
+      </button>
+    </div>
+  {/if}
 
   <!-- The current colour, and everything you can do to it. One of these rather
        than one per entry: you have already said which colour you meant. -->
@@ -394,7 +502,7 @@
 <!-- Variants: alternate colours for some of the characters above, so one
      drawing can be recoloured without being redrawn. Picking one switches what
      the canvas and the previews show — a consumer draws exactly this. -->
-<Panel id="variants" title="Variants" badge={variants.length ? String(variants.length) : undefined}>
+<Panel id="variants" title="Variants" badge={rows.length ? String(rows.length) : undefined}>
   {#snippet actions()}
     <IconButton
       size="sm"
@@ -416,28 +524,61 @@
       ></button>
       <span class="hex">no variant</span>
     </li>
-    {#each variants as name (name)}
-      <li oncontextmenu={(e) => variantMenu(e, name)}>
-        <button
-          class="swatch flat"
-          class:on={editor.variant === name}
-          onclick={() => (editor.variant = name)}
-          title={`Show this sprite in ${name}`}
-          aria-label={`Show variant ${name}`}
-        ></button>
-        <input
-          class="hextext"
-          value={name}
-          spellcheck="false"
-          onchange={(e) => renameVariant(name, (e.target as HTMLInputElement).value)}
-        />
-        <button class="drop" onclick={() => removeVariant(name)} title="Remove this variant">
-          ×
-        </button>
-      </li>
+    {#each rows as row (row.kind === "cycle" ? `cycle ${row.cycle.name}` : row.name)}
+      {#if row.kind === "cycle"}
+        {@const c = row.cycle}
+        <li class="named cycle" oncontextmenu={(e) => cycleMenu(e, c)}>
+          <button
+            class="swatch"
+            class:on={showing?.name === c.name}
+            style:background={stripe(c)}
+            onclick={() => (editor.variant = c.phases[0])}
+            title={`Show this sprite cycling ${c.chars.join(" ")}`}
+            aria-label={`Show cycle ${c.name}`}
+          ></button>
+          <input
+            class="hextext"
+            value={c.name}
+            spellcheck="false"
+            onchange={(e) => renameCycle(c.name, (e.target as HTMLInputElement).value)}
+          />
+          <span class="count" title={`${c.phases.length} phases, one variant each`}>
+            <RefreshCw size={10} />{c.phases.length}
+          </span>
+          <button class="drop" onclick={() => removeCycle(c.name)} title="Remove this cycle">
+            ×
+          </button>
+        </li>
+      {:else}
+        {@const name = row.name}
+        <li class="named" oncontextmenu={(e) => variantMenu(e, name)}>
+          <button
+            class="swatch flat"
+            class:on={editor.variant === name}
+            onclick={() => (editor.variant = name)}
+            title={`Show this sprite in ${name}`}
+            aria-label={`Show variant ${name}`}
+          ></button>
+          <input
+            class="hextext"
+            value={name}
+            spellcheck="false"
+            onchange={(e) => renameVariant(name, (e.target as HTMLInputElement).value)}
+          />
+          <button class="drop" onclick={() => removeVariant(name)} title="Remove this variant">
+            ×
+          </button>
+        </li>
+      {/if}
     {/each}
   </ul>
-  {#if editor.variant}
+  {#if showingHere}
+    <p class="note">
+      Cycling <strong>{showingHere.name}</strong>: {showingHere.chars.join(" ")}{showingHere.reverse
+        ? ", backwards"
+        : ""}. Its colours follow the palette — change them there. P plays it.
+    </p>
+  {:else if editor.variant}
     <p class="note">
       Editing <strong>{editor.variant}</strong>. A colour it does not name falls back to the
       palette's, so a two-tone recolour only names two.
@@ -527,6 +668,12 @@
   /* Unused is quieter, not hidden: it is still a colour the file carries. */
   .cell.unused .tag {
     opacity: 0.4;
+  }
+  /* Taken into a run: selected, so the accent — thinner than the ink's, which
+     is the run's anchor and the colour that paints. */
+  .cell.in-run:not(.on) {
+    outline: 1px solid var(--halo-accent);
+    outline-offset: 1px;
   }
   .cell.lifted {
     opacity: 0.45;
@@ -628,6 +775,27 @@
     cursor: pointer;
     font-variant-numeric: tabular-nums;
   }
+  .run {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    font-size: 0.68rem;
+    color: var(--halo-text-muted);
+  }
+  .run .share {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    font-size: 0.68rem;
+    color: var(--halo-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
   .tally {
     color: var(--halo-text-light);
     font-size: 0.64rem;
@@ -665,6 +833,14 @@
     grid-template-columns: 1.4rem 1.2rem 1.6rem 1fr 1.2rem;
     gap: 0.3rem;
     align-items: center;
+  }
+  /* A named row — a variant, a cycle — is swatch, name, and remove; the name
+     takes the width, or it is one letter wide in a column sized for a colour. */
+  li.named {
+    grid-template-columns: 1.4rem 1fr 1.2rem;
+  }
+  li.named.cycle {
+    grid-template-columns: 1.4rem 1fr auto 1.2rem;
   }
   .swatch {
     width: 1.4rem;

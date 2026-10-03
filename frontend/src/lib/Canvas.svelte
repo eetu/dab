@@ -10,13 +10,21 @@
   // zoom, two-finger scroll to pan, ⌘/ctrl-wheel to zoom at the cursor, space or
   // middle-drag to pan, and a plain drag paints. Two fingers down means the
   // gesture belongs to the viewport, so a pinch never leaves a stray pixel.
-  import { cellColour, isPartRef, shapePoints, type SpriteBody, TRANSPARENT } from "dab-core";
+  import {
+    cellColour,
+    isPartRef,
+    levelOf,
+    shapePoints,
+    type SpriteBody,
+    TRANSPARENT,
+  } from "dab-core";
 
   import {
     activeNode,
     activeRef,
-    animationRun,
+    beginPerspective,
     beginTurn,
+    brush,
     canPlay,
     clearSelection,
     clipboard,
@@ -24,6 +32,7 @@
     cutSelection,
     deleteSelection,
     editor,
+    endPerspective,
     fillAt,
     flipSelection,
     frameOf,
@@ -37,8 +46,11 @@
     pasteClipboard,
     pasteFloating,
     pathKey,
+    perspective,
+    perspectiveAt,
     pickAt,
     placePart,
+    playLength,
     readOnly,
     resolvePart,
     rewind,
@@ -47,11 +59,12 @@
     selection,
     selectNode,
     selectShapeAt,
-    setHinge,
     setPlaying,
-    setTurn,
     shownFrame,
+    shownVariant,
     stageBox,
+    stageNode,
+    stampPerspective,
     strokePoints,
     turning,
     undoEdit,
@@ -60,9 +73,12 @@
   import { type MenuItem, openMenu, typing } from "./menu.svelte";
   import { panels, toggleLoupe } from "./panels.svelte";
   import { openPartDialog } from "./partdialog.svelte";
+  import PerspectiveBar from "./PerspectiveBar.svelte";
+  import PlaneHandles from "./PlaneHandles.svelte";
   import PlayBar from "./PlayBar.svelte";
   import { paintAssembly, paintRows } from "./render";
   import RotateBar from "./RotateBar.svelte";
+  import TurnHandles from "./TurnHandles.svelte";
   import { type Backdrop, cell, fit, panBy, viewport, zoomBy } from "./viewport.svelte";
 
   type Props = {
@@ -107,7 +123,11 @@
     return () => clearTimeout(t);
   });
 
-  const sprite = $derived(editor.sprite);
+  /** What the stage draws: the sprite and its parts, or the level being drawn,
+   *  alone. `base` is that level's path, so the paths the painter hands back —
+   *  relative to what it was given — still name the node the panels mean. */
+  const sprite = $derived(stageNode());
+  const base = $derived(levelOf(editor.path) !== null ? editor.path : []);
   const px = $derived(cell());
 
   // The play head lives here because the surface is what plays. One interval,
@@ -115,9 +135,10 @@
   // showing different frames, and a reload or a load stops it (loadSprite).
   $effect(() => {
     if (!editor.playing) return;
-    const steps = animationRun(activeNode()).length;
-    // Selecting a single-frame part, or an animation of one, leaves the mode with
-    // nothing to run: stop rather than sitting lit over a still picture.
+    const steps = playLength(activeNode());
+    // Selecting a single-frame part, or an animation of one with no cycle
+    // showing, leaves the mode with nothing to run: stop rather than sitting lit
+    // over a still picture.
     if (steps < 2) {
       setPlaying(false);
       return;
@@ -127,6 +148,11 @@
       1000 / Math.max(1, editor.fps),
     );
     return () => clearInterval(id);
+  });
+
+  // The bar's cost readout is about the cell under the pointer.
+  $effect(() => {
+    perspective.at = perspective.on ? hover : null;
   });
 
   /** The frame the surface draws: the play head while playing, otherwise the
@@ -224,6 +250,8 @@
    *  It does swallow clicks on whatever is under it, which is the trade: that
    *  lasts exactly until you draw the first pixel in it. */
   function nodeUnder(at: { x: number; y: number }): string[] | null {
+    // A level has no parts to find under the pointer.
+    if (base.length) return null;
     let best: string[] | null = null;
     const walk = (n: SpriteBody, ox: number, oy: number, path: string[]) => {
       const rows = n.frames[frameOf(path, n)] ?? [];
@@ -298,6 +326,13 @@
     // which is what killed the rotate bar's buttons. Panning stays available,
     // and takes its own capture below.
     if (turning.on && !space && e.button !== 1) return;
+    // The perspective brush owns it the same way, and a click there is a stamp
+    // rather than any tool's. Panning stays, as it does for a turn.
+    if (perspective.on && !space && e.button !== 1) {
+      const c = e.button === 0 ? cellAt(e) : null;
+      if (c) stampPerspective(c);
+      return;
+    }
     // So does playing: a stroke on a frame that is about to be replaced by the
     // next one lands on whichever frame the interval happened to be showing.
     // Panning and zooming stay — looking at it is the point.
@@ -388,107 +423,6 @@
    *  stroke paints from its first point, a carry commits on its first cell of
    *  travel, a shape only commits on release. Decides what aborting undoes. */
   let committed = false;
-
-  // ---------- the rotation handle ----------
-  //
-  // A dot on an arm, hung off the turn's pivot — dragging it is how every
-  // transform tool says "rotate me", and the bar's slider was the only way in.
-  // 0° points the arm up; clockwise follows the drag.
-
-  /** The pivot in the ACTIVE node's cells. A whole-node turn RESIZES the node
-   *  at every angle (grow-to-fit recentres the art), so its pivot is wherever
-   *  the node's centre is NOW — pinning the centre captured at begin left the
-   *  handle orbiting a point the art had moved away from. A selection's pivot
-   *  is fixed: the block is stamped about the same centre throughout. */
-  const pivotCells = $derived(
-    turning.whole ? { x: node.w / 2, y: node.h / 2 } : { x: turning.cx, y: turning.cy },
-  );
-  /** Pivot and handle tip in STAGE pixels (CSS px inside the stage box). */
-  const pivotPx = $derived({
-    x: (origin.x + pivotCells.x) * px,
-    y: (origin.y + pivotCells.y) * px,
-  });
-  /** Arm length, capped so the grip stays INSIDE the pane — the art's radius
-   *  at a deep zoom is hundreds of pixels, most of them past the edge. The
-   *  stage sits centred plus the pan, so its pane offset is derivable. */
-  const armPx = $derived.by(() => {
-    const stageLeft = viewport.paneW / 2 - (box.w * px) / 2 + viewport.tx;
-    const stageTop = viewport.paneH / 2 - (box.h * px) / 2 + viewport.ty;
-    const cx = stageLeft + pivotPx.x;
-    const cy = stageTop + pivotPx.y;
-    const room = Math.min(cx, cy, viewport.paneW - cx, viewport.paneH - cy) - 14;
-    return Math.max(24, Math.min(turning.r * px, 140, room));
-  });
-  const handlePx = $derived.by(() => {
-    const rad = ((turning.angle - 90) * Math.PI) / 180;
-    return { x: pivotPx.x + armPx * Math.cos(rad), y: pivotPx.y + armPx * Math.sin(rad) };
-  });
-  const snapped = $derived(turning.on && turning.angle % 90 === 0);
-
-  /** Drag the hinge line to any column (a swing) or row (a tilt). Whole cells:
-   *  a hinge between two pixels is not a thing this grid can express. */
-  function dragHinge(e: PointerEvent) {
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      /* synthetic pointer — the drag still works, it just isn't captured */
-    }
-    const move = (ev: PointerEvent) => {
-      // Stage pixels to the ACTIVE NODE's own, which is what a hinge is in:
-      // the door's third column is the third column of the door.
-      const rect = canvas!.getBoundingClientRect();
-      const at =
-        turning.axis === "x"
-          ? ((ev.clientY - rect.top) / rect.height) * box.h - origin.y
-          : ((ev.clientX - rect.left) / rect.width) * box.w - origin.x;
-      setHinge(at);
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
-
-  /** Freehand snaps to the quarters, ⌘ glides past them — the same bargain the
-   *  resize dialog's guides strike, said with the same accent when it bites. */
-  const SNAP_DEG = 7;
-  function dragHandle(e: PointerEvent) {
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      /* synthetic pointer — the drag still works, it just isn't captured */
-    }
-    const move = (ev: PointerEvent) => {
-      // The rect and the pivot, FRESH each move: a whole-node turn resizes the
-      // stage under the drag, and a rect captured at pointerdown mapped every
-      // later pointer through geometry that no longer existed.
-      const rect = canvas!.getBoundingClientRect();
-      const sx = ((ev.clientX - rect.left) / rect.width) * box.w;
-      const sy = ((ev.clientY - rect.top) / rect.height) * box.h;
-      const dx = sx - (origin.x + pivotCells.x);
-      const dy = sy - (origin.y + pivotCells.y);
-      if (!dx && !dy) return;
-      let deg = Math.round((Math.atan2(dy, dx) * 180) / Math.PI) + 90;
-      if (deg > 180) deg -= 360;
-      if (!ev.metaKey && !ev.ctrlKey) {
-        const near = Math.round(deg / 90) * 90;
-        if (Math.abs(deg - near) <= SNAP_DEG) deg = near === -180 ? 180 : near;
-      }
-      setTurn(deg);
-    };
-    move(e);
-    const el = e.currentTarget as HTMLElement;
-    const up = () => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-    };
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-  }
 
   /**
    * Abandon the drag in progress — the first rung of the app's Escape ladder.
@@ -634,10 +568,28 @@
     run: () => toggleLoupe(),
   });
 
+  /** The clipboard laid on a plane — or why not yet. */
+  function perspectiveItem(why: string | null): MenuItem {
+    const rows = brush();
+    return {
+      label: "Perspective brush",
+      hint: why ? undefined : rows ? `${rows[0].length}×${rows.length}` : "copy something first",
+      disabled: !!why || !rows,
+      run: beginPerspective,
+    };
+  }
+
   function canvasMenu(e: MouseEvent) {
     // The rotate bar's degree field lives inside this pane: a text field keeps
     // the browser's menu even here.
     if (typing(e.target)) return;
+    if (perspective.on) {
+      e.preventDefault();
+      openMenu(e, "perspective brush", [
+        { label: "Put the brush down", hint: "Esc", run: endPerspective },
+      ]);
+      return;
+    }
     // The turn owns the canvas, and every item here would act on a preview.
     if (turning.on) {
       e.preventDefault();
@@ -670,6 +622,7 @@
       openMenu(e, name, [
         { label: "Select all", disabled: !!why, run: selectAll },
         ...wholeTurnItems(name, why),
+        perspectiveItem(why),
         { kind: "separator" },
         playItem(),
         loupeItem(),
@@ -702,6 +655,7 @@
         run: () => pasteClipboard(inside ? p : undefined),
       });
     }
+    items.push(perspectiveItem(why));
     if (hasSelection()) {
       items.push({
         label: "Delete",
@@ -847,7 +801,9 @@
     const hint = hoverShape;
     const mq = marquee;
     const ink = editor.tool === "eraser" ? TRANSPARENT : editor.ink;
-    void editor.variant; // the selected variant changes what every cell looks like
+    // The variant changes what every cell looks like, and a playing cycle changes
+    // it at every tick.
+    const variant = shownVariant();
     void panels.underlay;
     void editor.hidden;
     void drawable;
@@ -862,13 +818,29 @@
     // lightbox does it — a ghost in the art's own colours can be read as the
     // art, which after Duplicate it is. Both are the painter's business:
     // setting globalAlpha around the call did nothing, since paintRows sets it.
-    if (prev) paintRows(g, prev, node, origin.x, origin.y, editor.variant, "ghost", 0.45);
+    if (prev) paintRows(g, prev, node, origin.x, origin.y, variant, "ghost", 0.45);
     paintAssembly(g, sprite, -box.x, -box.y, paintOpts);
+    // The brush as it would land, in the colours it would land in, clipped to
+    // the node it can write to: the stamp a click is about to make.
+    const lay = perspective.on && hover && drawable ? perspectiveAt(hover) : null;
+    if (lay) {
+      g.globalAlpha = 0.85;
+      for (let y = 0; y < lay.h; y++) {
+        for (let x = 0; x < lay.w; x++) {
+          const ch = lay.rows[y][x];
+          const nx = lay.x + x;
+          const ny = lay.y + y;
+          if (ch === TRANSPARENT || nx < 0 || ny < 0 || nx >= node.w || ny >= node.h) continue;
+          g.fillStyle = lay.palette[ch];
+          g.fillRect(origin.x + nx, origin.y + ny, 1, 1);
+        }
+      }
+      g.globalAlpha = 1;
+    }
     // Preview sits on top at full strength — it is about to be real.
     if (pts.length && drawable) {
       g.globalAlpha = 0.75;
-      g.fillStyle =
-        ink === TRANSPARENT ? "#ffffff" : (cellColour(node, ink, editor.variant) ?? "#ffffff");
+      g.fillStyle = ink === TRANSPARENT ? "#ffffff" : (cellColour(node, ink, variant) ?? "#ffffff");
       for (const [x, y] of pts) g.fillRect(origin.x + x, origin.y + y, 1, 1);
       g.globalAlpha = 1;
     }
@@ -919,7 +891,8 @@
    *  undo — and on a sprite where two shapes touch by a corner, the difference
    *  between them is a pixel you cannot see until something shows you. */
   const hoverShape = $derived.by(() => {
-    if (editor.tool !== "select" || !hover || marquee || moving || placing) return [];
+    if (perspective.on || editor.tool !== "select" || !hover || marquee || moving || placing)
+      return [];
     return shapePoints(node.frames[frameOf(editor.path, node)] ?? [], hover.x, hover.y);
   });
 
@@ -929,12 +902,12 @@
   const paintOpts = $derived({
     // The active node walks the run while playing; every other part sits on the
     // frame it was put on, or follows this one — the same rule as when stopped.
-    frameOf: (path: string[], n: SpriteBody) => frameOf(path, n, surfaceFrame),
+    frameOf: (path: string[], n: SpriteBody) => frameOf([...base, ...path], n, surfaceFrame),
     resolve: resolvePart,
-    variant: editor.variant,
-    hidden: (path: string[]) => !!editor.hidden[pathKey(path)],
+    variant: shownVariant(),
+    hidden: (path: string[]) => !!editor.hidden[pathKey([...base, ...path])],
     style: (path: string[]) =>
-      pathKey(path) === pathKey(editor.path) ? ("full" as const) : panels.underlay,
+      pathKey([...base, ...path]) === pathKey(editor.path) ? ("full" as const) : panels.underlay,
   });
 </script>
 
@@ -1005,47 +978,8 @@
         style:height={`${(selection.y1 - selection.y0 + 1) * px}px`}
       ></div>
     {/if}
-    {#if turning.on && turning.axis !== "z"}
-      <!-- The hinge: the line the art swings about, dragged to any column or
-           row. Where the rotate handle would be, and for the same reason — the
-           thing a turn is about has to be on the art, not in the bar. -->
-      <button
-        class="hinge"
-        class:across={turning.axis === "x"}
-        style:left={turning.axis === "y" ? `${(origin.x + turning.hinge) * px}px` : "0"}
-        style:top={turning.axis === "x" ? `${(origin.y + turning.hinge) * px}px` : "0"}
-        title="Drag the hinge — the line the art turns about"
-        aria-label="Hinge"
-        onpointerdown={(e) => {
-          e.stopPropagation();
-          dragHinge(e);
-        }}
-      ></button>
-    {/if}
-    {#if turning.on && turning.axis === "z"}
-      <!-- The rotation handle: an arm from the pivot, a grip at its end. Accent
-           when the angle sits on a quarter — the snap made visible. -->
-      <div
-        class="rotarm"
-        class:snapped
-        style:left={`${pivotPx.x}px`}
-        style:top={`${pivotPx.y}px`}
-        style:width={`${armPx}px`}
-        style:transform={`rotate(${turning.angle - 90}deg)`}
-      ></div>
-      <button
-        class="rotgrip"
-        class:snapped
-        style:left={`${handlePx.x}px`}
-        style:top={`${handlePx.y}px`}
-        title="Drag to rotate — snaps at 90°, ⌘ glides free"
-        aria-label="Rotate by dragging"
-        onpointerdown={(e) => {
-          e.stopPropagation();
-          dragHandle(e);
-        }}
-      ></button>
-    {/if}
+    <TurnHandles {canvas} {box} {origin} {px} {node} />
+    <PlaneHandles {canvas} {box} {origin} {px} {node} />
   </div>
 
   <p class="read">
@@ -1060,6 +994,7 @@
   <Loupe {backdrop} />
   <PlayBar />
   <RotateBar />
+  <PerspectiveBar />
 </div>
 
 <style>
@@ -1213,74 +1148,6 @@
     .ants {
       animation: none;
     }
-  }
-  /* The rotate handle. The arm pivots about its LEFT edge, which sits on the
-     turn's centre; the grip is a real button so it can take the pointer before
-     the pane's capture does. */
-  /* The hinge: a line across the whole stage, because the art swings about the
-     LINE and not about the piece of it the door happens to cover. Grabbable
-     well past its one pixel of width — a 1px target at ×4 is not a target. */
-  .hinge {
-    position: absolute;
-    z-index: 3;
-    padding: 0;
-    border: 0;
-    background: none;
-    cursor: ew-resize;
-    width: 11px;
-    height: 100%;
-    margin-left: -5px;
-  }
-  .hinge.across {
-    cursor: ns-resize;
-    width: 100%;
-    height: 11px;
-    margin-left: 0;
-    margin-top: -5px;
-  }
-  .hinge::after {
-    content: "";
-    position: absolute;
-    left: 5px;
-    top: 0;
-    width: 1px;
-    height: 100%;
-    background: var(--halo-accent);
-  }
-  .hinge.across::after {
-    left: 0;
-    top: 5px;
-    width: 100%;
-    height: 1px;
-  }
-  .rotarm {
-    position: absolute;
-    height: 1px;
-    background: rgba(150, 205, 255, 0.55);
-    transform-origin: left center;
-    pointer-events: none;
-  }
-  .rotarm.snapped {
-    background: var(--halo-accent);
-    height: 2px;
-  }
-  .rotgrip {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    margin: -7px 0 0 -7px;
-    padding: 0;
-    border-radius: 50%;
-    border: 2px solid rgba(150, 205, 255, 0.9);
-    background: var(--halo-bg-main);
-    cursor: grab;
-    touch-action: none;
-  }
-  .rotgrip:active {
-    cursor: grabbing;
-  }
-  .rotgrip.snapped {
-    border-color: var(--halo-accent);
   }
   canvas {
     display: block;

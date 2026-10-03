@@ -8,10 +8,19 @@ vocabulary this follows), `../raspi` (deploy).
 ## Layout
 
 ```text
-core/        the format, its validator, and every pure operation on a sprite
-             (pixels, shapes, flood, blocks, frames, palette, variants, parts,
-             animations, JSON). Private to this repo; node-only tests.
-frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest
+core/        the format, its validator, and every pure operation on a sprite.
+             One module per concern in src/ (format, tree, validate, geometry,
+             blocks, colour, rotation, perspective, flatten, shapes, frames,
+             palette, cycles, levels, json), re-exported by index.ts; patch.ts,
+             mapper.ts and sample.ts are shared between them and stay off the
+             surface. A test file per module; node-only.
+frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
+             src/lib/editor/ is the store, one module per concern, layered so
+             imports only point down: state → tree → selection → history → the
+             verbs (drawing, blocks, turn, perspective, frames, palette,
+             variants, cycles, animations, parts) → document. src/lib/editor.svelte.ts is its
+             public surface; commit and the other shared helpers stay among
+             the modules.
 backend/     axum binary: serves frontend/dist with an SPA fallback, plus /status.
              No store and no upload route — the editor reaches the disk through
              the browser, so the server never sees a sprite.
@@ -22,6 +31,10 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **The format is the contract; there is no library to depend on.** A cell's
   colour is `variant?.[ch] ?? palette[ch]`, with `.` transparent — one line, so a
   consumer owns its own reader and nothing has to be versioned between repos.
+- **The format may break.** Every consumer is in-house (`../scene`,
+  `../nahkarele`), so a format change is designed on its merits and the readers
+  and the files they hold are migrated with it — "an old reader still draws
+  it" is not a constraint to design around.
 - **Nothing about a character is reserved.** Recolouring is expressed as named
   palette variants that override the entries they name and inherit the rest. The
   first cut of this format had `N`/`n` reserved for a "neon" pass with a hardcoded
@@ -44,6 +57,27 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **Palettes are local to a node.** Inheritance would make a cell's colour
   `variant?.[ch] ?? palette[ch] ?? parent.palette[ch]`, and the one-line rule is
   the thing this repo is built on. The editor closes the gap instead.
+- **A level is the subject at another size, in step with the sprite.**
+  `levels: [{ name, …body }]` beside the sprite's own grid, which is the nearest
+  size. A key rather than files named `deer@far`: the step is the point — a
+  frame added to one size and not the other is a consumer reading past the end
+  — and only one document with one undo stack can keep it. So a level has the
+  sprite's frame count, plays the sprite's animations (it carries none) and has
+  no parts; every frame verb writes every level, and the editor commits frame
+  and animation edits to the sprite (`commitShared`) from wherever they are
+  pressed. A level is addressed like a node, `["@far"]`, so every tool works on
+  it unchanged — which is why a part's name may not start with `@`. A new level
+  is derived (coverage down, Scale2x/3x up, no new colours) and then drawn over;
+  which size to draw at what distance is the consumer's, as timing is.
+- **A colour cycle is generated variants, one per phase.** `name 1` … `name n`,
+  each naming only the characters it turns, so the format gains no key and a
+  consumer no rule. A `cycles` key with a rate was the alternative and put timing
+  in the file, which is the consumer's. A cycle is read back off the variants
+  (`cyclesOf`: consecutive phases, each phase 1 turned that many places), never
+  stored. Phases hold colours, not references, so every palette edit runs
+  `refreshCycles` — and a palette edit that drops or renames a character carries
+  it through every variant, or the file fails to load. The play head walks frames
+  and phases together, so a single frame whose colours cycle plays.
 - **Which frame a part shows is runtime state, not authored state.** Shown
   frames, visibility and the previewed variant are editor state and are never
   written; a door that has fallen off is the consumer not drawing that part.
@@ -239,6 +273,21 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   it is floating, and growing the document from a marquee would be a surprise.
   A part keeps its CENTRE while it grows: the placement walks back by half the
   growth, or the art orbits its own corner as the box breathes with the angle.
+- **Every transform is a back-map into one sampler.** `resample` (core's
+  sample.ts) supersamples, blends premultiplied in sRGB and matches the palette;
+  a turn, a hinge and the perspective brush differ only in where a result pixel
+  comes from. A new transform is a new map, not a fourth copy of the loop.
+- **The perspective brush is a stamp, not a transform of the node.** Deluxe
+  Paint's mode: the clipboard laid on a plane (tilt, turn, spin, distance,
+  pinned at an anchor where it is 1:1) and put down where a click's line of
+  sight meets it. Each click is a finished edit and its own undo entry — a road
+  is twenty clicks, and taking back the last should not take back the rest — so
+  there is no Apply, and Esc only puts the brush down. Its crisp setting is
+  COVERAGE (4×4 samples, the commonest colour among those that land on paint),
+  not one sample per pixel: receding to the horizon a brush is thinner than a
+  pixel within a few rows, and nearest-neighbour drops it where a hand-drawn
+  road narrows to a line. The bar sits at the top of the pane, because what
+  this brush draws — floors, roads — is at the bottom of the picture.
 - **A parted node does not turn or flip whole — flatten is the door out.** Parts
   cannot rotate together: a borrowed wheel is another sprite's pixels, each part
   would invent blends in its own local palette, and per-part sampling fades every

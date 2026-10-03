@@ -5,10 +5,13 @@
   // says nothing without the car under it. So the canvas stays exactly where it
   // is and this sits over the bottom of it, close enough to the art to compare
   // against but out of the middle of it.
+  import { levelOf } from "dab-core";
+
   import {
     applyTurn,
     type Axis,
     cancelTurn,
+    editor,
     setAxis,
     setTurn,
     setTurnFrames,
@@ -26,6 +29,7 @@
   ];
 
   const hinged = $derived(turning.axis !== "z");
+  const onLevel = $derived(levelOf(editor.path) !== null);
 
   const SMOOTH = [
     { id: 1, label: "Crisp", hint: "Nearest neighbour — jagged, and costs no colours" },
@@ -108,7 +112,11 @@
          hand is four turns of the same block. -->
     <label
       class="frames"
-      title={turning.whole ? undefined : "A run of frames turns the whole node"}
+      title={!turning.whole
+        ? "A run of frames turns the whole node"
+        : onLevel
+          ? "A run is written on the sprite, where every level steps with it"
+          : undefined}
     >
       frames
       <input
@@ -116,7 +124,7 @@
         min="1"
         max="24"
         step="1"
-        disabled={!turning.whole}
+        disabled={!turning.whole || onLevel}
         aria-label="Frames to write"
         value={turning.frames}
         oninput={(e) => setTurnFrames(Number(e.currentTarget.value))}
@@ -149,12 +157,16 @@
   .bar {
     position: absolute;
     left: 50%;
-    bottom: 0.6rem;
+    /* Clear of the canvas's read-out line, as the play bar is. */
+    bottom: 1.9rem;
     transform: translateX(-50%);
     z-index: 3;
     display: flex;
     align-items: center;
     gap: 0.6rem;
+    /* Its own width: what is right of `left: 50%` is half the pane, and the
+       bar folded onto three rows inside it. */
+    width: max-content;
     max-width: calc(100% - 1.2rem);
     flex-wrap: wrap;
     padding: 0.35rem 0.6rem;
