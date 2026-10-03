@@ -103,6 +103,8 @@ export {
   pasteFloating,
   selectAll,
   selectBox,
+  selectColour,
+  selectColourAt,
   selection,
   selectShapeAt,
 } from "./editor/selection.svelte";

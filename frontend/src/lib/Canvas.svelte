@@ -58,6 +58,7 @@
     rewind,
     selectAll,
     selectBox,
+    selectColourAt,
     selection,
     selectNode,
     selectShapeAt,
@@ -596,6 +597,14 @@
     };
   }
 
+  /** Double-click with Select takes every cell of the colour under it: the
+   *  first click picked the shape, the second widens it to the colour. */
+  function pickColour(e: MouseEvent) {
+    if (editor.tool !== "select" || turning.on || perspective.on || editor.playing) return;
+    const c = cellAt(e as PointerEvent);
+    if (c) selectColourAt(c.x, c.y);
+  }
+
   function canvasMenu(e: MouseEvent) {
     // The rotate bar's degree field lives inside this pane: a text field keeps
     // the browser's menu even here.
@@ -693,6 +702,18 @@
       items.push({ label: "Deselect", run: clearSelection });
     } else {
       items.push({ label: "Select all", disabled: !!why, run: selectAll });
+      const ch = inside
+        ? (node.frames[frameOf(editor.path, node)]?.[p.y]?.[p.x] ?? TRANSPARENT)
+        : TRANSPARENT;
+      if (ch !== TRANSPARENT) {
+        const count = (node.frames[frameOf(editor.path, node)] ?? []).join("").split(ch).length - 1;
+        items.push({
+          label: `Select every ${ch}`,
+          hint: why ? undefined : String(count),
+          disabled: !!why,
+          run: () => selectColourAt(p.x, p.y),
+        });
+      }
       items.push(playItem());
       items.push(loupeItem());
       items.push(...wholeTurnItems(where, why));
@@ -944,6 +965,7 @@
   onpointercancel={cancel}
   onpointerleave={() => (hover = null)}
   oncontextmenu={canvasMenu}
+  ondblclick={pickColour}
   onwheel={wheel}
   {...gestures}
   role="application"

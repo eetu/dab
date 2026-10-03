@@ -142,3 +142,18 @@ export function shapePoints(frame: string[], x: number, y: number): [number, num
   }
   return out;
 }
+
+/**
+ * Every cell of one character, connected or not — what Deluxe Paint's stencil
+ * grew from. Fill and shape select both stop at the edge of a run; this is for
+ * "every red", the highlight scattered over the whole body. The transparent
+ * character selects nothing: emptiness is not a colour.
+ */
+export function charPoints(frame: string[], ch: string): [number, number][] {
+  if (ch === TRANSPARENT) return [];
+  const out: [number, number][] = [];
+  frame.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) if (row[x] === ch) out.push([x, y]);
+  });
+  return out;
+}

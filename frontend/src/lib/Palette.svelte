@@ -30,6 +30,7 @@
     cycleShowing,
     duplicateVariant,
     editor,
+    frameOf,
     movePaletteChar,
     paletteElsewhere,
     pushColour,
@@ -43,6 +44,7 @@
     renameCycle,
     renameVariant,
     reverseCycle,
+    selectColour,
     setColour,
     setPlaying,
     setVariantColour,
@@ -58,6 +60,10 @@
   const entries = $derived(Object.entries(node.palette));
   const unused = $derived(new Set(unusedChars(node)));
   const variants = $derived(variantNames(node));
+  /** How many cells of a character the frame being drawn has. */
+  const drawnHere = (ch: string) =>
+    (node.frames[frameOf(editor.path, node)] ?? []).join("").split(ch).length - 1;
+
   /** A cycle is several variants in the file and one thing here: its phases are
    *  listed as a single row, where the first of them is declared. */
   const cycles = $derived(cyclesOf(node));
@@ -254,6 +260,12 @@
     const clash = clashes.get(ch);
     return [
       { label: "Rename character…", hint: ch, run: () => (renaming = ch) },
+      {
+        label: "Select its pixels",
+        hint: drawnHere(ch) ? String(drawnHere(ch)) : "none on this frame",
+        disabled: !drawnHere(ch),
+        run: () => selectColour(ch),
+      },
       cycleItem(ch),
       ...(send.length
         ? [

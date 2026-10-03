@@ -379,3 +379,16 @@ test("a click inside the selection picks the shape under it, as a click anywhere
   expect(selection.cells.size).toBe(1);
   expect([selection.x0, selection.y0]).toEqual([2, 2]);
 });
+
+test("a double-click takes every cell of the colour under it, connected or not", async () => {
+  // A second red, away from the block: a shape click cannot reach it.
+  editor.ink = "R";
+  paint([[6, 1]], true);
+  const canvas = app.host.querySelector("[data-testid=canvas]") as HTMLElement;
+  canvas.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, ...centre(app.host, 1, 1) }));
+  expect(selection.cells.size).toBe(5);
+  expect(editor.tool).toBe("select");
+  // Empty is not a colour: a double-click on nothing selects nothing.
+  canvas.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, ...centre(app.host, 0, 0) }));
+  expect(hasSelection()).toBe(false);
+});

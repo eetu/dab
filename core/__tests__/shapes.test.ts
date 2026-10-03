@@ -3,7 +3,14 @@
 // the worst place to find out that flood fill leaks through a diagonal.
 import { describe, expect, test } from "vitest";
 
-import { ellipsePoints, floodPoints, linePoints, rectPoints, shapePoints } from "../src";
+import {
+  charPoints,
+  ellipsePoints,
+  floodPoints,
+  linePoints,
+  rectPoints,
+  shapePoints,
+} from "../src";
 
 describe("shapes", () => {
   test("a line is a Bresenham run with no gaps and no doubled pixels", () => {
@@ -101,5 +108,19 @@ describe("shape select", () => {
   test("a seed outside the frame selects nothing", () => {
     expect(shapePoints(frame, -1, 0)).toEqual([]);
     expect(shapePoints(frame, 0, 99)).toEqual([]);
+  });
+});
+
+describe("select by colour", () => {
+  test("every cell of the character, connected or not, and nothing for empty", () => {
+    const frame = ["AB.A", "..BA", "A..."];
+    expect(charPoints(frame, "A")).toEqual([
+      [0, 0],
+      [3, 0],
+      [3, 1],
+      [0, 2],
+    ]);
+    expect(charPoints(frame, ".")).toEqual([]);
+    expect(charPoints(frame, "Z")).toEqual([]);
   });
 });

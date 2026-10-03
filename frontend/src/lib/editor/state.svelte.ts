@@ -23,7 +23,7 @@ export const TOOLS: { id: Tool; label: string; key: string; hint: string }[] = [
     id: "select",
     label: "Select",
     key: "m",
-    hint: "Click a shape or drag a box (⌥ takes only painted cells), then drag it — arrows nudge, ⌘C/X/V, ⌫ clears",
+    hint: "Click a shape, double-click a colour, or drag a box (⌥ takes only painted cells), then drag it — arrows nudge, ⌘C/X/V, ⌫ clears",
   },
   {
     id: "move",
