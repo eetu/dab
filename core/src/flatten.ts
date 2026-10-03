@@ -1,6 +1,7 @@
 import { channels } from "./colour";
 import {
   alphaOf,
+  cellColour,
   flipRows,
   isPartRef,
   type Part,
@@ -30,6 +31,9 @@ export type FlattenView = {
   frameOf?: (path: string[], node: SpriteBody, frame: number) => number;
   /** Whether a node's own grid is left out — the editor's eye toggles. */
   hidden?: (path: string[]) => boolean;
+  /** The colourway to bake in, matched by name at every node as the renderer
+   *  does. Default: the palettes themselves. */
+  variant?: string | null;
   tolerance?: number;
 };
 
@@ -83,7 +87,7 @@ export function flattenSprite(node: SpriteBody, view: FlattenView = {}): Flatten
         for (let x = 0; x < rows[y].length; x++) {
           const ch = rows[y][x];
           if (ch === TRANSPARENT) continue;
-          const hex = n.palette[ch];
+          const hex = cellColour(n, ch, view.variant);
           if (!hex) continue;
           const gy = oy + y;
           const gx = ox + x;

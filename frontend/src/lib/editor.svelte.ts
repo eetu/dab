@@ -43,6 +43,7 @@ export {
   selectNode,
 } from "./editor/document.svelte";
 export { fillAt, paint, pickAt, setTool, strokePoints } from "./editor/drawing.svelte";
+export { exportImage, type ExportKind, exportPlan } from "./editor/export.svelte";
 export { addFrame, duplicateFrame, moveFrame, removeFrame } from "./editor/frames.svelte";
 export { canRedo, canUndo, history, redoEdit, undoEdit } from "./editor/history.svelte";
 export { addLevel, removeLevel, renameLevel } from "./editor/levels.svelte";

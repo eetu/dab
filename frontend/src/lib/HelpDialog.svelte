@@ -65,6 +65,12 @@
         played with the frames, so water flows and lights chase without a frame more. A cycle's colours
         follow the palette.
       </p>
+      <h3>Export</h3>
+      <p>
+        <em>Export…</em> in the header hands the sprite to something that is not dab: an indexed PNG of
+        the frame on screen, or a GIF of the run that plays, at ×1 for a game or larger to look at. It
+        is what the canvas shows — parts as posed, hidden ones out, the colourway on screen.
+      </p>
       <h3>Levels</h3>
       <p>
         A subject that comes nearer or goes farther is drawn at each size — the sprite's ⋯ → <em

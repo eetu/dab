@@ -60,6 +60,7 @@
     usePartInstead,
   } from "./lib/editor.svelte";
   import { EXAMPLE_SHEET, exampleCar } from "./lib/examples";
+  import ExportDialog from "./lib/ExportDialog.svelte";
   import {
     canWriteToDisk,
     deleteFromFolder,
@@ -133,6 +134,7 @@
   let problems = $state<{ file: string; errors: string[] }[]>([]);
   let dropping = $state(false);
   let making = $state(false);
+  let exporting = $state(false);
   /** A remembered folder whose permission the browser dropped: it needs one
    *  click to come back, because requestPermission demands a user gesture. */
   let needsReconnect = $state(false);
@@ -435,6 +437,7 @@
       partDialog.open ||
       levelDialog.open ||
       making ||
+      exporting ||
       settingsOpen ||
       helpOpen
     )
@@ -787,6 +790,9 @@
           Revert
         </button>
       {/if}
+      <button onclick={() => (exporting = true)} title="A PNG of this frame, or a GIF of the run">
+        Export…
+      </button>
       <button class="save" onclick={save} title="Save (⌘S)">
         Save{editor.dirty ? " •" : ""}
       </button>
@@ -919,6 +925,7 @@
 <ResizeDialog />
 <NewSpriteDialog open={making} onclose={() => (making = false)} />
 <SettingsDialog open={settingsOpen} onclose={() => (settingsOpen = false)} />
+<ExportDialog open={exporting} onclose={() => (exporting = false)} />
 <HelpDialog open={helpOpen} onclose={closeHelp} onexample={openExample} />
 
 <style>
