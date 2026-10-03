@@ -57,7 +57,9 @@ drawing starts.
 
 It edits files **in place**: point it at a folder and, in a browser with the File
 System Access API (Chrome/Edge), Save writes back to the file it opened.
-Elsewhere it falls back to a download.
+Elsewhere it falls back to a download. **Export…** hands a sprite to anything
+else: an indexed PNG of a frame, or a GIF of an animation — the colours are the
+palette's, nothing is quantised.
 
 **Try it without installing anything: <https://eetu.github.io/dab/>** — the whole
 tool is client-side, so the Pages build is the editor entire. Your files never

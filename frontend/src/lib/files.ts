@@ -142,6 +142,16 @@ export function downloadSprite(sprite: SpriteFile): void {
   URL.revokeObjectURL(a.href);
 }
 
+/** Hand bytes to the browser as a download — what an export is, everywhere. */
+export function downloadBytes(name: string, bytes: Uint8Array, type: string): void {
+  const blob = new Blob([new Uint8Array(bytes)], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 export async function readDroppedFiles(files: FileList | File[]): Promise<LoadResult> {
   const entries: Entry[] = [];
   const problems: { file: string; errors: string[] }[] = [];

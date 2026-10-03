@@ -188,6 +188,13 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   and reset in `loadSprite` — opening sprite B must not carry sprite A's view.
   Zoom/pan deliberately persist nowhere: auto-fit is the right answer after a
   reload.
+- **An export is what the canvas shows, indexed.** PNG of the frame on screen,
+  GIF of the run the play head walks (a cycle's phases included), each pose
+  flattened as posed — hidden parts out, the colourway on screen baked in — into
+  one colour table. Nothing is quantised: a sprite already is a palette and a
+  grid. The encoders are core's and carry no dependency (zlib is the platform's
+  `CompressionStream`); GIF's alpha is on or off, so the dialog says so when
+  there is glass to lose. The JSON stays the working format.
 - **Files are edited in place** through the File System Access API. Chrome/Edge
   can write back to the opened folder; other browsers get a download. The folder
   handle is persisted (IndexedDB) so a dev-server reload comes back where it was —

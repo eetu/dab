@@ -39,6 +39,7 @@ export * from "./flatten";
 export * from "./format";
 export * from "./frames";
 export * from "./geometry";
+export * from "./image";
 export * from "./json";
 export * from "./levels";
 export * from "./palette";

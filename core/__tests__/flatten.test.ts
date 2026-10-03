@@ -98,4 +98,15 @@ describe("flatten", () => {
     // The host's own grid is hidden, so only the part lands.
     expect(eyeless.frames[0][0][1]).toBe(".");
   });
+
+  test("a colourway asked for is baked in, at the parts too", () => {
+    const lamp = { ...body(["L"], { L: "#ffff00" }), name: "lamp", x: 1, y: 0 };
+    const s = {
+      ...body(["A."], { A: "#ff0000" }, [{ ...lamp, variants: { night: { L: "#333300" } } }]),
+      variants: { night: { A: "#110000" } },
+    };
+    const flat = flattenSprite(s, { variant: "night" });
+    const [a, l] = flat.frames[0][0];
+    expect([flat.palette[a], flat.palette[l]]).toEqual(["#110000", "#333300"]);
+  });
 });
