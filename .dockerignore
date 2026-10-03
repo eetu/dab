@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+target
+.git
+.github
+.claude
+.yarn/cache
+.yarn/install-state.gz
+frontend/shots/out
+backend/.env
