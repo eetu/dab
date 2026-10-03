@@ -12,9 +12,11 @@
     type Cycle,
     cyclesOf,
     PALETTE_CHARS,
+    readPaletteFile,
     TRANSPARENT,
     unusedChars,
     variantNames,
+    writePaletteFile,
   } from "dab-core";
 
   import ColourPicker from "./ColourPicker.svelte";
@@ -31,6 +33,7 @@
     duplicateVariant,
     editor,
     frameOf,
+    importColours,
     movePaletteChar,
     paletteElsewhere,
     pushColour,
@@ -49,6 +52,7 @@
     setPlaying,
     setVariantColour,
   } from "./editor.svelte";
+  import { downloadBytes } from "./files";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
   import Panel from "./Panel.svelte";
@@ -60,6 +64,23 @@
   const entries = $derived(Object.entries(node.palette));
   const unused = $derived(new Set(unusedChars(node)));
   const variants = $derived(variantNames(node));
+  // Palette files: Lospec's .hex and GIMP's .gpl, in and out. A palette is
+  // the soul of this format, and before these every colour was typed by hand.
+  let fileInput: HTMLInputElement | null = $state(null);
+
+  async function readPalette(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (file) importColours(readPaletteFile(await file.text()), file.name);
+  }
+
+  function savePalette(format: "hex" | "gpl") {
+    const name = editor.path.length ? editor.path.join("-") : editor.sprite.name;
+    const text = writePaletteFile(node.palette, format, name);
+    downloadBytes(`${name}.${format}`, new TextEncoder().encode(text), "text/plain");
+  }
+
   /** How many cells of a character the frame being drawn has. */
   const drawnHere = (ch: string) =>
     (node.frames[frameOf(editor.path, node)] ?? []).join("").split(ch).length - 1;
@@ -343,6 +364,10 @@
             run: removeUnusedColours,
           },
           cycleItem(),
+          { kind: "separator" },
+          { label: "Import colours…", hint: ".hex · .gpl", run: () => fileInput?.click() },
+          { label: "Export as .hex", hint: "Lospec", run: () => savePalette("hex") },
+          { label: "Export as .gpl", hint: "GIMP, Aseprite", run: () => savePalette("gpl") },
         ])}
     >
       <Ellipsis size={13} />
@@ -501,6 +526,16 @@
   {/if}
 </Panel>
 
+<!-- The palette file picker, opened from the palette's menu. -->
+<input
+  bind:this={fileInput}
+  class="file"
+  type="file"
+  accept=".hex,.gpl,.txt"
+  data-testid="palette-file"
+  onchange={readPalette}
+/>
+
 <ColourPicker
   at={picking ? at : null}
   value={picking ? (node.palette[picking] ?? "#000000") : "#000000"}
@@ -638,6 +673,9 @@
 </Panel>
 
 <style>
+  .file {
+    display: none;
+  }
   /* Deluxe Paint's shape: the palette IS the colours, laid out as a block you
      can scan. Six across fits a 16rem rail with room for a cell big enough to
      hit and to read a character on. */

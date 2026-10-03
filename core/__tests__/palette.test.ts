@@ -2,17 +2,21 @@ import { describe, expect, test } from "vitest";
 
 import {
   addColour,
+  addColours,
   alphaOf,
   blankSprite,
   cellColour,
   fromJson,
   movePaletteChar,
+  PALETTE_CHARS,
+  readPaletteFile,
   removeColour,
   renameChar,
   toJson,
   unusedChars,
   validateSprite,
   withAlpha,
+  writePaletteFile,
 } from "../src";
 import { sprite } from "./fixtures";
 
@@ -98,5 +102,46 @@ describe("alpha", () => {
     const back = fromJson(toJson(s));
     expect("sprite" in back && back.sprite).toEqual(s);
     expect(cellColour(s, "B")).toBe("#e8e8f04d");
+  });
+});
+
+describe("palette files", () => {
+  test("Lospec's .hex and GIMP's .gpl read as colours, the rest skipped", () => {
+    expect(readPaletteFile("ff0000\n#00FF00\n\nnot a colour\n0000ff80\n")).toEqual([
+      "#ff0000",
+      "#00ff00",
+      "#0000ff80",
+    ]);
+    const gpl = "GIMP Palette\nName: test\nColumns: 4\n#\n255   0   0\tred\n  0 128 255\tsky\n";
+    expect(readPaletteFile(gpl)).toEqual(["#ff0000", "#0080ff"]);
+  });
+
+  test("what is written reads back, in palette order", () => {
+    const palette = { A: "#ff0000", B: "#0080ff", C: "#00ff0080" };
+    expect(readPaletteFile(writePaletteFile(palette, "hex", "x"))).toEqual(Object.values(palette));
+    // .gpl has no alpha: the see-through green comes back as its colour.
+    expect(readPaletteFile(writePaletteFile(palette, "gpl", "x"))).toEqual([
+      "#ff0000",
+      "#0080ff",
+      "#00ff00",
+    ]);
+  });
+
+  test("colours land on the next free characters, skipping ones already there", () => {
+    const s = sprite(["A"], { A: "#ff0000" });
+    const out = addColours(s, ["#FF0000", "#00ff00", "#00ff00", "#0000ff"]);
+    expect(out.sprite.palette).toEqual({ A: "#ff0000", B: "#00ff00", C: "#0000ff" });
+    expect(out.added).toEqual(["B", "C"]);
+    expect(out.skipped).toBe(2);
+  });
+
+  test("past the last free character the rest are skipped, not wrapped", () => {
+    const many = Array.from(
+      { length: PALETTE_CHARS.length + 5 },
+      (_, i) => `#${i.toString(16).padStart(6, "0")}`,
+    );
+    const out = addColours(sprite(["."], {}), many);
+    expect(out.added).toHaveLength(PALETTE_CHARS.length);
+    expect(out.skipped).toBe(5);
   });
 });

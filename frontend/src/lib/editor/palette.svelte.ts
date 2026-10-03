@@ -1,5 +1,6 @@
 import {
   addColour as addColourTo,
+  addColours as addColoursTo,
   cyclesOf,
   isPartRef,
   movePaletteChar as movePaletteCharIn,
@@ -42,6 +43,26 @@ export function removeUnusedColours(): number {
 }
 
 export const addColour = (hex: string) => commitNode((n) => addColourTo(n, hex));
+
+/**
+ * Colours from a palette file, onto the next free characters — one undo
+ * entry, and the count said: what came in, and what did not (already here, or
+ * past the last character).
+ */
+export function importColours(hexes: string[], from: string) {
+  if (blocked()) return;
+  if (!hexes.length) {
+    editor.status = `no colours in ${from}`;
+    editor.statusBad = true;
+    return;
+  }
+  const { added, skipped } = addColoursTo(activeNode(), hexes);
+  if (added.length) commitNode((n) => addColoursTo(n, hexes).sprite);
+  editor.status =
+    `+${added.length} colour${added.length === 1 ? "" : "s"} from ${from}` +
+    (skipped ? ` — ${skipped} already here or past the last character` : "");
+  editor.statusBad = !added.length;
+}
 export function removeColour(ch: string) {
   commitNode((n) => refreshCycles(removeColourFrom(n, ch), cyclesOf(n)));
   if (editor.ink === ch) editor.ink = TRANSPARENT;

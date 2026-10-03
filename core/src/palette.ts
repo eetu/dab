@@ -90,3 +90,68 @@ export function unusedChars(s: SpriteBody): string[] {
   for (const f of s.frames) for (const row of f) for (const ch of row) used.add(ch);
   return Object.keys(s.palette).filter((ch) => !used.has(ch));
 }
+
+/**
+ * Colours from a palette file, in its order: Lospec's `.hex` (one `RRGGBB` a
+ * line, `#` optional) or GIMP's `.gpl` (`R G B name` a line, after a header).
+ * Eight hex digits are read as `RRGGBBAA`, which is what this format writes
+ * when a colour has alpha. Lines that are not colours — headers, comments,
+ * blanks — are skipped rather than refused: these files are hand-edited.
+ */
+export function readPaletteFile(text: string): string[] {
+  const out: string[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    const hex = /^#?([0-9a-f]{6}(?:[0-9a-f]{2})?)$/i.exec(line);
+    if (hex) {
+      out.push(`#${hex[1].toLowerCase()}`);
+      continue;
+    }
+    const gpl = /^(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})(?:\s|$)/.exec(line);
+    if (gpl) {
+      const [r, g, b] = gpl.slice(1, 4).map((v) => Math.min(255, Number(v)));
+      out.push(`#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`);
+    }
+  }
+  return out;
+}
+
+/** A palette as a file another tool can read. `.gpl` has no alpha, so a
+ *  see-through colour is written as its colour; `.hex` keeps the digits. */
+export function writePaletteFile(
+  palette: Record<string, string>,
+  format: "hex" | "gpl",
+  name: string,
+): string {
+  const entries = Object.entries(palette);
+  if (format === "hex") return entries.map(([, c]) => c.slice(1)).join("\n") + "\n";
+  const rows = entries.map(([ch, c]) => {
+    const [r, g, b] = [1, 3, 5].map((k) => parseInt(c.slice(k, k + 2), 16));
+    return `${String(r).padStart(3)} ${String(g).padStart(3)} ${String(b).padStart(3)}\t${ch}`;
+  });
+  return `GIMP Palette\nName: ${name}\nColumns: 8\n#\n${rows.join("\n")}\n`;
+}
+
+/**
+ * Add colours, each on the next free character. One the palette already has
+ * is skipped — two characters for one colour is the drift the bundle tools
+ * exist to end — and so is everything past the last free character.
+ */
+export function addColours<T extends SpriteBody>(
+  s: T,
+  hexes: readonly string[],
+): { sprite: T; added: string[]; skipped: number } {
+  const have = new Set(Object.values(s.palette).map((c) => c.toLowerCase()));
+  let next = s;
+  const added: string[] = [];
+  for (const hex of hexes) {
+    const c = hex.toLowerCase();
+    if (have.has(c)) continue;
+    const ch = nextFreeChar(next);
+    if (!ch) break;
+    next = patch(next, { palette: { ...next.palette, [ch]: c } });
+    have.add(c);
+    added.push(ch);
+  }
+  return { sprite: next, added, skipped: hexes.length - added.length };
+}

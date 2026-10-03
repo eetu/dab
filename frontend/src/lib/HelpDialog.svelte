@@ -61,9 +61,11 @@
         showing the sprite at ×1 — how it reads at the size it is drawn, moving when it moves. Drag
         it to another corner; − and + change the size. A variant recolours characters without
         redrawing; pick one to preview it, and it is what a consumer draws. Shift-click a second
-        swatch to take a run of colours, and <em>Cycle these</em> rotates them — one variant per step,
-        played with the frames, so water flows and lights chase without a frame more. A cycle's colours
-        follow the palette.
+        swatch to take a run of colours, and <em>Cycle these</em> rotates them — one variant per
+        step, played with the frames, so water flows and lights chase without a frame more. A
+        cycle's colours follow the palette. The palette's ⋯ imports a Lospec <code>.hex</code> or
+        GIMP
+        <code>.gpl</code> onto the free characters, and exports either.
       </p>
       <h3>Export</h3>
       <p>
