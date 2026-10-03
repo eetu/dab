@@ -1,4 +1,4 @@
-import { rectPoints, shapePoints, type Stamp, TRANSPARENT } from "dab-core";
+import { charPoints, rectPoints, shapePoints, type Stamp, TRANSPARENT } from "dab-core";
 import { SvelteSet } from "svelte/reactivity";
 
 import { editor } from "./state.svelte";
@@ -107,6 +107,22 @@ export function selectShapeAt(x: number, y: number) {
   }
   setSelection(pts);
 }
+
+/** Every cell of one character on the frame being drawn, connected or not —
+ *  the scattered highlight a shape click cannot reach. Nothing for empty, the
+ *  way a click on nothing selects nothing. */
+export function selectColour(ch: string) {
+  dropFloat();
+  const pts = charPoints(rowsNow(), ch);
+  if (!pts.length) {
+    selection.cells = new SvelteSet();
+    return;
+  }
+  setSelection(pts);
+}
+
+export const selectColourAt = (x: number, y: number) =>
+  selectColour(rowsNow()[y]?.[x] ?? TRANSPARENT);
 
 export function selectBox(
   from: { x: number; y: number },
