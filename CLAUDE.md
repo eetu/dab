@@ -346,6 +346,8 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   its picture mean something: a screenshot of a component that failed to mount is
   a blank rectangle, and a blank rectangle reads as a design decision.
 - The backend needs no config to serve the SPA; `backend/.env` is read if present.
+- The image: `podman build --target dab -t dab .` — scratch, the static binary
+  and `dist/`, a few MB; it listens on `0.0.0.0:3060`.
 - core is private. `yarn workspace dab-core build` exists so a type
   error in it fails a build, not to publish anything.
 
