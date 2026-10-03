@@ -321,6 +321,9 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 
 ## Working on this repo
 
+- `./install-hooks.sh` once after cloning: a pre-commit hook that lints and
+  formats what is staged. CI (`ci.yaml`) runs the whole of `just check` per
+  side, and branch protection requires its `ci-gate` job alone.
 - `just dev` — backend (bacon, headless) + frontend (vite) together, one Ctrl-C.
   `just ui` is the frontend alone, which is enough for editor work: nothing in the
   tool needs the backend.
