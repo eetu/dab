@@ -8,6 +8,7 @@ import {
 } from "dab-core";
 
 import { commit } from "./history.svelte";
+import { perspective } from "./perspective.svelte";
 import { clearSelection, dropFloat } from "./selection.svelte";
 import { editor, type Tool } from "./state.svelte";
 import { blocked, rowsNow, withFrame } from "./tree.svelte";
@@ -72,10 +73,11 @@ export function pickAt(x: number, y: number) {
  * answer to it. The other half is in `setSelection` — anything that selects
  * arms Select — so a selection and the select tool always come together.
  *
- * Inert during a turn: the mode owns the selection it is turning.
+ * Inert during a mode: a turn owns the selection it is turning, and the
+ * perspective brush owns every click on the canvas.
  */
 export function setTool(tool: Tool) {
-  if (turning.on) return;
+  if (turning.on || perspective.on) return;
   if (tool !== "select") clearSelection();
   editor.tool = tool;
 }

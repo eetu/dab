@@ -149,12 +149,16 @@
   .bar {
     position: absolute;
     left: 50%;
-    bottom: 0.6rem;
+    /* Clear of the canvas's read-out line, as the play bar is. */
+    bottom: 1.9rem;
     transform: translateX(-50%);
     z-index: 3;
     display: flex;
     align-items: center;
     gap: 0.6rem;
+    /* Its own width: what is right of `left: 50%` is half the pane, and the
+       bar folded onto three rows inside it. */
+    width: max-content;
     max-width: calc(100% - 1.2rem);
     flex-wrap: wrap;
     padding: 0.35rem 0.6rem;

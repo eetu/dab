@@ -15,7 +15,9 @@
   import {
     activeNode,
     activeRef,
+    beginPerspective,
     beginTurn,
+    brush,
     canPlay,
     clearSelection,
     clipboard,
@@ -23,6 +25,7 @@
     cutSelection,
     deleteSelection,
     editor,
+    endPerspective,
     fillAt,
     flipSelection,
     frameOf,
@@ -36,6 +39,8 @@
     pasteClipboard,
     pasteFloating,
     pathKey,
+    perspective,
+    perspectiveAt,
     pickAt,
     placePart,
     playLength,
@@ -51,6 +56,7 @@
     shownFrame,
     shownVariant,
     stageBox,
+    stampPerspective,
     strokePoints,
     turning,
     undoEdit,
@@ -59,6 +65,8 @@
   import { type MenuItem, openMenu, typing } from "./menu.svelte";
   import { panels, toggleLoupe } from "./panels.svelte";
   import { openPartDialog } from "./partdialog.svelte";
+  import PerspectiveBar from "./PerspectiveBar.svelte";
+  import PlaneHandles from "./PlaneHandles.svelte";
   import PlayBar from "./PlayBar.svelte";
   import { paintAssembly, paintRows } from "./render";
   import RotateBar from "./RotateBar.svelte";
@@ -128,6 +136,11 @@
       1000 / Math.max(1, editor.fps),
     );
     return () => clearInterval(id);
+  });
+
+  // The bar's cost readout is about the cell under the pointer.
+  $effect(() => {
+    perspective.at = perspective.on ? hover : null;
   });
 
   /** The frame the surface draws: the play head while playing, otherwise the
@@ -299,6 +312,13 @@
     // which is what killed the rotate bar's buttons. Panning stays available,
     // and takes its own capture below.
     if (turning.on && !space && e.button !== 1) return;
+    // The perspective brush owns it the same way, and a click there is a stamp
+    // rather than any tool's. Panning stays, as it does for a turn.
+    if (perspective.on && !space && e.button !== 1) {
+      const c = e.button === 0 ? cellAt(e) : null;
+      if (c) stampPerspective(c);
+      return;
+    }
     // So does playing: a stroke on a frame that is about to be replaced by the
     // next one lands on whichever frame the interval happened to be showing.
     // Panning and zooming stay — looking at it is the point.
@@ -534,10 +554,28 @@
     run: () => toggleLoupe(),
   });
 
+  /** The clipboard laid on a plane — or why not yet. */
+  function perspectiveItem(why: string | null): MenuItem {
+    const rows = brush();
+    return {
+      label: "Perspective brush",
+      hint: why ? undefined : rows ? `${rows[0].length}×${rows.length}` : "copy something first",
+      disabled: !!why || !rows,
+      run: beginPerspective,
+    };
+  }
+
   function canvasMenu(e: MouseEvent) {
     // The rotate bar's degree field lives inside this pane: a text field keeps
     // the browser's menu even here.
     if (typing(e.target)) return;
+    if (perspective.on) {
+      e.preventDefault();
+      openMenu(e, "perspective brush", [
+        { label: "Put the brush down", hint: "Esc", run: endPerspective },
+      ]);
+      return;
+    }
     // The turn owns the canvas, and every item here would act on a preview.
     if (turning.on) {
       e.preventDefault();
@@ -570,6 +608,7 @@
       openMenu(e, name, [
         { label: "Select all", disabled: !!why, run: selectAll },
         ...wholeTurnItems(name, why),
+        perspectiveItem(why),
         { kind: "separator" },
         playItem(),
         loupeItem(),
@@ -602,6 +641,7 @@
         run: () => pasteClipboard(inside ? p : undefined),
       });
     }
+    items.push(perspectiveItem(why));
     if (hasSelection()) {
       items.push({
         label: "Delete",
@@ -766,6 +806,23 @@
     // setting globalAlpha around the call did nothing, since paintRows sets it.
     if (prev) paintRows(g, prev, node, origin.x, origin.y, variant, "ghost", 0.45);
     paintAssembly(g, sprite, -box.x, -box.y, paintOpts);
+    // The brush as it would land, in the colours it would land in, clipped to
+    // the node it can write to: the stamp a click is about to make.
+    const lay = perspective.on && hover && drawable ? perspectiveAt(hover) : null;
+    if (lay) {
+      g.globalAlpha = 0.85;
+      for (let y = 0; y < lay.h; y++) {
+        for (let x = 0; x < lay.w; x++) {
+          const ch = lay.rows[y][x];
+          const nx = lay.x + x;
+          const ny = lay.y + y;
+          if (ch === TRANSPARENT || nx < 0 || ny < 0 || nx >= node.w || ny >= node.h) continue;
+          g.fillStyle = lay.palette[ch];
+          g.fillRect(origin.x + nx, origin.y + ny, 1, 1);
+        }
+      }
+      g.globalAlpha = 1;
+    }
     // Preview sits on top at full strength — it is about to be real.
     if (pts.length && drawable) {
       g.globalAlpha = 0.75;
@@ -820,7 +877,8 @@
    *  undo — and on a sprite where two shapes touch by a corner, the difference
    *  between them is a pixel you cannot see until something shows you. */
   const hoverShape = $derived.by(() => {
-    if (editor.tool !== "select" || !hover || marquee || moving || placing) return [];
+    if (perspective.on || editor.tool !== "select" || !hover || marquee || moving || placing)
+      return [];
     return shapePoints(node.frames[frameOf(editor.path, node)] ?? [], hover.x, hover.y);
   });
 
@@ -907,6 +965,7 @@
       ></div>
     {/if}
     <TurnHandles {canvas} {box} {origin} {px} {node} />
+    <PlaneHandles {canvas} {box} {origin} {px} {node} />
   </div>
 
   <p class="read">
@@ -921,6 +980,7 @@
   <Loupe {backdrop} />
   <PlayBar />
   <RotateBar />
+  <PerspectiveBar />
 </div>
 
 <style>

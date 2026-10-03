@@ -53,6 +53,17 @@ describe("perspective", () => {
     ).toBeGreaterThan(0);
   });
 
+  test("crisp keeps a brush thinner than a pixel as a line, in its own colours", () => {
+    // Five rows above the anchor this floor is under a pixel deep: one sample
+    // per pixel finds nothing there, coverage finds the stripe.
+    const out = projectRows(BRUSH, PAL, facing({ tilt: 60, distance: 24, x: 12, y: 8 }), {
+      x: 12,
+      y: 3,
+    })!;
+    expect(out.rows.join("").replace(/\./g, "").length).toBeGreaterThan(0);
+    expect(out.added).toEqual([]);
+  });
+
   test("frame to plane and back is the same point", () => {
     const plane = facing({ tilt: 40, turn: -30, spin: 15, distance: 50 });
     const [s, t] = planePoint(plane, 20, 21)!;

@@ -119,7 +119,9 @@ export type Projected = {
  * `limit` pixels a side, which is what a brush stamped just under the horizon
  * of a steep plane becomes.
  *
- * `samples` is the smoothing dial `resample` describes.
+ * `samples` is the smoothing dial `resample` describes; at 1 every pixel the
+ * brush covers takes its commonest colour, so nothing is added and nothing
+ * thin is lost.
  */
 export function projectRows(
   rows: string[],
@@ -156,7 +158,11 @@ export function projectRows(
   const limit = opts.limit ?? 512;
   if (W < 1 || H < 1 || W > limit || H > limit) return null;
 
+  // Crisp here is COVERAGE, not one point per pixel: a brush receding to the
+  // horizon gets thinner than a pixel within a few rows, and nearest-neighbour
+  // would drop it there instead of narrowing it to a line.
   const n = Math.max(1, Math.round(opts.samples ?? 1));
+  const crisp = n === 1;
   const r = resample(
     rows,
     palette,
@@ -166,7 +172,7 @@ export function projectRows(
       const q = geo.toPlane(x0 + dx, y0 + dy);
       return q && [q[0] - s0 + w / 2, q[1] - t0 + h / 2];
     },
-    { nx: n, ny: n, tolerance: opts.tolerance },
+    crisp ? { nx: 4, ny: 4, cover: true } : { nx: n, ny: n, tolerance: opts.tolerance },
   );
   return { ...r, x: x0, y: y0, w: W, h: H };
 }

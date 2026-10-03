@@ -31,6 +31,7 @@
     editor,
     moveAnimation,
     moveFrame,
+    perspective,
     readOnly,
     removeAnimation,
     removeFrame,
@@ -297,8 +298,12 @@
       // the mode stays open while you pick the next one.
       {
         label: turning.on ? "Turn this frame" : "Rotate…",
-        hint: parted ? "a node with parts does not turn — flatten it first" : (why ?? undefined),
-        disabled: !!why || parted,
+        hint: parted
+          ? "a node with parts does not turn — flatten it first"
+          : perspective.on
+            ? "put the perspective brush down first"
+            : (why ?? undefined),
+        disabled: !!why || parted || perspective.on,
         run: () => {
           if (turning.on) return turnFrame(i);
           editor.frame = i;

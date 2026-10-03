@@ -33,17 +33,45 @@ export function resample(
   W: number,
   H: number,
   back: BackMap,
-  opts: { nx: number; ny: number; tolerance?: number },
+  opts: { nx: number; ny: number; tolerance?: number; cover?: boolean },
 ): { rows: string[]; palette: Record<string, string>; added: string[] } {
   const h = src.length;
   const w = src[0]?.length ?? 0;
   const { nx, ny } = opts;
   const { pal, added, charFor } = paletteMapper(palette, opts.tolerance ?? SAME_COLOUR);
 
+  // `cover` is crisp without the misses: a pixel takes the commonest character
+  // among its samples that land on paint, and stays empty only when none do.
+  // Nearest-neighbour asks one point per pixel, so a stripe thinner than a
+  // pixel falls between the points and is gone — where a hand-drawn road
+  // receding narrows to a line. Nothing is blended, so nothing is added.
+  const cover = (x: number, y: number): string => {
+    const count = new Map<string, number>();
+    for (let sy = 0; sy < ny; sy++) {
+      for (let sx = 0; sx < nx; sx++) {
+        const p = back(x + (sx + 0.5) / nx, y + (sy + 0.5) / ny);
+        if (!p) continue;
+        const px = Math.floor(p[0]);
+        const py = Math.floor(p[1]);
+        if (py < 0 || py >= h || px < 0 || px >= w) continue;
+        const ch = src[py][px];
+        if (ch !== TRANSPARENT && pal[ch]) count.set(ch, (count.get(ch) ?? 0) + 1);
+      }
+    }
+    let best = TRANSPARENT;
+    let most = 0;
+    for (const [ch, n] of count) if (n > most) [best, most] = [ch, n];
+    return best;
+  };
+
   const rows: string[] = [];
   for (let y = 0; y < H; y++) {
     let row = "";
     for (let x = 0; x < W; x++) {
+      if (opts.cover) {
+        row += cover(x, y);
+        continue;
+      }
       let R = 0;
       let G = 0;
       let B = 0;

@@ -10,15 +10,15 @@ vocabulary this follows), `../raspi` (deploy).
 ```text
 core/        the format, its validator, and every pure operation on a sprite.
              One module per concern in src/ (format, tree, validate, geometry,
-             blocks, colour, rotation, flatten, shapes, frames, palette, cycles,
-             json), re-exported by index.ts; patch.ts and mapper.ts are shared
-             between them and stay off the surface. A test file per module;
-             node-only.
+             blocks, colour, rotation, perspective, flatten, shapes, frames,
+             palette, cycles, json), re-exported by index.ts; patch.ts,
+             mapper.ts and sample.ts are shared between them and stay off the
+             surface. A test file per module; node-only.
 frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
              src/lib/editor/ is the store, one module per concern, layered so
              imports only point down: state → tree → selection → history → the
-             verbs (drawing, blocks, turn, frames, palette, variants, cycles,
-             animations, parts) → document. src/lib/editor.svelte.ts is its
+             verbs (drawing, blocks, turn, perspective, frames, palette,
+             variants, cycles, animations, parts) → document. src/lib/editor.svelte.ts is its
              public surface; commit and the other shared helpers stay among
              the modules.
 backend/     axum binary: serves frontend/dist with an SPA fallback, plus /status.
@@ -257,6 +257,21 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   it is floating, and growing the document from a marquee would be a surprise.
   A part keeps its CENTRE while it grows: the placement walks back by half the
   growth, or the art orbits its own corner as the box breathes with the angle.
+- **Every transform is a back-map into one sampler.** `resample` (core's
+  sample.ts) supersamples, blends premultiplied in sRGB and matches the palette;
+  a turn, a hinge and the perspective brush differ only in where a result pixel
+  comes from. A new transform is a new map, not a fourth copy of the loop.
+- **The perspective brush is a stamp, not a transform of the node.** Deluxe
+  Paint's mode: the clipboard laid on a plane (tilt, turn, spin, distance,
+  pinned at an anchor where it is 1:1) and put down where a click's line of
+  sight meets it. Each click is a finished edit and its own undo entry — a road
+  is twenty clicks, and taking back the last should not take back the rest — so
+  there is no Apply, and Esc only puts the brush down. Its crisp setting is
+  COVERAGE (4×4 samples, the commonest colour among those that land on paint),
+  not one sample per pixel: receding to the horizon a brush is thinner than a
+  pixel within a few rows, and nearest-neighbour drops it where a hand-drawn
+  road narrows to a line. The bar sits at the top of the pane, because what
+  this brush draws — floors, roads — is at the bottom of the picture.
 - **A parted node does not turn or flip whole — flatten is the door out.** Parts
   cannot rotate together: a borrowed wheel is another sprite's pixels, each part
   would invent blends in its own local palette, and per-part sampling fades every

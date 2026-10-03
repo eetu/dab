@@ -70,6 +70,17 @@ export {
   usePartInstead,
 } from "./editor/parts.svelte";
 export {
+  beginPerspective,
+  brush,
+  endPerspective,
+  perspective,
+  perspectiveAt,
+  plane,
+  setAnchor,
+  setPlane,
+  stampPerspective,
+} from "./editor/perspective.svelte";
+export {
   clearSelection,
   clipboard,
   dropPaste,

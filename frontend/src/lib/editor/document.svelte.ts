@@ -3,6 +3,7 @@ import { SvelteSet } from "svelte/reactivity";
 
 import { closeMenu } from "../menu.svelte";
 import { commit, resetHistory } from "./history.svelte";
+import { endPerspective } from "./perspective.svelte";
 import { dropFloat, selection } from "./selection.svelte";
 import { editor } from "./state.svelte";
 import { partAt, resolvePart } from "./tree.svelte";
@@ -17,6 +18,7 @@ export function loadSprite(sprite: SpriteFile, file: string | null) {
   // was just opened with a rotated copy of what was closed. A menu describes a
   // moment, and that moment is over too.
   endTurn();
+  endPerspective();
   dropFloat();
   closeMenu();
   // Per-document view state resets WITH the document. These used to survive, so
@@ -55,6 +57,7 @@ export function selectNode(path: readonly string[]) {
   const node =
     path.length && part && isPartRef(part) ? resolvePart(part.use) : nodeAt(editor.sprite, path);
   if (!node && !(part && isPartRef(part))) return;
+  endPerspective();
   dropFloat();
   selection.cells = new SvelteSet();
   editor.path = [...path];

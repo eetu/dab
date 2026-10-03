@@ -64,6 +64,15 @@
         played with the frames, so water flows and lights chase without a frame more. A cycle's colours
         follow the palette.
       </p>
+      <h3>Perspective</h3>
+      <p>
+        Copy something, then right-click → <em>Perspective brush</em>. The clipboard becomes a brush
+        laid on a plane: lean it back into a floor or a road, swing it into a wall, set how near the
+        eye is, and drag the round anchor to where the plane is at true size. Each click stamps the
+        brush there — bigger where the plane comes toward you, smaller toward the horizon — and is
+        its own undo. A grid cell is one brush, so a stamp per cell tiles the plane. Esc puts the
+        brush down.
+      </p>
       <h3>Turning</h3>
       <p>
         Right-click → Rotate. <strong>Spin</strong> turns the art in the picture plane — drag the

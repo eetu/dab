@@ -31,6 +31,7 @@
     deleteSelection,
     dropPaste,
     editor,
+    endPerspective,
     flattenedNode,
     gesture,
     hasSelection,
@@ -40,6 +41,7 @@
     nudgeSelection,
     pasteClipboard,
     pasteFloating,
+    perspective,
     redoEdit,
     removePart,
     selectAll,
@@ -449,6 +451,17 @@
         setTurn(turning.angle + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 10 : 1));
       }
       return;
+    }
+    // The perspective brush owns the canvas too, but every click in it is
+    // already a finished edit — so undo and save still answer, Escape or Enter
+    // puts the brush down, and nothing else reaches the tools behind it.
+    if (perspective.on) {
+      if (e.key === "Escape" || e.key === "Enter") {
+        e.preventDefault();
+        endPerspective();
+        return;
+      }
+      if (!meta || !["z", "s"].includes(e.key.toLowerCase())) return;
     }
     if (meta && e.key.toLowerCase() === "s") {
       e.preventDefault();
