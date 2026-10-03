@@ -1,16 +1,18 @@
-import { isPartRef, type SpriteBody } from "./format";
+import { isPartRef, levelOf, type SpriteBody } from "./format";
 import { patch } from "./patch";
 
-//
 // A path is the list of part names from the root down. `[]` is the sprite
 // itself, `["doorL"]` its door, `["doorL", "handle"]` the handle on that door.
 // The editor holds one, every operation is applied through `withNode`, and a
 // consumer holds each node's frame under the same path — so the same three lines
-// address a part in the tool, in the file and in the game.
+// address a part in the tool, in the file and in the game. A level is the one
+// node a path reaches that is not a part: `["@far"]`, at the top only.
 
 /** The node at a path, or null when the path names nothing — or names a `use`
  *  part, which has no body of its own to reach into. */
 export function nodeAt(s: SpriteBody, path: readonly string[]): SpriteBody | null {
+  const level = levelOf(path);
+  if (level !== null) return s.levels?.find((l) => l.name === level) ?? null;
   let node: SpriteBody = s;
   for (const name of path) {
     const found = (node.parts ?? []).find((p) => p.name === name);
@@ -35,6 +37,15 @@ export function withNode<T extends SpriteBody>(
   fn: (node: SpriteBody) => SpriteBody,
 ): T {
   if (!path.length) return patch(s, fn(s));
+  const level = levelOf(path);
+  if (level !== null) {
+    const levels = s.levels ?? [];
+    const i = levels.findIndex((l) => l.name === level);
+    if (i < 0) return s;
+    const next = [...levels];
+    next[i] = patch(levels[i], fn(levels[i]));
+    return patch(s, { levels: next });
+  }
   const parts = s.parts ?? [];
   const i = parts.findIndex((p) => p.name === path[0]);
   if (i < 0) return s;

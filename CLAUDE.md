@@ -11,7 +11,7 @@ vocabulary this follows), `../raspi` (deploy).
 core/        the format, its validator, and every pure operation on a sprite.
              One module per concern in src/ (format, tree, validate, geometry,
              blocks, colour, rotation, perspective, flatten, shapes, frames,
-             palette, cycles, json), re-exported by index.ts; patch.ts,
+             palette, cycles, levels, json), re-exported by index.ts; patch.ts,
              mapper.ts and sample.ts are shared between them and stay off the
              surface. A test file per module; node-only.
 frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
@@ -31,6 +31,10 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **The format is the contract; there is no library to depend on.** A cell's
   colour is `variant?.[ch] ?? palette[ch]`, with `.` transparent — one line, so a
   consumer owns its own reader and nothing has to be versioned between repos.
+- **The format may break.** Every consumer is in-house (`../scene`,
+  `../nahkarele`), so a format change is designed on its merits and the readers
+  and the files they hold are migrated with it — "an old reader still draws
+  it" is not a constraint to design around.
 - **Nothing about a character is reserved.** Recolouring is expressed as named
   palette variants that override the entries they name and inherit the rest. The
   first cut of this format had `N`/`n` reserved for a "neon" pass with a hardcoded
@@ -53,6 +57,18 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **Palettes are local to a node.** Inheritance would make a cell's colour
   `variant?.[ch] ?? palette[ch] ?? parent.palette[ch]`, and the one-line rule is
   the thing this repo is built on. The editor closes the gap instead.
+- **A level is the subject at another size, in step with the sprite.**
+  `levels: [{ name, …body }]` beside the sprite's own grid, which is the nearest
+  size. A key rather than files named `deer@far`: the step is the point — a
+  frame added to one size and not the other is a consumer reading past the end
+  — and only one document with one undo stack can keep it. So a level has the
+  sprite's frame count, plays the sprite's animations (it carries none) and has
+  no parts; every frame verb writes every level, and the editor commits frame
+  and animation edits to the sprite (`commitShared`) from wherever they are
+  pressed. A level is addressed like a node, `["@far"]`, so every tool works on
+  it unchanged — which is why a part's name may not start with `@`. A new level
+  is derived (coverage down, Scale2x/3x up, no new colours) and then drawn over;
+  which size to draw at what distance is the consumer's, as timing is.
 - **A colour cycle is generated variants, one per phase.** `name 1` … `name n`,
   each naming only the characters it turns, so the format gains no key and a
   consumer no rule. A `cycles` key with a rate was the alternative and put timing

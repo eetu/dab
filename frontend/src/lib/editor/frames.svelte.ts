@@ -5,7 +5,7 @@ import {
   removeFrame as removeFrameFrom,
 } from "dab-core";
 
-import { commitNode, settle } from "./history.svelte";
+import { commitShared, settle } from "./history.svelte";
 import { editor } from "./state.svelte";
 import { activeNode, frameNow } from "./tree.svelte";
 
@@ -21,21 +21,21 @@ import { activeNode, frameNow } from "./tree.svelte";
  * next thing anyone does with a new frame is draw on it.
  */
 export const addFrame = (at: number = frameNow()) => {
-  commitNode((n) => addFrameTo(n, at));
+  commitShared((n) => addFrameTo(n, at));
   editor.frame = Math.min(at + 1, activeNode().frames.length - 1);
 };
 export const duplicateFrame = (at: number = frameNow()) => {
-  commitNode((n) => duplicateFrameIn(n, at));
+  commitShared((n) => duplicateFrameIn(n, at));
   editor.frame = Math.min(at + 1, activeNode().frames.length - 1);
 };
 export function removeFrame(at: number = frameNow()) {
   if (activeNode().frames.length <= 1) return;
-  commitNode((n) => removeFrameFrom(n, at));
+  commitShared((n) => removeFrameFrom(n, at));
   settle();
 }
 export function moveFrame(from: number, to: number) {
   const node = activeNode();
   if (from === to || to < 0 || to >= node.frames.length) return;
-  commitNode((n) => moveFrameIn(n, from, to));
+  commitShared((n) => moveFrameIn(n, from, to));
   editor.frame = to;
 }

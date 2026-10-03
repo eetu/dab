@@ -2,7 +2,7 @@ import { cloneSprite, nodeAt, type SpriteBody, type SpriteFile, withNode } from 
 
 import { dropFloat } from "./selection.svelte";
 import { editor } from "./state.svelte";
-import { activeNode, blocked } from "./tree.svelte";
+import { activeNode, blocked, sharedPath } from "./tree.svelte";
 
 // The undo stack, and the commit every edit goes through.
 //
@@ -64,6 +64,13 @@ export const commitNode = (fn: (node: SpriteBody) => SpriteBody) => {
   // palette and frame edit quietly do nothing. Say so instead.
   if (blocked()) return;
   commit(withNode(editor.sprite, editor.path, fn));
+};
+
+/** Commit a frame or animation edit: to the sprite when a level is being
+ *  drawn, since a level has the sprite's frames in step and its animations. */
+export const commitShared = (fn: (node: SpriteBody) => SpriteBody) => {
+  if (blocked()) return;
+  commit(withNode(editor.sprite, sharedPath(), fn));
 };
 
 /**

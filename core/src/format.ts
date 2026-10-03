@@ -32,7 +32,33 @@ export type SpriteBody = {
   frames: string[][];
   /** Children, drawn in list order after this grid — see `Part`. */
   parts?: Part[];
+  /** The same subject drawn at other sizes — see `Level`. The sprite itself
+   *  carries them; a part or a level does not. */
+  levels?: Level[];
 };
+
+/**
+ * One of a sprite's other sizes: the deer across the field, where the sprite
+ * itself is the deer beside the desk.
+ *
+ * Drawn, not scaled — up, a scaled sprite has pixels twice the scene's; down,
+ * nearest-neighbour drops rows unevenly and the art shimmers as it moves. So a
+ * level is a grid of its own with its own palette, kept in STEP with the
+ * sprite: the same number of frames, and the sprite's animations rather than
+ * any of its own, so a consumer can swap sizes mid-walk without remapping.
+ * Which size to draw at which distance is the consumer's, as timing is.
+ */
+export type Level = SpriteBody & { name: string };
+
+/** How a path names a level rather than a part: `["@far"]`. A part's name may
+ *  not start with it. */
+export const LEVEL = "@";
+
+export const levelPath = (name: string): string[] => [`${LEVEL}${name}`];
+
+/** The level a path addresses, by name, or null for a path into the parts. */
+export const levelOf = (path: readonly string[]): string | null =>
+  path.length === 1 && path[0].startsWith(LEVEL) ? path[0].slice(LEVEL.length) : null;
 
 /** Where a part sits on its parent, in the parent's own pixel coordinates. */
 export type Placement = {
@@ -147,5 +173,6 @@ export function cloneSprite<T extends SpriteBody>(s: T): T {
       : undefined,
     frames: s.frames.map((f) => [...f]),
     parts: s.parts?.map((p) => (isPartRef(p) ? { ...p } : cloneSprite(p))),
+    levels: s.levels?.map((l) => cloneSprite(l)),
   });
 }

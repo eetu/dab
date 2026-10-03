@@ -84,6 +84,23 @@ the characters it turns. Phase 1 is the palette as drawn. A consumer cycles by
 drawing `water k` on its own clock, counting phases up to the first missing
 number; there is no key for a rate, because the clock is the consumer's.
 
+**Levels** are the subject drawn at other sizes — the deer beside the desk, the
+same deer across the field, a few pixels on the ridge. Scaling one drawing is no
+answer in pixel art, so each size is drawn, and lives in `levels` beside the
+sprite's own grid (which is the nearest):
+
+```json
+"levels": [
+  { "name": "far", "w": 13, "h": 12, "palette": { "…": "…" }, "frames": [ "…" ] }
+]
+```
+
+A level is in step with the sprite: the same number of frames, and the sprite's
+animations rather than its own, so a consumer can swap sizes mid-walk without
+remapping. It has its own palette and variants and no parts. Which size to draw
+at which distance — and any hysteresis or crossfade between two — is the
+consumer's.
+
 **Parts** are for subjects that are not one grid. A car has a body, two wheels,
 two doors, pop-up lamps and a trunk; each has its own state, and expressed as
 whole-car frames that is the product of every combination of them — three door

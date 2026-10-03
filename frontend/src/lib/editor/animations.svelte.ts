@@ -1,7 +1,7 @@
 import { animationFrames, type SpriteBody } from "dab-core";
 
 import { cycleShowing } from "./cycles.svelte";
-import { commitNode } from "./history.svelte";
+import { commitShared } from "./history.svelte";
 import { editor } from "./state.svelte";
 import { activeNode, frameNow } from "./tree.svelte";
 
@@ -60,7 +60,7 @@ export function rewind(): void {
 
 function setAnimations(animations: Record<string, number[]>) {
   const names = Object.keys(animations);
-  commitNode((n) => ({ ...n, animations: names.length ? animations : undefined }));
+  commitShared((n) => ({ ...n, animations: names.length ? animations : undefined }));
   if (editor.animation && !names.includes(editor.animation)) editor.animation = null;
 }
 

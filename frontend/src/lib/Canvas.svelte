@@ -10,7 +10,14 @@
   // zoom, two-finger scroll to pan, ⌘/ctrl-wheel to zoom at the cursor, space or
   // middle-drag to pan, and a plain drag paints. Two fingers down means the
   // gesture belongs to the viewport, so a pinch never leaves a stray pixel.
-  import { cellColour, isPartRef, shapePoints, type SpriteBody, TRANSPARENT } from "dab-core";
+  import {
+    cellColour,
+    isPartRef,
+    levelOf,
+    shapePoints,
+    type SpriteBody,
+    TRANSPARENT,
+  } from "dab-core";
 
   import {
     activeNode,
@@ -56,6 +63,7 @@
     shownFrame,
     shownVariant,
     stageBox,
+    stageNode,
     stampPerspective,
     strokePoints,
     turning,
@@ -115,7 +123,11 @@
     return () => clearTimeout(t);
   });
 
-  const sprite = $derived(editor.sprite);
+  /** What the stage draws: the sprite and its parts, or the level being drawn,
+   *  alone. `base` is that level's path, so the paths the painter hands back —
+   *  relative to what it was given — still name the node the panels mean. */
+  const sprite = $derived(stageNode());
+  const base = $derived(levelOf(editor.path) !== null ? editor.path : []);
   const px = $derived(cell());
 
   // The play head lives here because the surface is what plays. One interval,
@@ -238,6 +250,8 @@
    *  It does swallow clicks on whatever is under it, which is the trade: that
    *  lasts exactly until you draw the first pixel in it. */
   function nodeUnder(at: { x: number; y: number }): string[] | null {
+    // A level has no parts to find under the pointer.
+    if (base.length) return null;
     let best: string[] | null = null;
     const walk = (n: SpriteBody, ox: number, oy: number, path: string[]) => {
       const rows = n.frames[frameOf(path, n)] ?? [];
@@ -888,12 +902,12 @@
   const paintOpts = $derived({
     // The active node walks the run while playing; every other part sits on the
     // frame it was put on, or follows this one — the same rule as when stopped.
-    frameOf: (path: string[], n: SpriteBody) => frameOf(path, n, surfaceFrame),
+    frameOf: (path: string[], n: SpriteBody) => frameOf([...base, ...path], n, surfaceFrame),
     resolve: resolvePart,
     variant: shownVariant(),
-    hidden: (path: string[]) => !!editor.hidden[pathKey(path)],
+    hidden: (path: string[]) => !!editor.hidden[pathKey([...base, ...path])],
     style: (path: string[]) =>
-      pathKey(path) === pathKey(editor.path) ? ("full" as const) : panels.underlay,
+      pathKey([...base, ...path]) === pathKey(editor.path) ? ("full" as const) : panels.underlay,
   });
 </script>
 

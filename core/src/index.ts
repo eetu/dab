@@ -40,6 +40,7 @@ export * from "./format";
 export * from "./frames";
 export * from "./geometry";
 export * from "./json";
+export * from "./levels";
 export * from "./palette";
 export * from "./perspective";
 export * from "./rotation";

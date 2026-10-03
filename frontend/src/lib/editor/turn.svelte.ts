@@ -4,6 +4,7 @@ import {
   fitRows,
   hingeRows,
   insertFrames,
+  levelOf,
   nodeAt,
   readStamp,
   resizeSprite,
@@ -175,7 +176,10 @@ export function setHinge(at: number) {
  *  floating, and there is no sense in which a float has frames of its own. */
 export function setTurnFrames(n: number) {
   if (!turning.on) return;
-  turning.frames = turning.whole ? Math.max(1, Math.min(24, Math.round(n))) : 1;
+  // Nor does a level: a run inserts frames, and the other sizes would only
+  // get copies — the run belongs on the sprite, where every size steps with it.
+  const runs = turning.whole && levelOf(editor.path) === null;
+  turning.frames = runs ? Math.max(1, Math.min(24, Math.round(n))) : 1;
   showTurn();
 }
 

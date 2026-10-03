@@ -5,6 +5,7 @@ import {
   type Flip,
   getPixel,
   isPartRef,
+  levelOf,
   nodeAt,
   padSprite,
   type Part,
@@ -41,12 +42,22 @@ const freeName = (parts: Part[], want: string): string => {
  * subject is, and nudging from a corner is less work than finding where the
  * middle put it.
  */
+/** A level is the whole subject at another size, and has no parts of its
+ *  own. Says so and is true when the tools are pointed at one. */
+function onLevel(): boolean {
+  if (levelOf(editor.path) === null) return false;
+  editor.status = "a level has no parts — add them to the sprite";
+  editor.statusBad = true;
+  return true;
+}
+
 export function addPart(spec: {
   use?: string;
   w?: number;
   h?: number;
   name?: string;
 }): string | null {
+  if (onLevel()) return null;
   const node = activeNode();
   if (spec.use === editor.sprite.name) return null;
   const name = freeName(node.parts ?? [], spec.name?.trim() || spec.use || "part");
@@ -81,7 +92,7 @@ export function addPart(spec: {
  * of the drawing, and a body with three frames hands over a part with three.
  */
 export function partFromSelection(name: string, lift = false): string | null {
-  if (!hasSelection()) return null;
+  if (!hasSelection() || onLevel()) return null;
   const node = activeNode();
   const x0 = selection.x0;
   const y0 = selection.y0;

@@ -53,7 +53,19 @@ function bodyEntries(n: SpriteBody, ind: string): [string, string][] {
       `[\n${n.parts.map((p) => `${ind}  ${partBlock(p, ind + "  ")}`).join(",\n")}\n${ind}]`,
     ]);
   }
+  if (n.levels?.length) {
+    out.push([
+      "levels",
+      `[\n${n.levels.map((l) => `${ind}  ${namedBlock(l.name, l, ind + "  ")}`).join(",\n")}\n${ind}]`,
+    ]);
+  }
   return out;
+}
+
+/** A level: its name, then a body like any other. */
+function namedBlock(name: string, body: SpriteBody, ind: string): string {
+  const entries: [string, string][] = [["name", q(name)], ...bodyEntries(body, ind)];
+  return `{\n${entries.map(([k, v]) => `${ind}  ${q(k)}: ${v}`).join(",\n")}\n${ind}}`;
 }
 
 function partBlock(p: Part, ind: string): string {

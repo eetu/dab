@@ -7,19 +7,16 @@
   // is how the art reads small, which is where a sign turns to mush and a
   // one-pixel highlight disappears. It plays when the surface plays, because
   // "does this read at size, in motion" is one question.
+  //
+  // With levels it shows every size side by side, feet on one line, on one
+  // frame — so a tier that reads differently from its neighbour shows up as
+  // the two are looked at together.
   import Minus from "@lucide/svelte/icons/minus";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
+  import { groupBox, levelOf } from "dab-core";
 
-  import {
-    editor,
-    frameOf,
-    pathKey,
-    resolvePart,
-    shownFrame,
-    shownVariant,
-    stageBox,
-  } from "./editor.svelte";
+  import { editor, frameOf, pathKey, resolvePart, shownFrame, shownVariant } from "./editor.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
   import {
     type Corner,
@@ -29,7 +26,7 @@
     setLoupeZoom,
     toggleLoupe,
   } from "./panels.svelte";
-  import { paintAssembly } from "./render";
+  import { paintAssembly, paintRows } from "./render";
   import { type Backdrop, viewport } from "./viewport.svelte";
 
   let { backdrop = "checker" as Backdrop }: { backdrop?: Backdrop } = $props();
@@ -39,7 +36,22 @@
    *  of the time: at rest it is pinned to a corner, not to a position. */
   let dragging: { x: number; y: number; dx: number; dy: number } | null = $state(null);
 
-  const box = $derived(stageBox());
+  /** Cells between two sizes, so their silhouettes do not touch. */
+  const GAP = 2;
+  /** The sprite's assembly, then each level, left to right at the foot line. */
+  const layout = $derived.by(() => {
+    const own = groupBox(editor.sprite, resolvePart);
+    const levels = editor.sprite.levels ?? [];
+    const h = Math.max(own.h, ...levels.map((l) => l.h));
+    let x = own.w + GAP;
+    const placed = levels.map((l) => {
+      const at = { level: l, x, y: h - l.h };
+      x += l.w + GAP;
+      return at;
+    });
+    return { own, levels: placed, w: levels.length ? x - GAP : own.w, h };
+  });
+  const box = $derived({ w: layout.w, h: layout.h });
   const want = $derived(panels.loupe.zoom);
 
   // Never more than two fifths of the pane: a window that covers the drawing is
@@ -88,12 +100,21 @@
     g.clearRect(0, 0, el.width, el.height);
     // No underlay style: this is the consumer's view, where every part is drawn
     // as it is. Hidden parts stay hidden — they are how the pose is posed.
-    paintAssembly(g, editor.sprite, -box.x, -box.y, {
-      frameOf: (path, n) => frameOf(path, n, frame),
+    // Every size is on the one frame index — they step together. While a level
+    // is being drawn the strip IS that index; otherwise it is the sprite's own.
+    const index = levelOf(editor.path) !== null ? frame : frameOf([], editor.sprite, frame);
+    const { own } = layout;
+    paintAssembly(g, editor.sprite, -own.x, layout.h - own.h - own.y, {
+      frameOf: (path, n) =>
+        path.length ? frameOf(path, n, frame) : Math.min(index, n.frames.length - 1),
       resolve: resolvePart,
       variant,
       hidden: (path) => !!editor.hidden[pathKey(path)],
     });
+    for (const at of layout.levels) {
+      const rows = at.level.frames[Math.min(index, at.level.frames.length - 1)] ?? [];
+      paintRows(g, rows, at.level, at.x, at.y, variant);
+    }
   });
 
   /** Drag it by its own body, and let go into the nearest corner. Four corners

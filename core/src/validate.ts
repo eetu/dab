@@ -1,5 +1,6 @@
 import {
   COLOUR,
+  LEVEL,
   MAX_PART_DEPTH,
   type Placement,
   type SpriteBody,
@@ -111,6 +112,50 @@ function validateBody(
     }
   }
   if (sp.parts !== undefined) validateParts(sp.parts, where, depth, rootName, errors);
+  if (sp.levels !== undefined) {
+    if (where) say("only the sprite itself has levels");
+    else validateLevels(sp.levels, sp, rootName, errors);
+  }
+}
+
+/**
+ * A level's rules: a body like any other, with a name, and in step with the
+ * sprite — the same frame count, and no animations or parts of its own, since
+ * it plays the sprite's animations and stands for the whole subject.
+ */
+function validateLevels(
+  levels: unknown,
+  root: Partial<SpriteBody>,
+  rootName: string,
+  errors: string[],
+): void {
+  if (!Array.isArray(levels)) {
+    errors.push("levels must be a list");
+    return;
+  }
+  const count = Array.isArray(root.frames) ? root.frames.length : 0;
+  const seen = new Set<string>();
+  levels.forEach((raw, i) => {
+    const l = raw as Partial<SpriteBody & { name: unknown }>;
+    if (!l || typeof l !== "object" || Array.isArray(l)) {
+      errors.push(`level ${i} is not an object`);
+      return;
+    }
+    if (typeof l.name !== "string" || !l.name || l.name.includes("/")) {
+      errors.push(`level ${i} needs a name, without a /`);
+      return;
+    }
+    const at = `level ${l.name}`;
+    if (seen.has(l.name)) errors.push(`two levels are called ${l.name}`);
+    seen.add(l.name);
+    if (l.animations !== undefined)
+      errors.push(`${at}: plays the sprite's animations, not its own`);
+    if (l.parts !== undefined) errors.push(`${at}: cannot carry parts`);
+    if (Array.isArray(l.frames) && l.frames.length !== count) {
+      errors.push(`${at}: has ${l.frames.length} frames, the sprite has ${count}`);
+    }
+    validateBody(l, at, 1, rootName, errors);
+  });
 }
 
 function validateParts(
@@ -147,6 +192,8 @@ function validateParts(
     const there = (msg: string) => errors.push(`${at}: ${msg}`);
     if (seen.has(p.name)) say(`two parts are called ${p.name}`);
     seen.add(p.name);
+    if (p.name.startsWith(LEVEL))
+      there(`a part's name cannot start with ${LEVEL} — that names a level`);
     if (!Number.isInteger(p.x) || !Number.isInteger(p.y)) there("x and y must be whole pixels");
     if (p.behind !== undefined && typeof p.behind !== "boolean")
       there("behind must be true or false");

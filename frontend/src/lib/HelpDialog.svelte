@@ -64,6 +64,14 @@
         played with the frames, so water flows and lights chase without a frame more. A cycle's colours
         follow the palette.
       </p>
+      <h3>Levels</h3>
+      <p>
+        A subject that comes nearer or goes farther is drawn at each size — the sprite's ⋯ → <em
+          >New level…</em
+        > makes a smaller (or larger) copy to draw over, listed under the parts. Click one to draw on
+        it. Levels step with the sprite: a frame added or moved anywhere is added or moved at every size,
+        and they play the sprite's animations. The loupe shows every size side by side.
+      </p>
       <h3>Perspective</h3>
       <p>
         Copy something, then right-click → <em>Perspective brush</em>. The clipboard becomes a brush

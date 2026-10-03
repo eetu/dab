@@ -1,6 +1,8 @@
 import {
   groupBox,
   isPartRef,
+  levelOf,
+  levelPath,
   nodeAt,
   type Part,
   type Placement,
@@ -34,8 +36,22 @@ export function activeRef(): (Placement & { use: string }) | null {
 export function activeNode(): SpriteBody {
   const ref = activeRef();
   if (ref) return resolvePart(ref.use) ?? editor.sprite;
-  return nodeAt(editor.sprite, editor.path) ?? editor.sprite;
+  const node = nodeAt(editor.sprite, editor.path) ?? editor.sprite;
+  // A level plays the sprite's animations, so the panels show those — read
+  // here, written through `commitShared`, never stored on the level.
+  return levelOf(editor.path) !== null ? { ...node, animations: editor.sprite.animations } : node;
 }
+
+/** What the canvas draws: the level being drawn, alone at its own size, or
+ *  the sprite with its parts. */
+export const stageNode = (): SpriteBody =>
+  levelOf(editor.path) !== null
+    ? (nodeAt(editor.sprite, editor.path) ?? editor.sprite)
+    : editor.sprite;
+
+/** Where frame and animation edits land: the sprite itself when a level is
+ *  being drawn, because every level steps with it. */
+export const sharedPath = (): string[] => (levelOf(editor.path) !== null ? [] : editor.path);
 
 /** Where a node's top-left sits in the sprite's own coordinates. */
 export function nodeOrigin(path: readonly string[]): { x: number; y: number } {
@@ -81,7 +97,12 @@ export function frameOf(
 
 /** The box the whole assembly fills, in the sprite's coordinates. Negative
  *  offsets and parts past the edge are normal, so this is what frames the view. */
-export const stageBox = () => groupBox(editor.sprite, resolvePart);
+export const stageBox = () => {
+  const node = stageNode();
+  return node === editor.sprite
+    ? groupBox(node, resolvePart)
+    : { x: 0, y: 0, w: node.w, h: node.h };
+};
 
 /**
  * Sprites in the folder with a `use` part naming this one.
@@ -156,5 +177,6 @@ export function allNodes(): { path: string[]; node: SpriteBody }[] {
     for (const p of n.parts ?? []) if (!isPartRef(p)) walk(p, [...path, p.name]);
   };
   walk(editor.sprite, []);
+  for (const l of editor.sprite.levels ?? []) out.push({ path: levelPath(l.name), node: l });
   return out;
 }

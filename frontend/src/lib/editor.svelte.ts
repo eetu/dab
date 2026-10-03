@@ -38,6 +38,7 @@ export { loadSprite, newSprite, rename, selectNode } from "./editor/document.sve
 export { fillAt, paint, pickAt, setTool, strokePoints } from "./editor/drawing.svelte";
 export { addFrame, duplicateFrame, moveFrame, removeFrame } from "./editor/frames.svelte";
 export { canRedo, canUndo, history, redoEdit, undoEdit } from "./editor/history.svelte";
+export { addLevel, removeLevel, renameLevel } from "./editor/levels.svelte";
 export {
   addColour,
   adoptFromBundle,
@@ -109,6 +110,7 @@ export {
   resolvePart,
   sheet,
   stageBox,
+  stageNode,
   usedBy,
 } from "./editor/tree.svelte";
 export {
