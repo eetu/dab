@@ -62,6 +62,9 @@ export const editor = $state({
   /** Palette character the pencil paints; `.` means transparent. */
   ink: TRANSPARENT,
   grid: true,
+  /** Draw the stage wrapped 3×3 around itself, so the seams of a tile show
+   *  while they are being drawn. A desk pref, like the grid. */
+  tile: false,
   onion: true,
   playing: false,
   fps: 6,

@@ -1,3 +1,5 @@
+import { editor, stageBox } from "./editor.svelte";
+
 // Where the sprite sits on screen: a zoom and a pan offset, driven by the same
 // gesture vocabulary as nib — pinch, two-finger scroll, ⌘/ctrl-wheel, space-drag.
 //
@@ -48,6 +50,14 @@ export function fit(w: number, h: number) {
   viewport.tx = 0;
   viewport.ty = 0;
   viewport.manual = false;
+}
+
+/** Fit the stage — with half a tile's room round it while tiling, or the
+ *  copies the preview is for sit off the pane. */
+export function fitStage() {
+  const box = stageBox();
+  const k = editor.tile ? 2 : 1;
+  fit(box.w * k, box.h * k);
 }
 
 /**

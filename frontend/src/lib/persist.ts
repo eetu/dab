@@ -152,6 +152,7 @@ export type Prefs = {
   tool?: string;
   onion?: boolean;
   grid?: boolean;
+  tile?: boolean;
   fps?: number;
   backdrop?: string;
   theme?: "auto" | "dark" | "light";
