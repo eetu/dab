@@ -54,6 +54,10 @@ export const editor = $state({
    */
   shown: {} as Record<string, number | "follow">,
   hidden: {} as Record<string, boolean>,
+  /** Parts picked together, as path keys — the selected one always among them.
+   *  What the Move tool's arrows, drags and Delete act on. Editor state, like
+   *  shown and hidden: never written. */
+  picked: [] as string[],
   tool: "pencil" as Tool,
   /** Palette character the pencil paints; `.` means transparent. */
   ink: TRANSPARENT,

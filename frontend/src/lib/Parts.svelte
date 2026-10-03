@@ -21,9 +21,12 @@
     inlinePart,
     movePart,
     pathKey,
+    pickAllParts,
+    pickNode,
     placePart,
     removeLevel,
     removePart,
+    removePickedParts,
     rename,
     renameLevel,
     renamePart,
@@ -87,7 +90,21 @@
     const at = siblingIndex(row.path);
     const name = row.path.at(-1)!;
     const use = row.part && isPartRef(row.part) ? row.part.use : null;
+    // Picked with others, the row's menu leads with what applies to all of
+    // them — the same set the arrows and a drag on the canvas move.
+    const many = editor.picked.length > 1 && editor.picked.includes(pathKey(row.path));
     return [
+      ...(many
+        ? [
+            {
+              label: `Remove the ${editor.picked.length} picked`,
+              hint: editor.picked.map((k) => k.split("/").at(-1)).join(", "),
+              danger: true,
+              run: removePickedParts,
+            } satisfies MenuItem,
+            { kind: "separator" } satisfies MenuItem,
+          ]
+        : []),
       // A borrowed part is a window onto another document. You cannot edit it
       // through the window — the undo stack holds one sprite — so the offers
       // are: go there, look through a different window, or take your own copy.
@@ -209,6 +226,12 @@
         label: "Select all",
         run: selectAll,
       },
+      {
+        label: "Select all parts",
+        hint: rows.length > 1 ? `${rows.length - 1}` : "no parts yet",
+        disabled: rows.length < 2,
+        run: pickAllParts,
+      },
       { label: "Add part…", run: openPartDialog },
       { label: "New level…", hint: "this subject at another size", run: openLevelDialog },
     ];
@@ -249,6 +272,7 @@
       {@const missing = ref && !row.node}
       <li
         class:on={key === active}
+        class:picked={key !== active && editor.picked.length > 1 && editor.picked.includes(key)}
         class:borrowed={ref}
         style:--depth={row.depth}
         oncontextmenu={(e) =>
@@ -260,7 +284,7 @@
       >
         <button
           class="pick"
-          onclick={() => selectNode(row.path)}
+          onclick={(e) => (e.shiftKey ? pickNode(row.path) : selectNode(row.path))}
           title={ref
             ? `Draws ${(row.part as { use: string }).use} — pick it up with Move (V)`
             : `Draw on ${key || "the sprite"}`}
@@ -482,6 +506,11 @@
     font-size: 0.68rem;
     color: var(--halo-text-light);
     font-variant-numeric: tabular-nums;
+  }
+  /* Picked with the selected part: in the set the Move tool acts on, but not
+     the one the tools draw on — the accent's border without its fill. */
+  li.picked {
+    border-color: var(--halo-accent);
   }
   li.on {
     border-color: var(--halo-accent);

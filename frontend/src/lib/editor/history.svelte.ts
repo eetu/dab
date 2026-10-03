@@ -2,7 +2,7 @@ import { cloneSprite, nodeAt, type SpriteBody, type SpriteFile, withNode } from 
 
 import { dropFloat } from "./selection.svelte";
 import { editor } from "./state.svelte";
-import { activeNode, blocked, sharedPath } from "./tree.svelte";
+import { activeNode, blocked, partAt, sharedPath } from "./tree.svelte";
 
 // The undo stack, and the commit every edit goes through.
 //
@@ -96,6 +96,7 @@ export function settle() {
   // A frame operation can remap a animation out of existence while the preview is
   // showing it — the badge would keep naming an animation the node no longer has.
   if (editor.animation && !activeNode().animations?.[editor.animation]) editor.animation = null;
+  editor.picked = editor.picked.filter((k) => partAt(k.split("/")));
 }
 
 export function undoEdit() {

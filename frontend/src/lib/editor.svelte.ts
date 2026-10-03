@@ -34,7 +34,14 @@ export {
   reverseCycle,
   shownVariant,
 } from "./editor/cycles.svelte";
-export { loadSprite, newSprite, rename, selectNode } from "./editor/document.svelte";
+export {
+  loadSprite,
+  newSprite,
+  pickAllParts,
+  pickNode,
+  rename,
+  selectNode,
+} from "./editor/document.svelte";
 export { fillAt, paint, pickAt, setTool, strokePoints } from "./editor/drawing.svelte";
 export { addFrame, duplicateFrame, moveFrame, removeFrame } from "./editor/frames.svelte";
 export { canRedo, canUndo, history, redoEdit, undoEdit } from "./editor/history.svelte";
@@ -59,11 +66,14 @@ export {
   flattenedNode,
   inlinePart,
   movePart,
+  moveParts,
   nudgePart,
   padNode,
   partFromSelection,
+  pickedPaths,
   placePart,
   removePart,
+  removePickedParts,
   renamePart,
   setPartBehind,
   setPartFlip,

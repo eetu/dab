@@ -5,10 +5,13 @@ import {
   cloneSprite,
   flipRows,
   groupBox,
+  moveParts,
   nodeAt,
   padSprite,
   type Part,
+  removeParts,
   resizeSprite,
+  topmost,
   validateSprite,
   withNode,
 } from "../src";
@@ -159,5 +162,27 @@ describe("parts", () => {
     expect(flipRows(rows, "hv")).toEqual(["C..", ".BA"]);
     expect(flipRows(flipRows(rows, "hv"), "hv")).toEqual(rows);
     expect(flipRows(rows)).toBe(rows);
+  });
+
+  test("several parts move by one step together, each in its parent's pixels", () => {
+    const s = moveParts(car(), [["doorL"], ["wheel"]], 2, -1);
+    const at = (name: string) => s.parts!.find((p) => p.name === name)!;
+    expect([at("doorL").x, at("doorL").y, at("wheel").x, at("wheel").y]).toEqual([4, 0, 3, 2]);
+    expect(at("wheelR").x).toBe(4);
+  });
+
+  test("a part picked with its parent rides the parent, rather than moving twice", () => {
+    expect(topmost([["doorL", "handle"], ["doorL"], ["wheel"]])).toEqual([["doorL"], ["wheel"]]);
+    const s = car();
+    (s.parts![0] as { parts: Part[] }).parts = [{ name: "handle", x: 0, y: 0, use: "spoke" }];
+    const moved = moveParts(s, [["doorL"], ["doorL", "handle"]], 1, 0);
+    expect(nodeAt(moved, ["doorL"])!.parts![0].x).toBe(0);
+  });
+
+  test("several parts go at once, and an emptied list goes with them", () => {
+    const s = removeParts(car(), [["wheel"], ["wheelR"]]);
+    expect(s.parts!.map((p) => p.name)).toEqual(["doorL"]);
+    expect(removeParts(s, [["doorL"]]).parts).toBeUndefined();
+    expect(validateSprite(s)).toEqual([]);
   });
 });

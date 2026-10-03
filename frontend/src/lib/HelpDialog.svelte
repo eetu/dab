@@ -45,7 +45,8 @@
         A part is a grid of its own at an offset — a door, a wheel — with its own frames, so a door
         opens without multiplying the car's strip. Inline for one subject; <em>use</em> borrows another
         sprite in the folder, so one wheel serves every car. Move (V) drags a part; selecting a borrowed
-        part is dashed — open its sprite to draw on it.
+        part is dashed — open its sprite to draw on it. Shift-click rows (or parts, with Move) to pick
+        several: the arrows, a drag and ⌫ move or remove them together, and Esc goes back to one.
       </p>
       <h3>Frames, animations, variants</h3>
       <p>
