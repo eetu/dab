@@ -2,19 +2,20 @@
  * halo-design tokens — adopted from the family's canonical
  * `colors_and_type.css` (halo-design skill).
  *
- * Two deliberate deviations from the verbatim file:
- *   1. Dark/light is driven by `data-theme` on <html> (tracker has an explicit
- *      light/dark/auto switch — see src/lib/theme.svelte.ts), NOT by
- *      `@media (prefers-color-scheme)`. tracker is dark-first, so the dark
- *      values are the `:root` default and `[data-theme='light']` overrides.
- *   2. No Google-Fonts `@import` — tracker self-hosts Inter via @fontsource
- *      (the CSP forbids the Google CDN), and uses Amiga TopazPlus for its retro
- *      surfaces instead of Space Grotesk. Values are otherwise the canonical
- *      --halo-* palette (accent #f78f08, the family greys).
+ * Deliberate deviations from the verbatim file:
+ *   1. Dark/light is driven by `data-theme` on <html> (an explicit
+ *      auto/dark/light switch — see src/lib/theme.svelte.ts), NOT by
+ *      `@media (prefers-color-scheme)`. dab is dark-first, so the dark values
+ *      are the `:root` default and `[data-theme='light']` overrides.
+ *   2. No Google-Fonts `@import`, and no Inter shipped yet: the font stack
+ *      falls through to system-ui.
+ *   3. The light tertiary greys (below).
+ * Values are otherwise the canonical --halo-* palette (accent #f78f08, the
+ * family greys).
  * -------------------------------------------------------------------- */
 
 :root {
-  /* Colors — dark (tracker default) */
+  /* Colors — dark (the default) */
   --halo-body: #0f0f0f;
   --halo-bg-main: #252525;
   --halo-bg-light: #1c1c1c;
@@ -30,7 +31,7 @@
   --halo-connected: #4caf50;
   --halo-disconnected: #f44336;
 
-  /* Typography — self-hosted Inter (fontsource registers "Inter Variable"). */
+  /* Typography — Inter where it is installed, system-ui where it is not. */
   --halo-font-body: "Inter Variable", "Inter", system-ui, sans-serif;
   --halo-font-heading: "Inter Variable", "Inter", sans-serif;
 
@@ -63,16 +64,4 @@
   --halo-off-bg: #d9d9d9;
   --halo-error: tomato;
   --halo-shadow: rgba(60, 64, 67, 0.3) 0 1px 2px 0, rgba(60, 64, 67, 0.15) 0 2px 6px 2px;
-}
-
-/* Purple accent — opt-in via data-accent="purple", orthogonal to light/dark.
-   Only the accent tokens change; the greys stay the family palette. */
-:root[data-accent="purple"] {
-  --halo-accent: #a370f0;
-  --halo-accent-bg: rgba(163, 112, 240, 0.2);
-  --halo-accent-soft: rgba(163, 112, 240, 0.2);
-}
-:root[data-theme="light"][data-accent="purple"] {
-  --halo-accent-bg: linear-gradient(153deg, rgba(233, 222, 255, 1) 0%, rgba(224, 214, 250, 1) 56%);
-  --halo-accent-soft: rgba(163, 112, 240, 0.12);
 }
