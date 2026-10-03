@@ -6,9 +6,11 @@ import {
   getPixel,
   isPartRef,
   levelOf,
+  moveParts as movePartsIn,
   nodeAt,
   padSprite,
   type Part,
+  removeParts as removePartsFrom,
   setPixels,
   type SpriteBody,
   type SpriteFile,
@@ -247,22 +249,54 @@ export function movePart(path: readonly string[], to: number) {
   });
 }
 
-/** Change one part's placement — where it sits, which way round, which side of
- *  its parent it draws on. `fresh` starts a new undo step, so a whole drag folds
- *  into one the way a stroke does. */
-/** Arrow-key travel for the selected part. A run of presses inside half a
+/**
+ * The parts picked together — every one that still exists, or the selected
+ * part alone. A set picked with its own children in it still moves each piece
+ * once: core's `topmost` sees to that.
+ */
+export function pickedPaths(): string[][] {
+  const paths = editor.picked.map((k) => k.split("/")).filter((p) => partAt(p));
+  if (paths.length) return paths;
+  return editor.path.length && partAt(editor.path) ? [[...editor.path]] : [];
+}
+
+/** Move the picked parts by a step. `fresh` starts a new undo entry, so a drag
+ *  or a held arrow is one, the way a stroke is. */
+export function moveParts(dx: number, dy: number, fresh = true) {
+  const paths = pickedPaths();
+  if (!paths.length || (!dx && !dy)) return;
+  const next = movePartsIn(editor.sprite, paths, dx, dy);
+  if (fresh) commit(next);
+  else {
+    editor.sprite = next;
+    editor.dirty = true;
+  }
+}
+
+/** Arrow-key travel for the picked parts. A run of presses inside half a
  *  second rides one undo entry, the way a drag's pixels ride one snapshot —
  *  holding an arrow is one gesture, not forty. */
 let nudging: ReturnType<typeof setTimeout> | null = null;
 export function nudgePart(dx: number, dy: number) {
-  const part = partAt(editor.path);
-  if (!part) return;
+  if (!pickedPaths().length) return;
   const fresh = nudging === null;
   if (nudging) clearTimeout(nudging);
   nudging = setTimeout(() => (nudging = null), 500);
-  placePart(editor.path, { x: part.x + dx, y: part.y + dy }, fresh);
+  moveParts(dx, dy, fresh);
 }
 
+/** Take out every picked part — one undo entry, and nothing to confirm, since
+ *  that undo is what puts them back. */
+export function removePickedParts() {
+  const paths = pickedPaths();
+  if (!paths.length) return;
+  commit(removePartsFrom(editor.sprite, paths));
+  settle();
+}
+
+/** Change one part's placement — where it sits, which way round, which side of
+ *  its parent it draws on. `fresh` starts a new undo step, so a whole drag folds
+ *  into one the way a stroke does. */
 export function placePart(path: readonly string[], next: Partial<Part>, fresh = true) {
   if (!path.length) return;
   const name = path[path.length - 1];
@@ -297,6 +331,7 @@ export function renamePart(path: readonly string[], to: string) {
     editor.hidden[newKey] = true;
     delete editor.hidden[oldKey];
   }
+  editor.picked = editor.picked.map((k) => (k === oldKey ? newKey : k));
   if (pathKey(editor.path) === oldKey) editor.path = [...path.slice(0, -1), name];
 }
 

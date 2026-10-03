@@ -56,6 +56,52 @@ export function withNode<T extends SpriteBody>(
   return patch(s, { parts: next });
 }
 
+/**
+ * The paths not inside another of them. A set that holds a door and the handle
+ * on it moves the handle with the door already; moving both by the same step
+ * would move the handle twice.
+ */
+export function topmost(paths: readonly (readonly string[])[]): string[][] {
+  const keys = new Set(paths.map((p) => p.join("/")));
+  return paths
+    .filter((p) => !p.some((_, i) => i > 0 && keys.has(p.slice(0, i).join("/"))))
+    .map((p) => [...p]);
+}
+
+/** Shift several parts by one step, each in its parent's pixels — which are the
+ *  sprite's own, translated, so the same step is the same distance on screen. */
+export function moveParts<T extends SpriteBody>(
+  s: T,
+  paths: readonly (readonly string[])[],
+  dx: number,
+  dy: number,
+): T {
+  let next = s;
+  for (const path of topmost(paths)) {
+    if (!path.length || levelOf(path) !== null) continue;
+    const name = path[path.length - 1];
+    next = withNode(next, path.slice(0, -1), (n) => ({
+      ...n,
+      parts: n.parts?.map((p) => (p.name === name ? { ...p, x: p.x + dx, y: p.y + dy } : p)),
+    }));
+  }
+  return next;
+}
+
+/** Take several parts out at once. */
+export function removeParts<T extends SpriteBody>(s: T, paths: readonly (readonly string[])[]): T {
+  let next = s;
+  for (const path of topmost(paths)) {
+    if (!path.length || levelOf(path) !== null) continue;
+    const name = path[path.length - 1];
+    next = withNode(next, path.slice(0, -1), (n) => {
+      const parts = n.parts?.filter((p) => p.name !== name);
+      return { ...n, parts: parts?.length ? parts : undefined };
+    });
+  }
+  return next;
+}
+
 /** The frames an animation plays, in order, or null for a name the node has not got.
  *  No silent fallback to the whole strip: that hides a typo. */
 export function animationFrames(node: SpriteBody, name: string): number[] | null {

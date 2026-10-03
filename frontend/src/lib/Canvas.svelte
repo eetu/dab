@@ -39,6 +39,7 @@
     gesture,
     hasSelection,
     isSelected,
+    moveParts,
     nodeOrigin,
     nudgeSelection,
     paint,
@@ -49,7 +50,8 @@
     perspective,
     perspectiveAt,
     pickAt,
-    placePart,
+    pickedPaths,
+    pickNode,
     playLength,
     readOnly,
     resolvePart,
@@ -153,6 +155,21 @@
   // The bar's cost readout is about the cell under the pointer.
   $effect(() => {
     perspective.at = perspective.on ? hover : null;
+  });
+
+  /** The other parts picked with the selected one, outlined as it is. */
+  const company = $derived.by(() => {
+    if (editor.picked.length < 2) return [];
+    return pickedPaths().flatMap((path) => {
+      const key = pathKey(path);
+      const part = partAt(path);
+      const body = part && (isPartRef(part) ? resolvePart(part.use) : part);
+      if (!body || key === pathKey(editor.path)) return [];
+      const at = nodeOrigin(path);
+      return [
+        { key, x: at.x - box.x, y: at.y - box.y, w: body.w, h: body.h, borrowed: isPartRef(part) },
+      ];
+    });
   });
 
   /** The frame the surface draws: the play head while playing, otherwise the
@@ -366,7 +383,14 @@
         if (found) selectNode(found);
         return;
       }
-      selectNode(found);
+      // Shift adds the part to the picked set or takes it out, and that is all
+      // the press does; a press on a part already picked with others carries
+      // the whole set, and on any other part picks that one alone.
+      if (e.shiftKey) {
+        pickNode(found);
+        return;
+      }
+      if (!(editor.picked.length > 1 && editor.picked.includes(pathKey(found)))) selectNode(found);
       placing = { path: found, from: s, at: s, fresh: true };
       return;
     }
@@ -458,15 +482,8 @@
     if (placing) {
       const s = stageAt(e);
       if (!s || (s.x === placing.at.x && s.y === placing.at.y)) return;
-      const part = partAt(placing.path);
-      if (part) {
-        placePart(
-          placing.path,
-          { x: part.x + s.x - placing.at.x, y: part.y + s.y - placing.at.y },
-          placing.fresh,
-        );
-        committed = true;
-      }
+      moveParts(s.x - placing.at.x, s.y - placing.at.y, placing.fresh);
+      committed = true;
       placing = { ...placing, at: s, fresh: false };
       return;
     }
@@ -966,6 +983,16 @@
         style:height={`${node.h * px}px`}
       ></div>
     {/if}
+    {#each editor.playing ? [] : company as c (c.key)}
+      <div
+        class="node"
+        class:borrowed={c.borrowed}
+        style:left={`${c.x * px}px`}
+        style:top={`${c.y * px}px`}
+        style:width={`${c.w * px}px`}
+        style:height={`${c.h * px}px`}
+      ></div>
+    {/each}
     {#if hasSelection() && drawable}
       <!-- The extent, as a marching outline. Sits outside the cells by a hair so
            it never hides the edge pixels it is describing. -->

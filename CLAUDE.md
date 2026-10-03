@@ -204,6 +204,12 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   it was covering a step ago. Deselecting, selecting elsewhere or drawing lets go
   of it. And a stamp is matte: transparent cells are gaps, never paint, or the
   empty corners of a box selection would rub holes in whatever it was dropped on.
+- **Several parts are picked; one is selected.** `editor.picked` is the set the
+  Move tool's arrows, drag and ⌫ act on, and `editor.path` — always in it — is
+  the one the tools draw on, since drawing on five grids at once means nothing.
+  Shift adds and removes, a plain click goes back to one, Escape lets go of the
+  set before it lets go of pixels. Removing the set does not confirm: undo puts
+  it back, and only what undo cannot take back asks first.
 - **A selection belongs to the select tool.** Anything that selects arms it
   (`setSelection`), and arming another tool lets go of the selection (`setTool`),
   baking a paste. A marquee left behind under the pencil was state nobody was

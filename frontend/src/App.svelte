@@ -43,8 +43,9 @@
     pasteFloating,
     perspective,
     redoEdit,
-    removePart,
+    removePickedParts,
     selectAll,
+    selectNode,
     setPlaying,
     setTool,
     setTurn,
@@ -536,6 +537,12 @@
         cancelPaste();
         return;
       }
+      // Several parts picked: back to the one selected, before letting go of
+      // pixels — the narrower of two selections goes first.
+      if (editor.picked.length > 1) {
+        selectNode(editor.path);
+        return;
+      }
       clearSelection();
       return;
     }
@@ -547,7 +554,7 @@
         deleteSelection();
       } else if (editor.tool === "move" && editor.path.length) {
         e.preventDefault();
-        removePart(editor.path);
+        removePickedParts();
       }
       return;
     }
