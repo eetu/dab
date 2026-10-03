@@ -21,6 +21,9 @@ frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
              variants, cycles, animations, parts) → document. src/lib/editor.svelte.ts is its
              public surface; commit and the other shared helpers stay among
              the modules.
+schema/      sprite.schema.json — the format for consumers, beside FORMAT.md (the
+             prose). core's schema test holds it to validateSprite both ways; a
+             rule the schema cannot say is listed in both places.
 backend/     axum binary: serves frontend/dist with an SPA fallback, plus /status.
              No store and no upload route — the editor reaches the disk through
              the browser, so the server never sees a sprite.
