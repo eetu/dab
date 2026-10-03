@@ -154,7 +154,9 @@ backend/    a small axum binary that serves the built SPA
 
 `core` is not published. The whole rule a consumer needs for colour is one line —
 `ch === "." ? null : (variant?.[ch] ?? palette[ch])` — so the **format** is the
-contract, not a library. See FORMAT.md when it lands (#8).
+contract, not a library. [FORMAT.md](FORMAT.md) is the spec, and
+[`schema/sprite.schema.json`](schema/sprite.schema.json) checks a file without
+running dab.
 
 Parts add a loop rather than a rule, and it is the loop the editor itself draws with
 (`frontend/src/lib/render.ts`): for each node, the parts marked `behind`, then its

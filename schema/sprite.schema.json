@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eetu/dab/blob/main/schema/sprite.schema.json",
+  "title": "dab sprite",
+  "description": "A character-grid sprite: rows of characters and the palette they mean. FORMAT.md is the prose; rules that relate one field to another (row widths, characters in the palette, indices in range, unique names, levels in step, nesting depth) are the validator's, and FORMAT.md lists them.",
+  "allOf": [{ "$ref": "#/$defs/body" }],
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "levels": { "type": "array", "items": { "$ref": "#/$defs/level" } }
+  },
+  "required": ["name"],
+  "$defs": {
+    "colour": {
+      "description": "#rrggbb, or #rrggbbaa for a colour you can see through.",
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+    },
+    "colours": {
+      "description": "Character → colour. One character a key, never `.`, which is transparent.",
+      "type": "object",
+      "propertyNames": { "minLength": 1, "maxLength": 1, "not": { "const": "." } },
+      "additionalProperties": { "$ref": "#/$defs/colour" }
+    },
+    "body": {
+      "description": "A grid and everything that colours it — what a sprite, a part and a level share.",
+      "type": "object",
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 },
+        "palette": { "$ref": "#/$defs/colours" },
+        "variants": {
+          "description": "Named colourways, each overriding some of the palette's characters.",
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/colours" }
+        },
+        "animations": {
+          "description": "Named runs of frame indices, in playing order; a repeat is a hold.",
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "frames": {
+          "description": "One entry per frame: h rows of w characters.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        },
+        "parts": { "type": "array", "items": { "$ref": "#/$defs/part" } }
+      },
+      "required": ["w", "h", "palette", "frames"]
+    },
+    "part": {
+      "description": "A placement on its parent, and either its own body or a `use` naming another sprite.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "pattern": "^[^@]" },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "behind": { "type": "boolean" },
+        "flip": { "enum": ["h", "v", "hv"] },
+        "use": { "type": "string", "minLength": 1 },
+        "levels": false
+      },
+      "required": ["name", "x", "y"],
+      "oneOf": [
+        { "required": ["use"], "not": { "required": ["frames"] } },
+        { "allOf": [{ "$ref": "#/$defs/body" }], "not": { "required": ["use"] } }
+      ],
+      "not": {
+        "description": "A flipped part carries no parts of its own.",
+        "required": ["flip", "parts"],
+        "properties": { "parts": { "minItems": 1 } }
+      }
+    },
+    "level": {
+      "description": "The subject at another size: its own body, the sprite's frame count, the sprite's animations.",
+      "allOf": [{ "$ref": "#/$defs/body" }],
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "pattern": "^[^/]*$" },
+        "animations": false,
+        "parts": false,
+        "levels": false
+      },
+      "required": ["name"]
+    }
+  }
+}
