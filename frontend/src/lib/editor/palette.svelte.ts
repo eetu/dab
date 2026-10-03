@@ -1,8 +1,10 @@
 import {
   addColour as addColourTo,
+  cyclesOf,
   isPartRef,
   movePaletteChar as movePaletteCharIn,
   type Part,
+  refreshCycles,
   removeColour as removeColourFrom,
   renameChar as renameCharIn,
   setColour as setColourIn,
@@ -15,7 +17,7 @@ import {
 
 import { commit, commitNode } from "./history.svelte";
 import { editor } from "./state.svelte";
-import { activeNode, blocked, pathKey } from "./tree.svelte";
+import { activeNode, allNodes, blocked, pathKey } from "./tree.svelte";
 
 /**
  * Drop every palette entry no frame uses — one edit, one undo.
@@ -29,14 +31,19 @@ export function removeUnusedColours(): number {
   const node = activeNode();
   const dead = unusedChars(node);
   if (!dead.length || blocked()) return 0;
-  commitNode((n) => dead.reduce((m, ch) => removeColourFrom(m, ch), n));
+  commitNode((n) =>
+    refreshCycles(
+      dead.reduce((m, ch) => removeColourFrom(m, ch), n),
+      cyclesOf(n),
+    ),
+  );
   if (dead.includes(editor.ink)) editor.ink = TRANSPARENT;
   return dead.length;
 }
 
 export const addColour = (hex: string) => commitNode((n) => addColourTo(n, hex));
 export function removeColour(ch: string) {
-  commitNode((n) => removeColourFrom(n, ch));
+  commitNode((n) => refreshCycles(removeColourFrom(n, ch), cyclesOf(n)));
   if (editor.ink === ch) editor.ink = TRANSPARENT;
 }
 /** Set a colour. `fresh` opens the undo entry; a picker drag streams the rest
@@ -44,8 +51,10 @@ export function removeColour(ch: string) {
  *  rule a paint stroke follows, and what stops one drag flushing the stack. */
 export function setColour(ch: string, hex: string, fresh = true) {
   if (blocked()) return;
-  if (fresh) return commitNode((n) => setColourIn(n, ch, hex));
-  editor.sprite = withNode(editor.sprite, editor.path, (n) => setColourIn(n, ch, hex));
+  // A cycle holds colours, not references, so its phases follow the edit.
+  const edit = (n: SpriteBody) => refreshCycles(setColourIn(n, ch, hex));
+  if (fresh) return commitNode(edit);
+  editor.sprite = withNode(editor.sprite, editor.path, edit);
   editor.dirty = true;
 }
 
@@ -71,18 +80,6 @@ export function renameChar(from: string, to: string) {
 // So the sharing lives here, in the tool, as an explicit push and pull rather
 // than as inheritance. Nothing about the format changes; what changes is that
 // you press a button instead of retyping a hex.
-
-/** Every node in the bundle, root first — which is also the order that decides
- *  whose colour is the one to borrow when two disagree. */
-export function allNodes(): { path: string[]; node: SpriteBody }[] {
-  const out: { path: string[]; node: SpriteBody }[] = [];
-  const walk = (n: SpriteBody, path: string[]) => {
-    out.push({ path, node: n });
-    for (const p of n.parts ?? []) if (!isPartRef(p)) walk(p, [...path, p.name]);
-  };
-  walk(editor.sprite, []);
-  return out;
-}
 
 /** Rewrite every node in the tree. `use` parts are left alone: their pixels and
  *  their palette belong to another document. */
@@ -157,7 +154,7 @@ export function pushColour(ch: string) {
     mapNodes(editor.sprite, (n, path) =>
       pathKey(path) === me || n.palette[ch] === hex
         ? n
-        : { ...n, palette: { ...n.palette, [ch]: hex } },
+        : refreshCycles({ ...n, palette: { ...n.palette, [ch]: hex } }),
     ) as SpriteFile,
   );
 }
@@ -173,7 +170,7 @@ export function pushPalette() {
   if (!changes) return;
   commit(
     mapNodes(editor.sprite, (n, path) =>
-      pathKey(path) === me ? n : { ...n, palette: { ...n.palette, ...mine } },
+      pathKey(path) === me ? n : refreshCycles({ ...n, palette: { ...n.palette, ...mine } }),
     ) as SpriteFile,
   );
 }

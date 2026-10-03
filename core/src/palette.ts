@@ -17,6 +17,26 @@ export function addColour<T extends SpriteBody>(s: T, hex: string): T {
   return patch(s, { palette: { ...s.palette, [ch]: hex } });
 }
 
+/** Rewrite every variant's character → colour entries, keeping their order.
+ *  A variant may only name characters the palette has, so a palette edit that
+ *  drops or renames one has to reach in here too, or the file fails to load. */
+const mapVariants = (
+  s: SpriteBody,
+  fn: (entry: [string, string]) => [string, string] | null,
+): SpriteBody["variants"] =>
+  s.variants &&
+  Object.fromEntries(
+    Object.entries(s.variants).map(([name, colours]) => [
+      name,
+      Object.fromEntries(
+        Object.entries(colours).flatMap((e) => {
+          const kept = fn(e);
+          return kept ? [kept] : [];
+        }),
+      ),
+    ]),
+  );
+
 /**
  * Drop a colour and erase every pixel that used it.
  *
@@ -28,7 +48,8 @@ export function removeColour<T extends SpriteBody>(s: T, ch: string): T {
   const palette = { ...s.palette };
   delete palette[ch];
   const frames = s.frames.map((f) => f.map((row) => row.split(ch).join(TRANSPARENT)));
-  return patch(s, { palette, frames });
+  const variants = mapVariants(s, (e) => (e[0] === ch ? null : e));
+  return patch(s, { palette, frames, variants });
 }
 
 /** Move a colour to a different character, rewriting every pixel that used it. */
@@ -37,7 +58,8 @@ export function renameChar<T extends SpriteBody>(s: T, from: string, to: string)
   const palette: Record<string, string> = {};
   for (const [ch, hex] of Object.entries(s.palette)) palette[ch === from ? to : ch] = hex;
   const frames = s.frames.map((f) => f.map((row) => row.split(from).join(to)));
-  return patch(s, { palette, frames });
+  const variants = mapVariants(s, ([ch, hex]) => [ch === from ? to : ch, hex]);
+  return patch(s, { palette, frames, variants });
 }
 
 export const setColour = <T extends SpriteBody>(s: T, ch: string, hex: string): T =>

@@ -146,3 +146,15 @@ export const withFrame = (rows: string[]): SpriteFile =>
 /** The node above the active one. */
 export const parentNode = (): SpriteBody | null =>
   editor.path.length ? nodeAt(editor.sprite, editor.path.slice(0, -1)) : null;
+
+/** Every node in the bundle, root first — which is also the order that decides
+ *  whose colour is the one to borrow when two disagree. */
+export function allNodes(): { path: string[]; node: SpriteBody }[] {
+  const out: { path: string[]; node: SpriteBody }[] = [];
+  const walk = (n: SpriteBody, path: string[]) => {
+    out.push({ path, node: n });
+    for (const p of n.parts ?? []) if (!isPartRef(p)) walk(p, [...path, p.name]);
+  };
+  walk(editor.sprite, []);
+  return out;
+}

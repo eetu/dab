@@ -1,5 +1,6 @@
 import { animationFrames, type SpriteBody } from "dab-core";
 
+import { cycleShowing } from "./cycles.svelte";
 import { commitNode } from "./history.svelte";
 import { editor } from "./state.svelte";
 import { activeNode, frameNow } from "./tree.svelte";
@@ -21,8 +22,19 @@ export const animationRun = (node: SpriteBody = activeNode()): number[] =>
 // cannot be showing a different one — which is what a separate preview pane was
 // always one bug away from.
 
-/** Whether there is anything to play: one frame is a picture, not an animation. */
-export const canPlay = (node: SpriteBody = activeNode()): boolean => animationRun(node).length > 1;
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+
+/** Steps until everything on screen is back where it started: the run's frames
+ *  and the showing cycle's phases, advancing together on the one play head. */
+export function playLength(node: SpriteBody = activeNode()): number {
+  const frames = animationRun(node).length;
+  const phases = cycleShowing()?.phases.length ?? 1;
+  return (frames * phases) / gcd(frames, phases);
+}
+
+/** Whether there is anything to play: one frame is a picture, not an animation
+ *  — unless its colours cycle, which is the point of cycling them. */
+export const canPlay = (node: SpriteBody = activeNode()): boolean => playLength(node) > 1;
 
 /** The frame on screen: the play head while playing, the frame being edited
  *  otherwise — so stopping puts you back where you were drawing. */

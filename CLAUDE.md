@@ -10,15 +10,17 @@ vocabulary this follows), `../raspi` (deploy).
 ```text
 core/        the format, its validator, and every pure operation on a sprite.
              One module per concern in src/ (format, tree, validate, geometry,
-             blocks, colour, rotation, flatten, shapes, frames, palette, json),
-             re-exported by index.ts; patch.ts and mapper.ts are shared between
-             them and stay off the surface. A test file per module; node-only.
+             blocks, colour, rotation, flatten, shapes, frames, palette, cycles,
+             json), re-exported by index.ts; patch.ts and mapper.ts are shared
+             between them and stay off the surface. A test file per module;
+             node-only.
 frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
              src/lib/editor/ is the store, one module per concern, layered so
              imports only point down: state → tree → selection → history → the
-             verbs (drawing, blocks, turn, frames, palette, variants, animations,
-             parts) → document. src/lib/editor.svelte.ts is its public surface;
-             commit and the other shared helpers stay among the modules.
+             verbs (drawing, blocks, turn, frames, palette, variants, cycles,
+             animations, parts) → document. src/lib/editor.svelte.ts is its
+             public surface; commit and the other shared helpers stay among
+             the modules.
 backend/     axum binary: serves frontend/dist with an SPA fallback, plus /status.
              No store and no upload route — the editor reaches the disk through
              the browser, so the server never sees a sprite.
@@ -51,6 +53,15 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **Palettes are local to a node.** Inheritance would make a cell's colour
   `variant?.[ch] ?? palette[ch] ?? parent.palette[ch]`, and the one-line rule is
   the thing this repo is built on. The editor closes the gap instead.
+- **A colour cycle is generated variants, one per phase.** `name 1` … `name n`,
+  each naming only the characters it turns, so the format gains no key and a
+  consumer no rule. A `cycles` key with a rate was the alternative and put timing
+  in the file, which is the consumer's. A cycle is read back off the variants
+  (`cyclesOf`: consecutive phases, each phase 1 turned that many places), never
+  stored. Phases hold colours, not references, so every palette edit runs
+  `refreshCycles` — and a palette edit that drops or renames a character carries
+  it through every variant, or the file fails to load. The play head walks frames
+  and phases together, so a single frame whose colours cycle plays.
 - **Which frame a part shows is runtime state, not authored state.** Shown
   frames, visibility and the previewed variant are editor state and are never
   written; a door that has fallen off is the consumer not drawing that part.

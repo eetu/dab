@@ -34,6 +34,7 @@
 
 export * from "./blocks";
 export * from "./colour";
+export * from "./cycles";
 export * from "./flatten";
 export * from "./format";
 export * from "./frames";

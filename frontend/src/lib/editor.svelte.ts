@@ -8,6 +8,7 @@ export {
   appendToAnimation,
   canPlay,
   moveAnimation,
+  playLength,
   removeAnimation,
   renameAnimation,
   rewind,
@@ -25,6 +26,14 @@ export {
   nudgeSelection,
   pasteClipboard,
 } from "./editor/blocks.svelte";
+export {
+  addCycle,
+  cycleShowing,
+  removeCycle,
+  renameCycle,
+  reverseCycle,
+  shownVariant,
+} from "./editor/cycles.svelte";
 export { loadSprite, newSprite, rename, selectNode } from "./editor/document.svelte";
 export { fillAt, paint, pickAt, setTool, strokePoints } from "./editor/drawing.svelte";
 export { addFrame, duplicateFrame, moveFrame, removeFrame } from "./editor/frames.svelte";
@@ -32,7 +41,6 @@ export { canRedo, canUndo, history, redoEdit, undoEdit } from "./editor/history.
 export {
   addColour,
   adoptFromBundle,
-  allNodes,
   clashingChars,
   movePaletteChar,
   paletteElsewhere,
@@ -80,6 +88,7 @@ export {
   activeHidden,
   activeNode,
   activeRef,
+  allNodes,
   frameOf,
   nodeOrigin,
   parentNode,

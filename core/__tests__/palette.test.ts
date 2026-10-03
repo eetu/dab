@@ -11,6 +11,7 @@ import {
   renameChar,
   toJson,
   unusedChars,
+  validateSprite,
   withAlpha,
 } from "../src";
 import { sprite } from "./fixtures";
@@ -32,6 +33,19 @@ describe("palette", () => {
     const out = renameChar(sprite(["AA."], { A: "#000000" }), "A", "Z");
     expect(out.frames[0]).toEqual(["ZZ."]);
     expect(out.palette).toEqual({ Z: "#000000" });
+  });
+
+  test("a dropped or renamed colour leaves the variants valid", () => {
+    const s = {
+      ...sprite(["AB"], { A: "#000000", B: "#ffffff" }),
+      variants: { night: { A: "#111111", B: "#222222" } },
+    };
+    const dropped = removeColour(s, "A");
+    expect(dropped.variants).toEqual({ night: { B: "#222222" } });
+    expect(validateSprite(dropped)).toEqual([]);
+    const renamed = renameChar(s, "A", "Z");
+    expect(renamed.variants).toEqual({ night: { Z: "#111111", B: "#222222" } });
+    expect(validateSprite(renamed)).toEqual([]);
   });
 
   test("renaming onto a taken character is refused rather than merging two colours", () => {

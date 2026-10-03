@@ -7,21 +7,28 @@
   // change while watching, and a slider that is on screen when nothing is
   // playing is furniture.
   import Pause from "@lucide/svelte/icons/pause";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import SkipBack from "@lucide/svelte/icons/skip-back";
 
   import {
     activeNode,
     animationRun,
+    cycleShowing,
     editor,
     rewind,
     setPlaying,
     shownFrame,
+    shownVariant,
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
 
   const node = $derived(activeNode());
   const run = $derived(animationRun(node));
   const at = $derived(run.indexOf(shownFrame(node)));
+  // A cycle plays on the same head, so it is counted beside the frames — and a
+  // single frame whose colours turn has no frame count to show.
+  const cycle = $derived(cycleShowing());
+  const phase = $derived(cycle ? cycle.phases.indexOf(shownVariant() ?? "") : -1);
 </script>
 
 {#if editor.playing}
@@ -31,6 +38,7 @@
   <div class="bar" role="group" aria-label="Playing" onpointerdown={(e) => e.stopPropagation()}>
     <span class="what">
       Playing{#if editor.animation}<span class="clip">{editor.animation}</span>{/if}
+      {#if cycle}<span class="clip"><RefreshCw size={11} />{cycle.name}</span>{/if}
     </span>
 
     <IconButton size="sm" ghost label="Back to the first frame" onclick={rewind}>
@@ -52,7 +60,8 @@
       <output>{editor.fps}</output>
     </label>
 
-    <span class="at">{at + 1}/{run.length}</span>
+    {#if run.length > 1}<span class="at">{at + 1}/{run.length}</span>{/if}
+    {#if cycle}<span class="at" title="Phase">{phase + 1}/{cycle.phases.length}</span>{/if}
   </div>
 {/if}
 
@@ -60,12 +69,18 @@
   .bar {
     position: absolute;
     left: 50%;
-    bottom: 0.6rem;
+    /* Clear of the canvas's read-out line, which says the frame while playing
+       and would sit under the bar's left end on a narrow pane. */
+    bottom: 1.9rem;
     transform: translateX(-50%);
     z-index: 3;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    /* Its own width, not what is left of the pane right of `left: 50%` — which
+       is half of it, and folded the bar onto two rows as soon as it named more
+       than one thing. */
+    width: max-content;
     max-width: calc(100% - 1.2rem);
     flex-wrap: wrap;
     padding: 0.25rem 0.6rem;
@@ -87,6 +102,9 @@
   /* The clip is what is being played — named, because "playing" alone does not
      say whether you are watching the door or the whole strip. */
   .clip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
     color: var(--halo-accent);
   }
   .rate {

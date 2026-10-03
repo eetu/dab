@@ -15,7 +15,6 @@
   import {
     activeNode,
     activeRef,
-    animationRun,
     beginTurn,
     canPlay,
     clearSelection,
@@ -39,6 +38,7 @@
     pathKey,
     pickAt,
     placePart,
+    playLength,
     readOnly,
     resolvePart,
     rewind,
@@ -51,6 +51,7 @@
     setPlaying,
     setTurn,
     shownFrame,
+    shownVariant,
     stageBox,
     strokePoints,
     turning,
@@ -115,9 +116,10 @@
   // showing different frames, and a reload or a load stops it (loadSprite).
   $effect(() => {
     if (!editor.playing) return;
-    const steps = animationRun(activeNode()).length;
-    // Selecting a single-frame part, or an animation of one, leaves the mode with
-    // nothing to run: stop rather than sitting lit over a still picture.
+    const steps = playLength(activeNode());
+    // Selecting a single-frame part, or an animation of one with no cycle
+    // showing, leaves the mode with nothing to run: stop rather than sitting lit
+    // over a still picture.
     if (steps < 2) {
       setPlaying(false);
       return;
@@ -847,7 +849,9 @@
     const hint = hoverShape;
     const mq = marquee;
     const ink = editor.tool === "eraser" ? TRANSPARENT : editor.ink;
-    void editor.variant; // the selected variant changes what every cell looks like
+    // The variant changes what every cell looks like, and a playing cycle changes
+    // it at every tick.
+    const variant = shownVariant();
     void panels.underlay;
     void editor.hidden;
     void drawable;
@@ -862,13 +866,12 @@
     // lightbox does it — a ghost in the art's own colours can be read as the
     // art, which after Duplicate it is. Both are the painter's business:
     // setting globalAlpha around the call did nothing, since paintRows sets it.
-    if (prev) paintRows(g, prev, node, origin.x, origin.y, editor.variant, "ghost", 0.45);
+    if (prev) paintRows(g, prev, node, origin.x, origin.y, variant, "ghost", 0.45);
     paintAssembly(g, sprite, -box.x, -box.y, paintOpts);
     // Preview sits on top at full strength — it is about to be real.
     if (pts.length && drawable) {
       g.globalAlpha = 0.75;
-      g.fillStyle =
-        ink === TRANSPARENT ? "#ffffff" : (cellColour(node, ink, editor.variant) ?? "#ffffff");
+      g.fillStyle = ink === TRANSPARENT ? "#ffffff" : (cellColour(node, ink, variant) ?? "#ffffff");
       for (const [x, y] of pts) g.fillRect(origin.x + x, origin.y + y, 1, 1);
       g.globalAlpha = 1;
     }
@@ -931,7 +934,7 @@
     // frame it was put on, or follows this one — the same rule as when stopped.
     frameOf: (path: string[], n: SpriteBody) => frameOf(path, n, surfaceFrame),
     resolve: resolvePart,
-    variant: editor.variant,
+    variant: shownVariant(),
     hidden: (path: string[]) => !!editor.hidden[pathKey(path)],
     style: (path: string[]) =>
       pathKey(path) === pathKey(editor.path) ? ("full" as const) : panels.underlay,

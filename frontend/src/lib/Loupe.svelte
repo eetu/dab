@@ -11,7 +11,15 @@
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
 
-  import { editor, frameOf, pathKey, resolvePart, shownFrame, stageBox } from "./editor.svelte";
+  import {
+    editor,
+    frameOf,
+    pathKey,
+    resolvePart,
+    shownFrame,
+    shownVariant,
+    stageBox,
+  } from "./editor.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
   import {
     type Corner,
@@ -75,7 +83,7 @@
     const frame = shownFrame();
     void editor.shown;
     void editor.hidden;
-    void editor.variant;
+    const variant = shownVariant();
     void editor.sprite;
     g.clearRect(0, 0, el.width, el.height);
     // No underlay style: this is the consumer's view, where every part is drawn
@@ -83,7 +91,7 @@
     paintAssembly(g, editor.sprite, -box.x, -box.y, {
       frameOf: (path, n) => frameOf(path, n, frame),
       resolve: resolvePart,
-      variant: editor.variant,
+      variant,
       hidden: (path) => !!editor.hidden[pathKey(path)],
     });
   });

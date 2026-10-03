@@ -77,6 +77,13 @@ alternate colours for some of the characters and inherits the rest, so one sign
 can be magenta in one place and cyan in another without being redrawn. Nothing
 about the characters is reserved — a variant is data, not a rule.
 
+**Colour cycles** are variants too. Deluxe Paint's cycle ranges — a run of
+palette entries rotated, so water flows and lights chase without a frame more —
+are written as one variant per phase, `water 1` … `water n`, each naming only
+the characters it turns. Phase 1 is the palette as drawn. A consumer cycles by
+drawing `water k` on its own clock, counting phases up to the first missing
+number; there is no key for a rate, because the clock is the consumer's.
+
 **Parts** are for subjects that are not one grid. A car has a body, two wheels,
 two doors, pop-up lamps and a trunk; each has its own state, and expressed as
 whole-car frames that is the product of every combination of them — three door

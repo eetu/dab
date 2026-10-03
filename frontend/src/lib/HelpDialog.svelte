@@ -59,7 +59,10 @@
         your frame back. The loupe (last button on the rail) puts a small window over the canvas
         showing the sprite at ×1 — how it reads at the size it is drawn, moving when it moves. Drag
         it to another corner; − and + change the size. A variant recolours characters without
-        redrawing; pick one to preview it, and it is what a consumer draws.
+        redrawing; pick one to preview it, and it is what a consumer draws. Shift-click a second
+        swatch to take a run of colours, and <em>Cycle these</em> rotates them — one variant per step,
+        played with the frames, so water flows and lights chase without a frame more. A cycle's colours
+        follow the palette.
       </p>
       <h3>Turning</h3>
       <p>
