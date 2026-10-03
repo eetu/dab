@@ -45,6 +45,8 @@ const structural: [string, unknown][] = [
   ["no name", { ...base(), name: "" }],
   ["a zero width", { ...base(), w: 0 }],
   ["a two-character palette key", { ...base(), palette: { AB: "#ff0000" } }],
+  ["a palette key outside ASCII", { ...base(), palette: { ...base().palette, é: "#ff0000" } }],
+  ["a space as a palette key", { ...base(), palette: { ...base().palette, " ": "#ff0000" } }],
   ["a colour for `.`", { ...base(), palette: { ".": "#ff0000" } }],
   ["a colour that is not one", { ...base(), palette: { A: "red" } }],
   ["no frames", { ...base(), frames: [] }],

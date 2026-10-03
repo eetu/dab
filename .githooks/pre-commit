@@ -12,7 +12,7 @@ run_format=0
 run_rust=0
 while IFS= read -r f; do
 	case "$f" in
-	core/* | frontend/* | package.json | yarn.lock | .yarnrc.yml) run_js=1 ;;
+	core/* | frontend/* | cli/* | package.json | yarn.lock | .yarnrc.yml) run_js=1 ;;
 	esac
 	case "$f" in
 	*.md | *.json | *.yaml | *.yml | .prettierrc) run_format=1 ;;
@@ -23,7 +23,7 @@ while IFS= read -r f; do
 done <<<"$staged"
 
 if [ "$run_js" = 1 ]; then
-	echo "pre-commit: core + frontend (lint + format)"
+	echo "pre-commit: core + frontend + cli (lint + format)"
 	node .yarn/releases/yarn-*.cjs lint
 	node .yarn/releases/yarn-*.cjs format
 elif [ "$run_format" = 1 ]; then

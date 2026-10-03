@@ -2,6 +2,7 @@ import {
   addColour as addColourTo,
   addColours as addColoursTo,
   cyclesOf,
+  isPaletteKey,
   isPartRef,
   movePaletteChar as movePaletteCharIn,
   type Part,
@@ -85,7 +86,13 @@ export const movePaletteChar = (ch: string, to: number) =>
   commitNode((n) => movePaletteCharIn(n, ch, to));
 export function renameChar(from: string, to: string) {
   const node = activeNode();
-  if (renameCharIn(node, from, to) === node) return;
+  if (renameCharIn(node, from, to) === node) {
+    if (to !== from && !isPaletteKey(to)) {
+      editor.status = `${JSON.stringify(to)} cannot be a key — one printable ASCII character, not .`;
+      editor.statusBad = true;
+    }
+    return;
+  }
   commitNode((n) => renameCharIn(n, from, to));
   if (editor.ink === from) editor.ink = to;
 }

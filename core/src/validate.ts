@@ -1,5 +1,6 @@
 import {
   COLOUR,
+  isPaletteKey,
   LEVEL,
   MAX_PART_DEPTH,
   type Placement,
@@ -42,8 +43,10 @@ function validateBody(
   if (!sp.palette || typeof sp.palette !== "object") say("palette is missing");
   else {
     for (const [ch, hex] of Object.entries(sp.palette)) {
-      if (ch.length !== 1) say(`palette key ${JSON.stringify(ch)} is not one character`);
       if (ch === TRANSPARENT) say("`.` is transparent and cannot carry a colour");
+      else if (!isPaletteKey(ch)) {
+        say(`palette key ${JSON.stringify(ch)} is not one printable ASCII character`);
+      }
       if (!COLOUR.test(hex)) say(`${ch} is not a #rrggbb or #rrggbbaa colour: ${hex}`);
     }
   }

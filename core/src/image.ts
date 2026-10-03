@@ -29,6 +29,38 @@ export type Pose = { body: SpriteBody; frame: number; variant?: string | null };
  */
 export function picture(poses: readonly Pose[], scale = 1): Picture {
   const k = Math.max(1, Math.round(scale));
+  const table = colourTable();
+  const w = (poses[0]?.body.w ?? 0) * k;
+  const h = (poses[0]?.body.h ?? 0) * k;
+  const frames = poses.map((pose) => {
+    const px = new Uint8Array(w * h);
+    blit(px, w, h, pose, 0, 0, k, table.of);
+    return px;
+  });
+  return { w, h, colours: table.colours, frames };
+}
+
+/**
+ * Poses laid out on one canvas of `w × h` cells — a strip of frames, a lineup
+ * of sprites at one scale — as a picture of one frame. Each pose lands with its
+ * top-left at (x, y); what no pose covers is transparent, and a later pose's
+ * gaps show an earlier one through.
+ */
+export function composite(
+  placed: readonly { pose: Pose; x: number; y: number }[],
+  w: number,
+  h: number,
+  scale = 1,
+): Picture {
+  const k = Math.max(1, Math.round(scale));
+  const table = colourTable();
+  const px = new Uint8Array(w * k * h * k);
+  for (const p of placed) blit(px, w * k, h * k, p.pose, p.x, p.y, k, table.of);
+  return { w: w * k, h: h * k, colours: table.colours, frames: [px] };
+}
+
+/** One colour table for everything drawn into a picture; index 0 is nothing. */
+function colourTable() {
   const colours = [""];
   const index = new Map<string, number>();
   const of = (pose: Pose, ch: string): number => {
@@ -42,22 +74,37 @@ export function picture(poses: readonly Pose[], scale = 1): Picture {
     }
     return i;
   };
-  const w = (poses[0]?.body.w ?? 0) * k;
-  const h = (poses[0]?.body.h ?? 0) * k;
-  const out = poses.map((pose) => {
-    const { body } = pose;
-    const rows = body.frames[pose.frame] ?? body.frames[0];
-    const px = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) {
-      const row = rows[Math.floor(y / k)];
-      for (let x = 0; x < w; x++) {
-        const ch = row?.[Math.floor(x / k)] ?? TRANSPARENT;
-        px[y * w + x] = ch === TRANSPARENT ? 0 : of(pose, ch);
+  return { colours, of };
+}
+
+/** Draw a pose's frame into `px` (`w × h` pixels) at cell (x, y), each cell
+ *  `k × k` pixels. Transparent cells leave what is already there. */
+function blit(
+  px: Uint8Array,
+  w: number,
+  h: number,
+  pose: Pose,
+  x: number,
+  y: number,
+  k: number,
+  of: (pose: Pose, ch: string) => number,
+) {
+  const rows = pose.body.frames[pose.frame] ?? pose.body.frames[0];
+  rows.forEach((row, cy) => {
+    for (let cx = 0; cx < row.length; cx++) {
+      const ch = row[cx];
+      if (ch === TRANSPARENT) continue;
+      const i = of(pose, ch);
+      for (let dy = 0; dy < k; dy++) {
+        const py = (y + cy) * k + dy;
+        if (py < 0 || py >= h) continue;
+        for (let dx = 0; dx < k; dx++) {
+          const pxx = (x + cx) * k + dx;
+          if (pxx >= 0 && pxx < w) px[py * w + pxx] = i;
+        }
       }
     }
-    return px;
   });
-  return { w, h, colours, frames: out };
 }
 
 const rgb = (hex: string): [number, number, number] =>

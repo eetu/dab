@@ -17,9 +17,9 @@
       "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
     },
     "colours": {
-      "description": "Character → colour. One character a key, never `.`, which is transparent.",
+      "description": "Character → colour. One printable ASCII character a key, never `.`, which is transparent.",
       "type": "object",
-      "propertyNames": { "minLength": 1, "maxLength": 1, "not": { "const": "." } },
+      "propertyNames": { "pattern": "^[!-~]$", "not": { "const": "." } },
       "additionalProperties": { "$ref": "#/$defs/colour" }
     },
     "body": {

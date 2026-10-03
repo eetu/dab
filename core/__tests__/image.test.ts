@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { crc32, encodeGif, encodePng, picture, type SpriteBody } from "../src";
+import { composite, crc32, encodeGif, encodePng, picture, type SpriteBody } from "../src";
 
 const SIGN: SpriteBody = {
   w: 3,
@@ -155,5 +155,23 @@ describe("images", () => {
     };
     const pic = picture([{ body, frame: 0 }]);
     expect(gifFrames(encodeGif(pic, 10))[0]).toEqual([...pic.frames[0]]);
+  });
+
+  test("poses laid out on one canvas share a table, and gaps show what is under them", () => {
+    const dot: SpriteBody = { w: 2, h: 1, palette: { A: "#ff0000" }, frames: [["A."]] };
+    const pic = composite(
+      [
+        { pose: { body: SIGN, frame: 0 }, x: 0, y: 0 },
+        { pose: { body: dot, frame: 0 }, x: 2, y: 0 },
+      ],
+      4,
+      2,
+    );
+    expect([pic.w, pic.h, pic.frames.length]).toEqual([4, 2, 1]);
+    // The dot is the same red as SIGN's A, so the same entry; it covers SIGN's
+    // gap at (2,0), and its own gap at (3,0) leaves the canvas empty.
+    expect(pic.colours).toEqual(["", "#ff0000", "#0000ff80", "#00ff00"]);
+    expect([...pic.frames[0]]).toEqual([1, 2, 1, 0, 0, 3, 1, 0]);
+    expect(composite([{ pose: { body: dot, frame: 0 }, x: 0, y: 0 }], 2, 1, 3).w).toBe(6);
   });
 });

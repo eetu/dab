@@ -1,4 +1,4 @@
-import { type SpriteBody, TRANSPARENT } from "./format";
+import { isPaletteKey, type SpriteBody, TRANSPARENT } from "./format";
 import { patch } from "./patch";
 
 /** Characters a sprite may use, in a stable order, skipping the taken ones. */
@@ -54,7 +54,7 @@ export function removeColour<T extends SpriteBody>(s: T, ch: string): T {
 
 /** Move a colour to a different character, rewriting every pixel that used it. */
 export function renameChar<T extends SpriteBody>(s: T, from: string, to: string): T {
-  if (from === to || to === TRANSPARENT || to.length !== 1 || s.palette[to]) return s;
+  if (from === to || !isPaletteKey(to) || s.palette[to]) return s;
   const palette: Record<string, string> = {};
   for (const [ch, hex] of Object.entries(s.palette)) palette[ch === from ? to : ch] = hex;
   const frames = s.frames.map((f) => f.map((row) => row.split(from).join(to)));

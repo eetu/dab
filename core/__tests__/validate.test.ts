@@ -17,7 +17,7 @@ describe("validation", () => {
       frames: [["...", "..", "..."]],
     });
     expect(errors.some((e) => e.includes("name"))).toBe(true);
-    expect(errors.some((e) => e.includes("one character"))).toBe(true);
+    expect(errors.some((e) => e.includes("printable ASCII"))).toBe(true);
     expect(errors.some((e) => e.includes("#rrggbb"))).toBe(true);
     expect(errors.some((e) => e.includes("rows"))).toBe(true);
   });
