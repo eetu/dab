@@ -427,6 +427,9 @@
      sits at its left. -->
 <Panel id="frames" title="Frames" badge={`${where} · ${frames.length}`}>
   <div class="timeline" bind:this={strip} style:--cols={frames.length}>
+    <!-- The gutter's ground, down every row: what scrolls under it is hidden,
+         including the rows with no name of their own. -->
+    <div class="ground" style:grid-row={`1 / ${afterLanes + 1}`} aria-hidden="true"></div>
     <!-- The frame verbs, in the gutter beside the strip they act on. Not in the
          panel header: the dock is the width of the window, and `margin-left:auto`
          parked them a screen away from the thumbnails. -->
@@ -724,7 +727,20 @@
     grid-column: 1;
     position: sticky;
     left: 0;
+    z-index: 2;
+    background: var(--halo-bg-light);
+  }
+  /* What hides the strip as it scrolls under the gutter, as one opaque column
+     behind every row. The names alone left holes: the steps' rows have no name
+     of their own, a picked name is tinted rather than opaque, and the column
+     gap beside the gutter belongs to no cell — each showed cells, chips and
+     thumbnails sliding past. It reaches across that gap for the last reason. */
+  .ground {
+    grid-column: 1;
+    position: sticky;
+    left: 0;
     z-index: 1;
+    width: calc(100% + 0.35rem);
     background: var(--halo-bg-light);
   }
   /* Two rows of three in the gutter's 9rem, beside the thumbnails they act on. */
@@ -807,8 +823,15 @@
   /* The run in order, under the bar it belongs to. It spans every frame column
      but is a row of its own steps, because the steps are not frames — two of
      them can name one frame, and that is what a hold IS. */
+  /* Pinned beside the gutter as the strip scrolls: steps are an ORDER, not
+     columns, so nothing lines them up with the frames, and scrolling them out of
+     sight under the gutter only hid the run. As wide as its chips, or sticky has
+     no room to move. */
   .seq {
     grid-column: 2 / -1;
+    justify-self: start;
+    position: sticky;
+    left: calc(11rem + 0.35rem);
     display: flex;
     align-items: center;
     gap: 0.15rem;
