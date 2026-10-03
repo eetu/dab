@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Pre-commit gate: only the checks for what is staged. Installed by
+# ./install-hooks.sh; git runs it from the repo root. `just check` is the whole
+# gate — this is the fast part of it.
+set -euo pipefail
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+[ -n "$staged" ] || exit 0
+
+run_js=0
+run_format=0
+run_rust=0
+while IFS= read -r f; do
+	case "$f" in
+	core/* | frontend/* | package.json | yarn.lock | .yarnrc.yml) run_js=1 ;;
+	esac
+	case "$f" in
+	*.md | *.json | *.yaml | *.yml | .prettierrc) run_format=1 ;;
+	esac
+	case "$f" in
+	backend/* | Cargo.toml | Cargo.lock) run_rust=1 ;;
+	esac
+done <<<"$staged"
+
+if [ "$run_js" = 1 ]; then
+	echo "pre-commit: core + frontend (lint + format)"
+	node .yarn/releases/yarn-*.cjs lint
+	node .yarn/releases/yarn-*.cjs format
+elif [ "$run_format" = 1 ]; then
+	echo "pre-commit: format"
+	node .yarn/releases/yarn-*.cjs format
+fi
+
+if [ "$run_rust" = 1 ]; then
+	echo "pre-commit: rust (clippy + fmt)"
+	cargo clippy --workspace --all-targets -- -D warnings
+	cargo fmt --all -- --check
+fi

@@ -1,0 +1,30 @@
+# Dependabot PRs merge themselves once the required check (ci-gate) passes —
+# GitHub's native auto-merge on the plain GITHUB_TOKEN. Required-only is the
+# point: CI skips one side by path filter, and anything that waited on every
+# check would wait forever on a skip.
+#
+# Needs auto-merge enabled on the repository, or `--auto` is rejected with an
+# error that reads like a workflow bug:
+#   gh api --method PATCH repos/eetu/dab -F allow_auto_merge=true
+name: Automerge
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Not github-actions bumps: they edit .github/workflows/*, which GITHUB_TOKEN
+    # cannot merge. Those are merged by hand, after a look at the CI change.
+    if: github.actor == 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/github_actions')
+    steps:
+      - name: Enable auto-merge
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
