@@ -21,6 +21,8 @@ frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
              variants, cycles, animations, parts) → document. src/lib/editor.svelte.ts is its
              public surface; commit and the other shared helpers stay among
              the modules.
+cli/         `dab` on a folder of sprites: `dab mcp`, an MCP server over core for
+             a model to read, render and draw with. Node, run locally.
 schema/      sprite.schema.json — the format for consumers, beside FORMAT.md (the
              prose). core's schema test holds it to validateSprite both ways; a
              rule the schema cannot say is listed in both places.
@@ -42,7 +44,9 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   palette variants that override the entries they name and inherit the rest. The
   first cut of this format had `N`/`n` reserved for a "neon" pass with a hardcoded
   dim factor and one project's magenta/cyan defaults — that was one app's identity
-  living in a general format.
+  living in a general format. A key is one printable ASCII character: a row is
+  counted in characters, and outside ASCII one character is two code units or
+  two tokens.
 - **A colour may carry alpha**: `#rrggbb` or `#rrggbbaa`. Eight digits rather
   than a parallel alpha map, so `variant?.[ch] ?? palette[ch]` stays the whole
   rule — a canvas takes that string as it is. Opaque is written the short way,
@@ -55,8 +59,20 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **One document, a selected node.** `editor.path` names the part being drawn,
   and every mutation goes through `withNode`, so the tools keep knowing nothing
   about parts and a door drag stays one snapshot of the whole sprite. This is
-  also what keeps a future MCP server (#12) a thin wrapper over core: path
+  also what keeps the MCP server (`cli/`) a thin wrapper over core: path
   awareness lives in core, not in the editor.
+- **A model draws through a local `dab`, which owns the folder it is run in.**
+  Sprites live in their consumer's git repo (nahkarele's `src/lib/sprites`) and
+  are built into it, so the server runs where they are rather than on the Pi.
+  nib's shape — the core in Rust, run as WASM in the editor and natively in a
+  server holding the files — was weighed and declined: it is a rewrite of core,
+  it moves the sprites out of the repos that build them, and the Pi (1 GB,
+  services capped at 64–96 MB) is no place for Node. Every read hands out a
+  version, a hash of the bytes on disk, and every write must quote it, so a
+  save in the editor is refused rather than overwritten. Every write goes
+  through core's validator and writer, one call one write. Text is the
+  working representation, ruled in tens because a model miscounts a 54-wide
+  row; renders are for looking, about 512 px, since image tokens are not free.
 - **Palettes are local to a node.** Inheritance would make a cell's colour
   `variant?.[ch] ?? palette[ch] ?? parent.palette[ch]`, and the one-line rule is
   the thing this repo is built on. The editor closes the gap instead.
@@ -329,7 +345,7 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   tool needs the backend.
 - Ports: the backend takes `127.0.0.1:3060` (`DAB_BIND`), clear of scene's 3010 / 3020. `DAB_STATIC_DIR` points at the SPA build.
 - `just check` — the whole gate (CI, when it lands, runs exactly this): format, lint,
-  typecheck, test across both packages
+  typecheck, test across the yarn workspace (core, frontend, cli)
   and the Rust workspace. Safe to run with `just dev` up: vitest keeps its
   optimized-dependency cache in `node_modules/.vitest-cache`, NOT the dev
   server's `node_modules/.vite`. Sharing it meant each side found the other's
@@ -348,6 +364,9 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   rather than about inventing art. A scene still asserts the minimum that makes
   its picture mean something: a screenshot of a component that failed to mount is
   a blank rectangle, and a blank rectangle reads as a design decision.
+- `just cli` builds `cli/dist/dab.js`. Register it with Claude Code from the
+  consumer's repo: `claude mcp add dab -- node <dab>/cli/dist/dab.js mcp
+--root src/lib/sprites`.
 - The backend needs no config to serve the SPA; `backend/.env` is read if present.
 - The image: `podman build --target dab -t dab .` — scratch, the static binary
   and `dist/`, a few MB; it listens on `0.0.0.0:3060`.
@@ -380,5 +399,6 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   that a turn is a drawing operation with an artist behind it, crisp by default
   so it drops pixels rather than inventing colours, and the result is a starting
   point to draw over.
-- A server-side file store. The editor reaches the disk through the browser; the
-  backend exists to serve the SPA, not to hold sprites.
+- A file store on the deployed server. The editor reaches the disk through the
+  browser, and a model through the local `dab`; the backend exists to serve the
+  SPA, not to hold sprites.

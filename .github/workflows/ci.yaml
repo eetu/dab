@@ -1,4 +1,4 @@
-# What `just check` runs, split by what changed: core and the frontend (the
+# What `just check` runs, split by what changed: core, cli and the frontend (the
 # yarn workspace) and the backend (the Rust workspace) are filtered apart, so a
 # Rust-only change skips the JS half and the other way round.
 #
@@ -42,6 +42,7 @@ jobs:
             js:
               - "core/**"
               - "frontend/**"
+              - "cli/**"
               - "schema/**"
               - "package.json"
               - "yarn.lock"
@@ -81,6 +82,27 @@ jobs:
       # here.
       - name: Build
         run: node .yarn/releases/yarn-*.cjs workspace dab-core build
+
+  # The local `dab` over a sprite folder: node tests against a temp folder,
+  # driven through a real MCP client.
+  cli:
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - run: node .yarn/releases/yarn-*.cjs install --immutable
+      - name: Lint
+        run: node .yarn/releases/yarn-*.cjs workspace dab-cli lint
+      - name: Typecheck
+        run: node .yarn/releases/yarn-*.cjs workspace dab-cli typecheck
+      - name: Test
+        run: node .yarn/releases/yarn-*.cjs workspace dab-cli test
+      - name: Build
+        run: node .yarn/releases/yarn-*.cjs workspace dab-cli build
 
   frontend:
     needs: changes
@@ -125,7 +147,7 @@ jobs:
   # fails only if a job that ran failed or was cancelled — skipped is fine.
   ci-gate:
     if: always()
-    needs: [changes, core, frontend, backend]
+    needs: [changes, core, cli, frontend, backend]
     runs-on: ubuntu-latest
     steps:
       - name: No job failed

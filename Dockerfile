@@ -12,9 +12,10 @@ FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
 # ============================================================================
 # Frontend (vendored yarn — no corepack)
 # ============================================================================
-# The yarn workspace is the repo root: core/ and frontend/ are its members, and
-# install needs every member's manifest. Manifests first, so install caches
-# across source-only changes. The frontend builds against core's SOURCE (vite
+# The yarn workspace is the repo root: core/, frontend/ and cli/ are its
+# members, and install needs every member's manifest (cli's too, though the
+# image does not ship it). Manifests first, so install caches across
+# source-only changes. The frontend builds against core's SOURCE (vite
 # aliases dab-core to core/src), so core needs no build of its own.
 FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend-build
 WORKDIR /app
@@ -22,6 +23,7 @@ COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn/releases ./.yarn/releases
 COPY core/package.json core/package.json
 COPY frontend/package.json frontend/package.json
+COPY cli/package.json cli/package.json
 RUN node .yarn/releases/yarn-*.cjs install --immutable --network-timeout 1000000
 COPY core ./core
 COPY frontend ./frontend

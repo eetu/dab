@@ -4,7 +4,8 @@
   "packageManager": "yarn@4.16.0",
   "workspaces": [
     "core",
-    "frontend"
+    "frontend",
+    "cli"
   ],
   "scripts": {
     "lint": "yarn workspaces foreach -Apt run lint",

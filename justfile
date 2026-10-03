@@ -66,6 +66,10 @@ build:
     {{yarn}} build
     cargo build --release
 
+# The `dab` command, for an MCP client to run: cli/dist/dab.js.
+cli:
+    {{yarn}} workspace dab-cli run build
+
 # Build core's dist. Not a publish step — core is private (see CLAUDE.md); this
 # exists so a type error in the format fails locally the way it will in CI.
 build-core:

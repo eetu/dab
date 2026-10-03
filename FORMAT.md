@@ -43,7 +43,7 @@ Unknown keys are ignored. A key once called `clips` is read as `animations`.
 ## Colours
 
 - `.` is transparent, everywhere, and is never a palette key.
-- A palette key is one character; any character but `.`.
+- A palette key is one printable ASCII character (`!` to `~`), any but `.`.
 - A colour is `#rrggbb`, or `#rrggbbaa` for one you can see through.
 - Every character in a frame is `.` or a key of that node's palette.
 

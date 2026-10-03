@@ -1,0 +1,30 @@
+{
+  "name": "dab-cli",
+  "version": "0.1.0",
+  "description": "dab on a sprite folder: the editor, its files and an MCP server, in one local process.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "dab": "./dist/dab.js"
+  },
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "dab-core": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@anarkisti/eslint-config": "^1.0.0",
+    "@types/node": "^26.6.3",
+    "eslint": "^10.8.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^4.1.10"
+  }
+}

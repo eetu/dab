@@ -149,6 +149,7 @@ that part.
 ```text
 core/       the format and every pure operation on it (private to this repo)
 frontend/   the editor: a Vite + Svelte SPA
+cli/        `dab`: an MCP server over a folder of sprites
 backend/    a small axum binary that serves the built SPA
 ```
 
@@ -182,6 +183,19 @@ function drawPart(p, ox, oy, state, look, path) {
 `flip` mirrors a node's rows on the way out (reverse the rows, reverse each), and
 a node carrying `flip` never carries parts, so there are no child offsets to
 mirror with it.
+
+## Drawing with a model
+
+`dab mcp` serves a folder of sprites to an MCP client. Frames read as rows ruled
+in tens, renders come back as PNGs (a frame, a strip, or several sprites side by
+side at one scale), and every edit is one of core's operations, validated and
+written the way the editor writes. Each read returns a version and each write
+must quote it, so a save made in the editor in between is never overwritten.
+
+```sh
+just cli
+claude mcp add dab -- node ~/dev/dab/cli/dist/dab.js mcp --root src/lib/sprites
+```
 
 ## Working on it
 

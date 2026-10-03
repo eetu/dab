@@ -92,6 +92,10 @@ export const MAX_PART_DEPTH = 4;
 
 export const TRANSPARENT = ".";
 
+/** A palette key: one printable ASCII character, never `.`. A row is counted
+ *  in characters, and a key outside ASCII is two code units or two tokens. */
+export const isPaletteKey = (ch: string): boolean => /^[!-~]$/.test(ch) && ch !== TRANSPARENT;
+
 /** A part that names another sprite rather than carrying pixels. */
 export const isPartRef = (p: Part): p is Placement & { use: string } => "use" in p;
 
