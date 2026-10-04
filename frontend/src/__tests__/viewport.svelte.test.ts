@@ -19,14 +19,22 @@ const pane = (w: number, h: number) => {
   viewport.paneH = h;
 };
 
-test("fit fills the pane, centres, and lands on a whole zoom", () => {
+test("fit fills the pane above the controls' band, centres there, and lands on a whole zoom", () => {
   pane(1000, 600);
   fit(72, 18);
-  // (1000-64)/72 = 13.0, (600-64)/18 = 29.8 -> the width is the binding side.
+  // (1000-64)/72 = 13.0, (600-32-76)/18 = 27.3 -> the width is the binding side.
   expect(cell()).toBe(13);
   expect(viewport.tx).toBe(0);
-  expect(viewport.ty).toBe(0);
+  // Centred in what is left above the band: up by half the difference.
+  expect(viewport.ty).toBe(-22);
   expect(viewport.manual).toBe(false);
+
+  // A tall sprite on a short pane: its bottom edge stays clear of the band the
+  // play and turn bars sit in, which is what a bar over the art used to cover.
+  pane(400, 300);
+  fit(10, 40);
+  const bottom = 300 / 2 + viewport.ty + (40 * cell()) / 2;
+  expect(bottom).toBeLessThanOrEqual(300 - 76);
 
   // A tiny sprite fills the pane too — that is the whole point of fitting.
   fit(3, 8);

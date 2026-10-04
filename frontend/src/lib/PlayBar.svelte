@@ -29,6 +29,9 @@
   // single frame whose colours turn has no frame count to show.
   const cycle = $derived(cycleShowing());
   const phase = $derived(cycle ? cycle.phases.indexOf(shownVariant() ?? "") : -1);
+
+  /** Room for "n/n" at its widest, in digits that are all one width. */
+  const widest = (n: number) => `${String(n).length * 2 + 1}ch`;
 </script>
 
 {#if editor.playing}
@@ -60,8 +63,14 @@
       <output>{editor.fps}</output>
     </label>
 
-    {#if run.length > 1}<span class="at">{at + 1}/{run.length}</span>{/if}
-    {#if cycle}<span class="at" title="Phase">{phase + 1}/{cycle.phases.length}</span>{/if}
+    <!-- Each count as wide as its widest value: the bar is centred, so a count
+         that grew from 9/10 to 10/10 moved every control on it. -->
+    {#if run.length > 1}<span class="at" style:min-width={widest(run.length)}
+        >{at + 1}/{run.length}</span
+      >{/if}
+    {#if cycle}<span class="at" title="Phase" style:min-width={widest(cycle.phases.length)}
+        >{phase + 1}/{cycle.phases.length}</span
+      >{/if}
   </div>
 {/if}
 
@@ -122,8 +131,11 @@
   output,
   .at {
     font-variant-numeric: tabular-nums;
-    min-width: 1.2rem;
     text-align: right;
+  }
+  /* fps runs 1–30: two digits' room, so dragging past 9 does not shift the bar. */
+  output {
+    min-width: 2ch;
   }
   .at {
     color: var(--halo-text-light);
