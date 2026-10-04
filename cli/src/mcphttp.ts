@@ -6,7 +6,7 @@ import { local } from "./api";
 import { createServer } from "./server";
 import type { Store } from "./store";
 
-// The MCP tools over HTTP, beside the editor in the same dev server. Stateless:
+// The MCP tools over HTTP, on their own port (mcpport.ts). Stateless:
 // a server and a transport per request, over the ONE store the editor's API
 // uses — so a model's write and a person's save are checked against the same
 // versions, and the editor's change feed sees every write the model makes.

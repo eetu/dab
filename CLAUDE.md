@@ -414,10 +414,13 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   plugin, as a consumer's dev server will serve it. Any browser.
 - `just cli` builds `cli/dist/dab.js`, the plugin `cli/dist/vite.js` and the
   editor it serves. With the plugin in a consumer's dev server, MCP is over
-  HTTP and the server prints the line to register it
-  (`claude mcp add --transport http dab http://localhost:<port>/__dab/mcp`);
-  without one, stdio: `claude mcp add dab -- node <dab>/cli/dist/dab.js mcp
---root src/lib/sprites`.
+  HTTP on port 3061 in EVERY project, so it is registered once
+  (`claude mcp add --transport http dab http://localhost:3061/mcp`) and
+  serves whichever project's dev server is running — one at a time, which is
+  how drawing goes; a second dev server leaves the port to the first and its
+  banner says whose it is. A port per project meant an MCP entry per project.
+  Without a dev server, stdio: `claude mcp add dab -- node
+<dab>/cli/dist/dab.js mcp --root src/lib/sprites`.
 - The backend needs no config to serve the SPA; `backend/.env` is read if present.
 - The image: `podman build --target dab -t dab .` — scratch, the static binary
   and `dist/`, a few MB; it listens on `0.0.0.0:3060`.
