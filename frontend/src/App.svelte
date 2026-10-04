@@ -707,9 +707,9 @@
     // is the one nobody else has a copy of. But a served folder is one project,
     // and a draft from anywhere else — the demo car, another folder on this
     // origin — is not its work, so it stays out of the way.
-    const served = folder?.kind === "served" ? folder.name : null;
+    const served = folder?.kind === "served" ? folder : null;
     const draft = recallDraft();
-    if (draft && (!served || draft.folder === served)) {
+    if (draft && (!served || draft.folder === served.id)) {
       loadSprite(draft.sprite, draft.file);
       editor.dirty = true;
       say("restored unsaved work");
@@ -717,7 +717,7 @@
       // Nothing of this folder's was open: say what is in it.
       if (!editor.file) {
         say(
-          `${served}: ${entries.length} sprite${entries.length === 1 ? "" : "s"} — open one from the folder`,
+          `${served.name}: ${entries.length} sprite${entries.length === 1 ? "" : "s"} — open one from the folder`,
         );
       }
     } else if (firstVisit && !editor.file) {
@@ -749,7 +749,7 @@
     const sprite = editor.sprite;
     const file = editor.file;
     if (!editor.dirty) return;
-    const served = folder?.kind === "served" ? folder.name : null;
+    const served = folder?.kind === "served" ? folder.id : null;
     const id = setTimeout(() => rememberDraft(sprite, file, served), 400);
     return () => clearTimeout(id);
   });

@@ -9,7 +9,7 @@ import { type Refusal, type Store, ToolError } from "./store";
 // validation the MCP tools write through, so a save from either side is
 // refused rather than lost when the other got there first.
 //
-//   GET    /files          the root's sprites, each with its version
+//   GET    /files          the root's path and sprites, each with its version
 //   GET    /files/<file>   one file's text; its version in ETag
 //   PUT    /files/<file>   a sprite's JSON, If-Match its version, or
 //                          If-None-Match: * for a new file
@@ -64,7 +64,8 @@ async function handle(store: Store, req: IncomingMessage, res: ServerResponse, n
         problems.push({ file: f, errors: listed.length ? listed : [first] });
       }
     }
-    return send(res, 200, { name: path.basename(store.root), entries, problems });
+    // `root` is the folder's identity: two projects can both call theirs `sprites`.
+    return send(res, 200, { name: path.basename(store.root), root: store.root, entries, problems });
   }
 
   if (req.method === "GET") {
