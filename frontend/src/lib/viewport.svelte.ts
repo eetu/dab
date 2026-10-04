@@ -17,6 +17,10 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 64;
 /** Room left around the sprite so its edge pixels aren't against the pane wall. */
 const PAD = 32;
+/** And below it, the band the read-out and the mode bars (play, turn) sit in:
+ *  a fit never starts with the art under the controls for it, which on a small
+ *  pane is most of what a bar over the art used to cover. */
+const BELOW = 76;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -39,16 +43,17 @@ export const cell = (): number => (viewport.zoom >= 1 ? Math.round(viewport.zoom
 /** The zoom at which the sprite just fits the pane. */
 export function fitZoom(w: number, h: number): number {
   if (w <= 0 || h <= 0 || viewport.paneW <= 0 || viewport.paneH <= 0) return viewport.zoom;
-  const raw = Math.min((viewport.paneW - PAD * 2) / w, (viewport.paneH - PAD * 2) / h);
+  const raw = Math.min((viewport.paneW - PAD * 2) / w, (viewport.paneH - PAD - BELOW) / h);
   // Floor to a whole zoom when there is room for one, so a fit lands crisp.
   return clamp(raw >= 1 ? Math.floor(raw) : raw, MIN_ZOOM, MAX_ZOOM);
 }
 
-/** Fill the pane and centre — the fit button, the `0` key, and every load. */
+/** Fill the pane and centre — the fit button, the `0` key, and every load —
+ *  centred in what is left above the controls' band rather than in the pane. */
 export function fit(w: number, h: number) {
   viewport.zoom = fitZoom(w, h);
   viewport.tx = 0;
-  viewport.ty = 0;
+  viewport.ty = (PAD - BELOW) / 2;
   viewport.manual = false;
 }
 
