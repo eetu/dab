@@ -714,9 +714,8 @@
       editor.dirty = true;
       say("restored unsaved work");
     } else if (served) {
-      // Nothing of this folder's was open: say what is in it, where it is.
+      // Nothing of this folder's was open: say what is in it.
       if (!editor.file) {
-        panels.nav = "folder";
         say(
           `${served}: ${entries.length} sprite${entries.length === 1 ? "" : "s"} — open one from the folder`,
         );
@@ -943,8 +942,8 @@
         size="sm"
         ghost
         active={showing("left")}
-        label="Parts and folder"
-        hint="Parts and folder (⌘B)"
+        label="Sprites and parts"
+        hint="Sprites and parts (⌘B)"
         onclick={() => toggleRegion("left")}
       >
         <PanelLeft size={13} />

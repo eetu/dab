@@ -15,14 +15,6 @@ const KEY = "dab.chrome";
 export type Region = "left" | "right" | "dock";
 
 /**
- * Which list the Navigate region is showing.
- *
- * Chrome, so it is a global pref: which tab you left open is about the desk,
- * and opening another sprite must not move it.
- */
-export type NavTab = "parts" | "folder";
-
-/**
  * How the parts you are not drawing on are drawn.
  *
  * Solid by default: a part sitting on a body is a solid thing sitting on a
@@ -58,7 +50,6 @@ type Chrome = {
   folded: Record<string, boolean>;
   hidden: Record<string, boolean>;
   underlay: Underlay;
-  nav: NavTab;
   loupe: Loupe;
 };
 
@@ -71,11 +62,10 @@ const load = (): Chrome => {
       folded: raw.folded ?? {},
       hidden: raw.hidden ?? {},
       underlay: raw.underlay ?? "full",
-      nav: raw.nav ?? "parts",
       loupe: { ...LOUPE, ...raw.loupe },
     };
   } catch {
-    return { folded: {}, hidden: {}, underlay: "full", nav: "parts", loupe: { ...LOUPE } };
+    return { folded: {}, hidden: {}, underlay: "full", loupe: { ...LOUPE } };
   }
 };
 
@@ -89,7 +79,6 @@ const save = () => {
         folded: panels.folded,
         hidden: panels.hidden,
         underlay: panels.underlay,
-        nav: panels.nav,
         loupe: panels.loupe,
       }),
     );
@@ -122,11 +111,6 @@ export function setLoupeZoom(zoom: number): void {
 
 export function setLoupeCorner(corner: Corner): void {
   panels.loupe = { ...panels.loupe, corner };
-  save();
-}
-
-export function setNavTab(id: NavTab): void {
-  panels.nav = id;
   save();
 }
 

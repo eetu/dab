@@ -1,5 +1,6 @@
 <script lang="ts">
-  // The parts tree: what the subject is made of, and which of it you are drawing.
+  // The open sprite unfolded in the Navigate tree: its own row, its levels,
+  // and what it is made of — which of it you are drawing.
   //
   // The layers panel by another name, except that nothing here composites — each
   // row is a separate grid at an offset, with its own frames and its own state.
@@ -303,6 +304,8 @@
             {/if}
           </span>
           <span class="name">{row.path.at(-1) ?? editor.sprite.name}</span>
+          {#if !row.path.length && editor.dirty}<span class="dirty" title="Unsaved changes">•</span
+            >{/if}
           {#if !row.path.length && levels.length}<span class="size"
               >{editor.sprite.w}×{editor.sprite.h}</span
             >{/if}
@@ -403,8 +406,9 @@
           </div>
         {:else}
           <!-- The root's own trigger: the same items as right-clicking the row,
-               because the two routes always agree. -->
-          <div class="acts">
+               because the two routes always agree. On the row itself: the open
+               sprite is a file row in the tree, and a file row is one line. -->
+          <div class="acts root">
             <IconButton
               size="sm"
               label={`Actions for ${editor.sprite.name}`}
@@ -415,57 +419,47 @@
           </div>
         {/if}
       </li>
+      {#if !row.path.length}
+        <!-- The same subject at other sizes, first under the sprite: a level is
+             not a piece of it but another drawing of all of it, so it comes
+             before the pieces. Named the way a path names it. -->
+        {#each levels as level (level.name)}
+          {@const path = levelPath(level.name)}
+          <li
+            class:on={pathKey(path) === active}
+            style:--depth={1}
+            oncontextmenu={(e) => openMenu(e, `@${level.name}`, levelItems(level.name))}
+          >
+            <button
+              class="pick"
+              onclick={() => selectNode(path)}
+              title={`Draw the ${level.name} level`}
+            >
+              <span class="shot">
+                <Thumbnail
+                  node={level}
+                  frame={Math.min(editor.frame, level.frames.length - 1)}
+                  variant={editor.variant}
+                  height="1.4rem"
+                />
+              </span>
+              <span class="name">@{level.name}</span>
+              <span class="size">{level.w}×{level.h}</span>
+            </button>
+            <div class="acts">
+              <IconButton
+                size="sm"
+                label={`Actions for ${level.name}`}
+                onclick={(e) => openMenu(e, `@${level.name}`, levelItems(level.name))}
+              >
+                <Ellipsis size={13} />
+              </IconButton>
+            </div>
+          </li>
+        {/each}
+      {/if}
     {/each}
   </ul>
-
-  {#if rows.length === 1}
-    <p class="note">
-      A part is a grid of its own at an offset — a door, a wheel, a pop-up lamp. Each keeps its own
-      frames, so a consumer can open one without touching the rest.
-    </p>
-  {/if}
-
-  {#if levels.length}
-    <!-- The same subject at other sizes. Not under the sprite's row: a level is
-         not a piece of the sprite but another drawing of all of it. -->
-    <h4>Levels</h4>
-    <ul>
-      {#each levels as level (level.name)}
-        {@const path = levelPath(level.name)}
-        <li
-          class:on={pathKey(path) === active}
-          style:--depth={0}
-          oncontextmenu={(e) => openMenu(e, level.name, levelItems(level.name))}
-        >
-          <button
-            class="pick"
-            onclick={() => selectNode(path)}
-            title={`Draw the ${level.name} level`}
-          >
-            <span class="shot">
-              <Thumbnail
-                node={level}
-                frame={Math.min(editor.frame, level.frames.length - 1)}
-                variant={editor.variant}
-                height="1.4rem"
-              />
-            </span>
-            <span class="name">{level.name}</span>
-            <span class="size">{level.w}×{level.h}</span>
-          </button>
-          <div class="acts">
-            <IconButton
-              size="sm"
-              label={`Actions for ${level.name}`}
-              onclick={(e) => openMenu(e, level.name, levelItems(level.name))}
-            >
-              <Ellipsis size={13} />
-            </IconButton>
-          </div>
-        </li>
-      {/each}
-    </ul>
-  {/if}
 </div>
 
 <style>
@@ -484,7 +478,7 @@
   }
   li {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
     align-items: center;
     /* Dense on purpose: a part row is three lines of controls, and a car's worth
        of them has to fit a laptop's column without it scrolling. */
@@ -494,13 +488,9 @@
     border: 1px solid transparent;
     border-radius: 4px;
   }
-  h4 {
-    margin: 0.3rem 0 0;
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--halo-text-light);
+  .dirty {
+    color: var(--halo-accent);
+    font-weight: 700;
   }
   .size {
     font-size: 0.68rem;
@@ -593,6 +583,10 @@
     min-width: 0;
     min-height: 1.6rem;
   }
+  .acts.root {
+    grid-column: 4;
+    grid-row: 1;
+  }
   .fliptag {
     position: absolute;
     right: 0;
@@ -661,11 +655,5 @@
   button:disabled {
     opacity: 0.3;
     cursor: default;
-  }
-  .note {
-    margin: 0;
-    font-size: 0.7rem;
-    line-height: 1.45;
-    color: var(--halo-text-light);
   }
 </style>
