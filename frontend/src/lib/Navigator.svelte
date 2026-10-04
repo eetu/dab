@@ -285,10 +285,13 @@
   }
   /* The open sprite and everything in it, set apart as one block — the ground
      says "these rows belong together", the accent on its row says which one
-     you are drawing. */
+     you are drawing. Only when there IS more than its row, and drawn rather
+     than laid out: opening a sprite with nothing inside must not move the
+     list by a pixel, or the jump reads as something having unfolded. */
   .open {
-    padding: 0.15rem 0;
     border-radius: 5px;
+  }
+  .open:has(:global(li + li)) {
     background: var(--halo-bg-main);
     box-shadow: 0 0 0 1px var(--halo-border);
   }
