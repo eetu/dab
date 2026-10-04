@@ -392,8 +392,11 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   a blank rectangle, and a blank rectangle reads as a design decision.
 - `just ui-on <folder>` — the editor on that folder through the built Vite
   plugin, as a consumer's dev server will serve it. Any browser.
-- `just cli` builds `cli/dist/dab.js` and the plugin, `cli/dist/vite.js`. Register it with Claude Code from the
-  consumer's repo: `claude mcp add dab -- node <dab>/cli/dist/dab.js mcp
+- `just cli` builds `cli/dist/dab.js`, the plugin `cli/dist/vite.js` and the
+  editor it serves. With the plugin in a consumer's dev server, MCP is over
+  HTTP and the server prints the line to register it
+  (`claude mcp add --transport http dab http://localhost:<port>/__dab/mcp`);
+  without one, stdio: `claude mcp add dab -- node <dab>/cli/dist/dab.js mcp
 --root src/lib/sprites`.
 - The backend needs no config to serve the SPA; `backend/.env` is read if present.
 - The image: `podman build --target dab -t dab .` — scratch, the static binary

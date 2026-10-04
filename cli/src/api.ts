@@ -179,7 +179,9 @@ function precondition(req: IncomingMessage): string | null {
 
 const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 
-function local(req: IncomingMessage): boolean {
+/** A request from this machine, addressed to it by name: what everything
+ *  here that can write a file answers, and nothing else. */
+export function local(req: IncomingMessage): boolean {
   if (!LOOPBACK.has(req.socket.remoteAddress ?? "")) return false;
   const host = (req.headers.host ?? "").replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
   return host === "localhost" || host.endsWith(".localhost") || LOOPBACK.has(host);

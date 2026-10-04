@@ -6,6 +6,7 @@ import type { Plugin } from "vite";
 
 import { filesApi } from "./api";
 import { serveEditor } from "./editor";
+import { mcpHttp } from "./mcphttp";
 import { Store } from "./store";
 
 // dab in a Vite project's dev server: the editor at /__dab/ and the sprite
@@ -15,6 +16,7 @@ import { Store } from "./store";
 
 export const BASE = "/__dab";
 export const API = `${BASE}/api`;
+export const MCP = `${BASE}/mcp`;
 
 /** The built editor, shipped beside this file. */
 const EDITOR = fileURLToPath(new URL("./editor/", import.meta.url));
@@ -32,6 +34,7 @@ export default function dab(options: Options): Plugin {
       const store = await Store.open(path.resolve(server.config.root, options.sprites));
       const log = server.config.logger;
       server.middlewares.use(API, filesApi(store));
+      server.middlewares.use(MCP, mcpHttp(store));
       const hasEditor = existsSync(path.join(EDITOR, "index.html"));
       if (hasEditor) {
         const editor = serveEditor(EDITOR);
@@ -51,12 +54,13 @@ export default function dab(options: Options): Plugin {
         // After Vite's own banner, which is printed once it is listening.
         setTimeout(() => {
           const at = server.resolvedUrls?.local[0];
-          const where = at ? new URL(`${BASE.slice(1)}/`, at).href : `${BASE}/`;
+          const url = (p: string) => (at ? new URL(p.slice(1), at).href : p);
           log.info(
             hasEditor
-              ? `  ➜  dab:     ${where}  (${store.root})`
+              ? `  ➜  dab:     ${url(`${BASE}/`)}  (${store.root})`
               : `  ➜  dab:     ${API} serves ${store.root}; the editor is not built`,
           );
+          log.info(`  ➜  MCP:     claude mcp add --transport http dab ${url(MCP)}`);
         }, 0);
       });
     },

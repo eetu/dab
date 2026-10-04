@@ -17,6 +17,8 @@ src/api.ts      the files API — list, read, versioned write and delete, and
                 requests addressed to localhost only, so `vite --host` does
                 not put a write API on the LAN
 src/server.ts   the MCP server, its instructions to the model, the tool modules
+src/mcphttp.ts  the same server over Streamable HTTP at /__dab/mcp, stateless:
+                one per request, over the store the editor's API shares
 src/store.ts    the folder: root confinement, versions, validated atomic writes,
                 and what a sprite's `use` parts resolve to. A refusal carries
                 its kind (stale, invalid, outside, missing) for HTTP's status
