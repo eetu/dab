@@ -31,6 +31,9 @@ const sign = (row: string, name = "sign") => ({
   frames: [[row]],
 });
 
+/** The folder the fake serves, as the plugin names it: by its path. */
+const ROOT = "/work/game/src/sprites";
+
 type Call = { method: string; file: string; match?: string; fresh?: boolean };
 
 function fakeApi() {
@@ -56,7 +59,7 @@ function fakeApi() {
         version: d.version,
         sprite: JSON.parse(d.text),
       }));
-      return json(200, { name: "sprites", entries, problems: [] });
+      return json(200, { name: "sprites", root: ROOT, entries, problems: [] });
     }
     if (match ? now?.version !== match : now) {
       return json(412, { error: "stale", version: now?.version ?? null });
@@ -165,8 +168,19 @@ test("a first visit to a served folder opens neither the help nor the demo car",
   }
 });
 
+test("a draft from another project whose folder is also called sprites stays out", async () => {
+  rememberDraft(sign("BB"), "sign.json", "/work/other/src/sprites");
+  const { stop } = await mountApp();
+  try {
+    expect(editor.dirty).toBe(false);
+    expect(editor.sprite.frames[0]).not.toEqual(["BB"]);
+  } finally {
+    stop();
+  }
+});
+
 test("a draft drawn in this served folder comes back", async () => {
-  rememberDraft(sign("BB"), "sign.json", "sprites");
+  rememberDraft(sign("BB"), "sign.json", ROOT);
   const { stop } = await mountApp();
   try {
     expect(editor.sprite.frames[0]).toEqual(["BB"]);

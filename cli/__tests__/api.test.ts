@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer, request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -47,6 +47,7 @@ describe("the files API", () => {
     const body = await res.json();
     expect(body.entries.map((e: { file: string }) => e.file)).toEqual(["sign.json"]);
     expect(body.entries[0].version).toBe(versionOf(toJson(sign("AB"))));
+    expect(body.root).toBe(await realpath(root));
     expect(body.problems[0].file).toBe("broken.json");
     expect(body.problems[0].errors.length).toBeGreaterThan(0);
   });

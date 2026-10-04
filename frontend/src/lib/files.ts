@@ -37,9 +37,10 @@ export const canWriteToDisk = (): boolean => typeof picker().showDirectoryPicker
 
 export type Folder =
   | { kind: "disk"; handle: DirHandle; name: string }
-  /** `versions` is what each file was when last listed or written — what the
-   *  next write of it says it replaces. */
-  | { kind: "served"; name: string; versions: Map<string, string> };
+  /** `id` is the folder's path on the serving machine — its identity, since
+   *  two projects can both call theirs `sprites`. `versions` is what each file
+   *  was when last listed or written: what the next write of it replaces. */
+  | { kind: "served"; name: string; id: string; versions: Map<string, string> };
 
 /** Where dab's Vite plugin serves the folder. */
 export const API = "/__dab/api";
@@ -67,8 +68,8 @@ export async function servedFolder(): Promise<Folder | null> {
   try {
     const res = await fetch(`${API}/files`);
     if (!res.ok || !res.headers.get("content-type")?.includes("json")) return null;
-    const { name } = (await res.json()) as { name: string };
-    return { kind: "served", name, versions: new Map() };
+    const { name, root } = (await res.json()) as { name: string; root: string };
+    return { kind: "served", name, id: root, versions: new Map() };
   } catch {
     return null;
   }

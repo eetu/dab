@@ -76,8 +76,9 @@ export function recallFile(): string | null {
  * drawing rather than to the last saved state — losing work to a hot reload is
  * the one failure this tool must not have.
  *
- * `folder` names the served folder it was drawn in, if any: a dev server's
- * folder is one project, and a draft from anywhere else is not its work.
+ * `folder` is the served folder it was drawn in, by its path, if any: a dev
+ * server's folder is one project, and a draft from anywhere else is not its
+ * work — including another project whose folder is also called `sprites`.
  */
 export function rememberDraft(
   sprite: SpriteFile,
