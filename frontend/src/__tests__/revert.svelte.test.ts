@@ -116,7 +116,10 @@ test("with no unsaved change there is nothing to revert", async () => {
   expect(editor.dirty).toBe(false);
   expect(revertButton(app.host)).toBeUndefined();
 
-  // One stroke, and the way out appears.
+  // One stroke, and the way out appears. With the pencil: the tool is a desk
+  // pref, so a file before this one can leave the eraser armed, and erasing an
+  // empty cell is no change at all.
+  editor.tool = "pencil";
   editor.ink = "B";
   paint([[3, 1]], true);
   await sleep(60);

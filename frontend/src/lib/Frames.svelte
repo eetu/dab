@@ -11,6 +11,8 @@
   // The bar is built from one cell per frame rather than a span, because a run
   // here is an arbitrary list — reversed, with holds — so it can have gaps, and
   // a gap is a hole in the bar rather than a lie about its extent.
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
   import Eclipse from "@lucide/svelte/icons/eclipse";
   import Pause from "@lucide/svelte/icons/pause";
@@ -18,6 +20,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import SkipBack from "@lucide/svelte/icons/skip-back";
   import Trash from "@lucide/svelte/icons/trash-2";
+  import { isPartRef, type SpriteBody } from "dab-core";
 
   import { ask } from "./dialog.svelte";
   import {
@@ -29,23 +32,29 @@
     canPlay,
     duplicateFrame,
     editor,
+    frameOf,
     moveAnimation,
     moveFrame,
+    pathKey,
     perspective,
     readOnly,
     removeAnimation,
     removeFrame,
     renameAnimation,
+    resolvePart,
     rewind,
+    selectNode,
     setAnimationFrames,
     setPlaying,
     shownFrame,
+    stepOf,
     turnFrame,
     turning,
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
   import Panel from "./Panel.svelte";
+  import { panels, toggleFold } from "./panels.svelte";
   import Thumbnail from "./Thumbnail.svelte";
 
   // The strip belongs to the node being edited: a part has its own frames, which
@@ -59,10 +68,41 @@
    *  or "hold frame 2", so something has to, and a bar of cells cannot be it. */
   const sequenced = (name: string, run: number[]) => editor.animation === name || !ascending(run);
 
+  /**
+   * The dope sheet: a row per part under the strip, saying what each part shows
+   * at each frame — the detail under the subject, as Aseprite has a row per
+   * layer under its frames. The subject is what plays; this is where you see,
+   * and get to, the piece of it you want to draw.
+   */
+  type Track = { path: string[]; node: SpriteBody | null; depth: number; borrowed: boolean };
+  const tracks = $derived.by(() => {
+    const out: Track[] = [];
+    const walk = (n: SpriteBody, path: string[], depth: number) => {
+      for (const p of n.parts ?? []) {
+        const sub = [...path, p.name];
+        const borrowed = isPartRef(p);
+        out.push({ path: sub, node: borrowed ? resolvePart(p.use) : p, depth, borrowed });
+        if (!borrowed) walk(p, sub, depth + 1);
+      }
+    };
+    walk(node, editor.path, 0);
+    return out;
+  });
+  const FOLD = "frames-parts";
+  const tracksOpen = $derived(tracks.length > 0 && !panels.folded[FOLD]);
+  /** The rows the tracks take: their heading, and one each while open. */
+  const trackRows = $derived(tracks.length ? 1 + (tracksOpen ? tracks.length : 0) : 0);
+
+  /** A cell of a track: draw that part, at the frame it shows there. */
+  function drawCel(t: Track, frame: number) {
+    selectNode(t.path);
+    if (!t.borrowed) editor.frame = frame;
+  }
+
   /** Which grid row each lane sits on: a sequenced one takes two. Counted
    *  rather than indexed, or the lanes under an expanded one sit on its steps. */
   const laneRows = $derived.by(() => {
-    let row = 2;
+    let row = 2 + trackRows;
     return lanes.map(([name, list]) => {
       const at = row;
       row += sequenced(name, list) ? 2 : 1;
@@ -70,7 +110,7 @@
     });
   });
   const afterLanes = $derived(
-    2 + lanes.reduce((n, [name, list]) => n + (sequenced(name, list) ? 2 : 1), 0),
+    2 + trackRows + lanes.reduce((n, [name, list]) => n + (sequenced(name, list) ? 2 : 1), 0),
   );
   const where = $derived(editor.path.length ? editor.path.join("/") : editor.sprite.name);
 
@@ -524,6 +564,67 @@
       </div>
     {/each}
 
+    {#if tracks.length}
+      <button
+        class="name trackhead"
+        style:grid-row={2}
+        aria-expanded={tracksOpen}
+        title={tracksOpen ? "Fold the parts away" : "What each part shows at each frame"}
+        onclick={() => toggleFold(FOLD)}
+      >
+        {#if tracksOpen}<ChevronDown size={12} />{:else}<ChevronRight size={12} />{/if}
+        <span class="label">parts</span>
+        <span class="count">{tracks.length}</span>
+      </button>
+      {#if tracksOpen}
+        {#each tracks as t, r (pathKey(t.path))}
+          {@const row = 3 + r}
+          {@const name = t.path.at(-1)}
+          <div
+            class="name track"
+            class:on={pathKey(t.path) === pathKey(editor.path)}
+            style:grid-row={row}
+            style:padding-left={`${0.4 + t.depth * 0.6}rem`}
+            title={t.path.join("/")}
+          >
+            <span class="label">{name}</span>
+          </div>
+          {#each frames as _, i (i)}
+            <!-- What this part shows while the strip is at frame i: the same
+                 rule the canvas draws by, asked for this column. A number only
+                 when it is not the column's own frame — a hold, a shorter
+                 strip, a run in another order. -->
+            {@const f = t.node ? frameOf(t.path, t.node, i, stepOf(i)) : 0}
+            <button
+              class="cel"
+              class:on={i === editor.frame}
+              class:hidden={!!editor.hidden[pathKey(t.path)]}
+              style:grid-column={i + 2}
+              style:grid-row={row}
+              title={t.borrowed
+                ? `${name} borrows another sprite — click to pick it up`
+                : `${name} shows its frame ${f + 1} here — click to draw it`}
+              onpointerenter={() => (linked = i)}
+              onpointerleave={() => (linked === i ? (linked = null) : null)}
+              onclick={() => drawCel(t, f)}
+            >
+              {#if t.node}
+                <Thumbnail
+                  node={t.node}
+                  frame={f}
+                  variant={editor.variant}
+                  assembly={!!t.node.parts?.length}
+                  base={t.path}
+                  height="1.5rem"
+                />
+                {#if f !== i}<span class="celno">{f + 1}</span>{/if}
+              {/if}
+            </button>
+          {/each}
+        {/each}
+      {/if}
+    {/if}
+
     {#each lanes as [name, list], lane (name)}
       {@const run = runOf(name, list)}
       {@const row = laneRows[lane]}
@@ -796,6 +897,52 @@
     font-size: 0.65rem;
     color: var(--halo-text-light);
     font-variant-numeric: tabular-nums;
+  }
+  /* The tracks' heading: a fold, in the gutter, lettered like the dock's own. */
+  .trackhead {
+    border: 0;
+    color: var(--halo-text-muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .trackhead .label {
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: inherit;
+    cursor: pointer;
+  }
+  .track .label {
+    cursor: default;
+  }
+  /* A part at one frame: the picture, on the same dark ground as the strip's. */
+  .cel {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 1px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: #1e1e1e;
+    cursor: pointer;
+  }
+  .cel:hover {
+    border-color: var(--halo-border);
+  }
+  .cel.on {
+    border-color: var(--halo-accent);
+  }
+  .cel.hidden {
+    opacity: 0.35;
+  }
+  .celno {
+    position: absolute;
+    right: 0.15rem;
+    bottom: 0.05rem;
+    font-size: 0.55rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--halo-accent);
+    pointer-events: none;
   }
   /* A cell of the bar. Empty cells are the ground the bar is drawn on, so a gap
      in a run reads as a hole rather than as the bar stopping. */

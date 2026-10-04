@@ -152,3 +152,52 @@ test("a thumbnail keeps its height when the art turns tall", async () => {
   unmount(app);
   host.remove();
 });
+
+/** A body on one leg; the leg is a part with fewer frames of its own. */
+const LEGGED = {
+  name: "legged",
+  w: 2,
+  h: 2,
+  palette: { A: "#ff0000" },
+  frames: [
+    ["AA", ".."],
+    ["AA", ".."],
+    ["AA", ".."],
+  ],
+  parts: [
+    {
+      name: "leg",
+      x: 0,
+      y: 1,
+      w: 1,
+      h: 1,
+      palette: { L: "#0000ff" },
+      frames: [["L"], ["L"]],
+    },
+  ],
+};
+
+test("the strip shows the whole subject, and each part has a row of what it shows", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;inset:0";
+  document.body.appendChild(host);
+  const app = mount(App, { target: host });
+  await sleep(40);
+  loadSprite(structuredClone(LEGGED), "legged.json");
+  await sleep(80);
+
+  // The strip draws the leg under the body: the whole thing, not a body alone.
+  expect(thumbPixel(host, 0, 0, 1)).toEqual([0, 0, 255, 255]);
+  // A row of three cells for the leg; the third holds the leg's last frame.
+  const cels = [...host.querySelectorAll(".timeline .cel")] as HTMLButtonElement[];
+  expect(cels).toHaveLength(3);
+  expect(cels[2].querySelector(".celno")?.textContent).toBe("2");
+
+  // Clicking a cell is drawing that part, at the frame it shows there.
+  cels[2].click();
+  await sleep(40);
+  expect(editor.path).toEqual(["leg"]);
+  expect(editor.frame).toBe(1);
+  unmount(app);
+  host.remove();
+});

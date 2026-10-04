@@ -114,6 +114,12 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   of its animations (the head grazing while the legs walk). Lifting a part
   carries the parent's animations, since it has the parent's frames, so a
   subject cut into parts plays exactly as it did.
+- **The parts are rows under the strip — a dope sheet.** Each row says what
+  that part shows at each of the strip's frames, by the rule the canvas draws
+  with, numbered only where it is not the column's own frame (a hold, a
+  shorter strip). Clicking a cell selects that part at that frame, which is
+  how you get to the one leg pose you want to redraw; the canvas keeps the
+  whole subject, the strip then the part's own frames. It folds away.
 - **Every frame operation remaps animations.** An animation left pointing past the end of a
   shortened strip is a file that fails validation the next time it is opened —
   the same surprise `removeColour` avoids by erasing the pixels it orphans.
