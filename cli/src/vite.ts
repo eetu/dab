@@ -6,17 +6,16 @@ import type { Plugin } from "vite";
 
 import { filesApi } from "./api";
 import { serveEditor } from "./editor";
-import { mcpHttp } from "./mcphttp";
+import { closeMcp, listenMcp, MCP_PORT } from "./mcpport";
 import { Store } from "./store";
 
 // dab in a Vite project's dev server: the editor at /__dab/ and the sprite
 // folder it edits at /__dab/api — any browser, no folder picker, and a change
-// written by anything else shows up in the open editor. Dev only: a build
-// never sees it.
+// written by anything else shows up in the open editor — and MCP on its own
+// port, the same in every project. Dev only: a build never sees it.
 
 export const BASE = "/__dab";
 export const API = `${BASE}/api`;
-export const MCP = `${BASE}/mcp`;
 
 /** The built editor, shipped beside this file. */
 const EDITOR = fileURLToPath(new URL("./editor/", import.meta.url));
@@ -24,6 +23,9 @@ const EDITOR = fileURLToPath(new URL("./editor/", import.meta.url));
 export type Options = {
   /** The sprite folder, relative to the Vite root. */
   sprites: string;
+  /** The port MCP is served on — one for every project, registered once — or
+   *  false for none. Default 3061. */
+  mcp?: number | false;
 };
 
 export default function dab(options: Options): Plugin {
@@ -34,7 +36,6 @@ export default function dab(options: Options): Plugin {
       const store = await Store.open(path.resolve(server.config.root, options.sprites));
       const log = server.config.logger;
       server.middlewares.use(API, filesApi(store));
-      server.middlewares.use(MCP, mcpHttp(store));
       const hasEditor = existsSync(path.join(EDITOR, "index.html"));
       if (hasEditor) {
         const editor = serveEditor(EDITOR);
@@ -50,6 +51,10 @@ export default function dab(options: Options): Plugin {
           editor(req, res, next);
         });
       }
+      const port = options.mcp ?? MCP_PORT;
+      const mcp = port === false ? null : await listenMcp(store, port);
+      if (mcp?.server) server.httpServer?.once("close", () => closeMcp(mcp.server));
+
       server.httpServer?.once("listening", () => {
         // After Vite's own banner, which is printed once it is listening.
         setTimeout(() => {
@@ -60,7 +65,15 @@ export default function dab(options: Options): Plugin {
               ? `  ➜  dab:     ${url(`${BASE}/`)}  (${store.root})`
               : `  ➜  dab:     ${API} serves ${store.root}; the editor is not built`,
           );
-          log.info(`  ➜  MCP:     claude mcp add --transport http dab ${url(MCP)}`);
+          if (mcp?.server) {
+            log.info(`  ➜  MCP:     ${mcp.url}  — once, for every project:`);
+            log.info(`              claude mcp add --transport http dab ${mcp.url}`);
+          } else if (mcp) {
+            log.info(
+              `  ➜  MCP:     port ${port} is drawing in ${mcp.holder ?? "something else"} —` +
+                ` stop that dev server to draw here`,
+            );
+          }
         }, 0);
       });
     },

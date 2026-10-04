@@ -9,7 +9,11 @@
 ```text
 src/dab.ts      the command: `dab mcp [--root DIR]` (else $DAB_ROOT, else cwd)
 src/vite.ts     the plugin, dev server only: the built editor at /__dab/ (from
-                dist/editor, beside it) and the files API at /__dab/api
+                dist/editor, beside it), the files API at /__dab/api, and MCP
+                on its own port
+src/mcpport.ts  MCP on port 3061 for whichever project is running — registered
+                once, one project at a time; a second dev server leaves the
+                port to the first and names it (from /status)
 src/editor.ts   serves a built SPA from a folder, index.html for any route
 src/api.ts      the files API — list, read, versioned write and delete, and
                 /events, the folder's changes as server-sent events (one
@@ -17,8 +21,8 @@ src/api.ts      the files API — list, read, versioned write and delete, and
                 requests addressed to localhost only, so `vite --host` does
                 not put a write API on the LAN
 src/server.ts   the MCP server, its instructions to the model, the tool modules
-src/mcphttp.ts  the same server over Streamable HTTP at /__dab/mcp, stateless:
-                one per request, over the store the editor's API shares
+src/mcphttp.ts  the same server over Streamable HTTP, stateless: one per
+                request, over the store the editor's API shares
 src/store.ts    the folder: root confinement, versions, validated atomic writes,
                 and what a sprite's `use` parts resolve to. A refusal carries
                 its kind (stale, invalid, outside, missing) for HTTP's status
