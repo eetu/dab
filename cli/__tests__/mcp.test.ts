@@ -222,6 +222,76 @@ describe("the dab MCP server", () => {
     expect(s.levels?.[0].frames).toHaveLength(2);
   });
 
+  test("a piece drawn in place is lifted into a part of its own, and parts come and go", async () => {
+    await put("ship", {
+      name: "ship",
+      w: 4,
+      h: 2,
+      palette: PAL,
+      frames: [
+        ["AABB", "AABB"],
+        ["AAB.", "AABB"],
+      ],
+    });
+    let v = versionIn((await call("read_sprite", { file: "ship" })).text);
+    // Only B — the fin — out of the rear half, from both frames.
+    const lifted = await call("part", {
+      file: "ship",
+      version: v,
+      op: "lift",
+      name: "fin",
+      x: 2,
+      y: 0,
+      w: 2,
+      h: 2,
+      chars: "B",
+    });
+    expect(lifted.text).toContain("the new part is fin");
+    let s = await disk("ship");
+    expect(s.frames).toEqual([
+      ["AA..", "AA.."],
+      ["AA..", "AA.."],
+    ]);
+    expect(s.parts?.[0]).toMatchObject({
+      name: "fin",
+      x: 2,
+      y: 0,
+      frames: [
+        ["BB", "BB"],
+        ["B.", "BB"],
+      ],
+    });
+
+    v = versionIn(lifted.text);
+    const added = await call("part", {
+      file: "ship",
+      version: v,
+      op: "add",
+      name: "fin",
+      w: 1,
+      h: 1,
+    });
+    expect(added.text).toContain("the new part is fin2");
+    v = versionIn(added.text);
+    const gone = await call("part", { file: "ship", version: v, node: "fin2", op: "remove" });
+    expect(gone.error).toBe(false);
+    s = await disk("ship");
+    expect(s.parts?.map((p) => p.name)).toEqual(["fin"]);
+
+    const nothing = await call("part", {
+      file: "ship",
+      version: versionIn(gone.text),
+      op: "lift",
+      name: "x",
+      x: 0,
+      y: 0,
+      w: 2,
+      h: 2,
+      chars: "B",
+    });
+    expect(nothing.text).toContain("nothing is drawn there in ship.json to lift in B");
+  });
+
   test("palette edits follow through variants and report the key they used", async () => {
     await put("sign", { name: "sign", w: 2, h: 1, palette: PAL, frames: [["AB"]] });
     let v = versionIn((await call("read_sprite", { file: "sign" })).text);

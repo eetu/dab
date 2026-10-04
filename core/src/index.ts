@@ -43,6 +43,7 @@ export * from "./image";
 export * from "./json";
 export * from "./levels";
 export * from "./palette";
+export * from "./parts";
 export * from "./perspective";
 export * from "./rotation";
 export * from "./shapes";
