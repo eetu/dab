@@ -1,10 +1,12 @@
 // Reading and writing sprite files on the real disk.
 //
-// The File System Access API, with a download/upload fallback. Picking the
-// repo's sprites folder once turns Save into an actual write to the file the
-// scene imports — the whole point of the tool is a loop where you draw, save,
-// and the visualiser next to you is already showing it. Browsers without the
-// API (Firefox, Safari) get a working editor whose Save is a download.
+// Two ways in. A dev server running dab's Vite plugin SERVES a folder (see
+// cli/src/vite.ts): any browser, no picker, and every write quotes the
+// version it replaces, so a file the model changed since is a question rather
+// than a loss. Otherwise the File System Access API, with a download/upload
+// fallback: picking the repo's sprites folder once turns Save into an actual
+// write to the file the scene imports. Browsers without it (Firefox, Safari)
+// get a working editor whose Save is a download.
 import { fromJson, type SpriteFile, toJson } from "dab-core";
 
 import { forgetFolder, recallFolder, rememberFolder } from "./persist";
@@ -33,7 +35,44 @@ const picker = (): Picker => window as unknown as Picker;
 
 export const canWriteToDisk = (): boolean => typeof picker().showDirectoryPicker === "function";
 
-export type Folder = { handle: DirHandle; name: string };
+export type Folder =
+  | { kind: "disk"; handle: DirHandle; name: string }
+  /** `versions` is what each file was when last listed or written — what the
+   *  next write of it says it replaces. */
+  | { kind: "served"; name: string; versions: Map<string, string> };
+
+/** Where dab's Vite plugin serves the folder. */
+export const API = "/__dab/api";
+
+/** A file changed on disk since the editor last saw it. */
+export class Conflict extends Error {
+  constructor(
+    readonly file: string,
+    /** The version on disk now, or null when it is gone. */
+    readonly current: string | null,
+  ) {
+    super(`${file} changed on disk`);
+  }
+}
+
+/** Write over what a conflict found — after asking. */
+export function takeVersion(folder: Folder, c: Conflict): void {
+  if (folder.kind !== "served") return;
+  if (c.current) folder.versions.set(c.file, c.current);
+  else folder.versions.delete(c.file);
+}
+
+/** The folder a dev server is serving, if this page came from one. */
+export async function servedFolder(): Promise<Folder | null> {
+  try {
+    const res = await fetch(`${API}/files`);
+    if (!res.ok || !res.headers.get("content-type")?.includes("json")) return null;
+    const { name } = (await res.json()) as { name: string };
+    return { kind: "served", name, versions: new Map() };
+  } catch {
+    return null;
+  }
+}
 
 /** Ask for a folder — repo/packages/player/src/sprites, normally. Remembered,
  *  so this is asked once and not once per reload. */
@@ -42,13 +81,13 @@ export async function pickFolder(): Promise<Folder | null> {
   if (!show) return null;
   const handle = await show({ mode: "readwrite" });
   await rememberFolder(handle);
-  return { handle, name: handle.name };
+  return { kind: "disk", handle, name: handle.name };
 }
 
 /** The folder from a previous session, if the browser kept the handle. */
 export async function restoreFolder(): Promise<Folder | null> {
   const handle = await recallFolder<DirHandle>();
-  return handle ? { handle, name: handle.name } : null;
+  return handle ? { kind: "disk", handle, name: handle.name } : null;
 }
 
 export const dropFolder = (): Promise<unknown> => forgetFolder();
@@ -57,12 +96,13 @@ export const dropFolder = (): Promise<unknown> => forgetFolder();
  *  across reloads; when it hasn't, `requestPermission` needs a user gesture,
  *  which is why this is separate from ensureWritable. */
 export async function isWritable(folder: Folder): Promise<boolean> {
+  if (folder.kind === "served") return true;
   return (await folder.handle.queryPermission?.({ mode: "readwrite" })) === "granted";
 }
 
 /** Re-ask for write permission. Must be called from a user gesture. */
 export async function ensureWritable(folder: Folder): Promise<boolean> {
-  if (await isWritable(folder)) return true;
+  if (folder.kind === "served" || (await isWritable(folder))) return true;
   const r = await folder.handle.requestPermission?.({ mode: "readwrite" });
   return r === "granted";
 }
@@ -70,8 +110,18 @@ export async function ensureWritable(folder: Folder): Promise<boolean> {
 export type Entry = { file: string; sprite: SpriteFile };
 export type LoadResult = { entries: Entry[]; problems: { file: string; errors: string[] }[] };
 
+type Listing = LoadResult & { entries: (Entry & { version: string })[] };
+
 /** Every *.json in the folder that parses as a sprite, plus what didn't. */
 export async function listSprites(folder: Folder): Promise<LoadResult> {
+  if (folder.kind === "served") {
+    const res = await fetch(`${API}/files`);
+    if (!res.ok) throw new Error(`${folder.name} could not be listed`);
+    const { entries, problems } = (await res.json()) as Listing;
+    folder.versions.clear();
+    for (const e of entries) folder.versions.set(e.file, e.version);
+    return { entries: entries.map(({ file, sprite }) => ({ file, sprite })), problems };
+  }
   const entries: Entry[] = [];
   const problems: { file: string; errors: string[] }[] = [];
   for await (const handle of folder.handle.values()) {
@@ -85,9 +135,23 @@ export async function listSprites(folder: Folder): Promise<LoadResult> {
   return { entries, problems };
 }
 
-/** Write straight into the folder, under the name the sprite carries. */
+/** Write straight into the folder, under the name the sprite carries. A served
+ *  folder throws `Conflict` when the file is not what the editor last saw. */
 export async function saveToFolder(folder: Folder, sprite: SpriteFile): Promise<string> {
   const file = `${sprite.name}.json`;
+  if (folder.kind === "served") {
+    const known = folder.versions.get(file);
+    const res = await fetch(`${API}/files/${encodeURIComponent(file)}`, {
+      method: "PUT",
+      body: toJson(sprite),
+      headers: known ? { "if-match": `"${known}"` } : { "if-none-match": "*" },
+    });
+    const body = (await res.json()) as { version?: string | null; error?: string };
+    if (res.status === 412) throw new Conflict(file, body.version ?? null);
+    if (!res.ok || !body.version) throw new Error(body.error ?? `${file} was not saved`);
+    folder.versions.set(file, body.version);
+    return file;
+  }
   const handle = await folder.handle.getFileHandle(file, { create: true });
   const w = await handle.createWritable();
   await w.write(toJson(sprite));
@@ -110,19 +174,25 @@ export async function saveSprite(
 ): Promise<{ file: string; removed: string | null }> {
   const file = await saveToFolder(folder, sprite);
   if (!previousFile || previousFile === file) return { file, removed: null };
-  try {
-    await folder.handle.removeEntry?.(previousFile);
-    return { file, removed: previousFile };
-  } catch {
-    // Not fatal: the save landed. The stale file is reported so the status line
-    // can say it is still there rather than claiming a clean rename.
-    return { file, removed: null };
-  }
+  // Not fatal when this fails: the save landed. The stale file is reported so
+  // the status line can say it is still there rather than claim a clean rename.
+  return { file, removed: (await deleteFromFolder(folder, previousFile)) ? previousFile : null };
 }
 
 /** Delete one file from the folder. The caller decides what that means for the
- *  editor — this only touches the disk. */
+ *  editor — this only touches the disk. A served file that changed since it
+ *  was listed is not deleted. */
 export async function deleteFromFolder(folder: Folder, file: string): Promise<boolean> {
+  if (folder.kind === "served") {
+    const known = folder.versions.get(file);
+    if (!known) return false;
+    const res = await fetch(`${API}/files/${encodeURIComponent(file)}`, {
+      method: "DELETE",
+      headers: { "if-match": `"${known}"` },
+    });
+    if (res.ok) folder.versions.delete(file);
+    return res.ok;
+  }
   try {
     await folder.handle.removeEntry?.(file);
     return true;

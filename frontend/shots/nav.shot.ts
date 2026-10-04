@@ -59,7 +59,7 @@ function openNav() {
     props: {
       entries,
       problems: [],
-      folder: { handle: {} as never, name: "sprites" },
+      folder: { kind: "disk", handle: {} as never, name: "sprites" },
       canWrite: true,
       onopen: () => {},
       onrename: () => {},

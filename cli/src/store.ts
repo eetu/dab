@@ -17,11 +17,23 @@ import {
 // was based on, so a save made in the editor between a read and a write is a
 // refusal rather than something silently overwritten.
 
-export class ToolError extends Error {}
+/** What a refusal is about, so HTTP can answer with the right status. */
+export type Refusal = "refused" | "stale" | "invalid" | "outside" | "missing";
+
+export class ToolError extends Error {
+  constructor(
+    message: string,
+    readonly kind: Refusal = "refused",
+    /** For a stale write: the version on disk now, or null if it is gone. */
+    readonly current: string | null = null,
+  ) {
+    super(message);
+  }
+}
 
 /** Refuse, with a sentence that says what to do about it. */
-export function fail(message: string): never {
-  throw new ToolError(message);
+export function fail(message: string, kind?: Refusal, current?: string | null): never {
+  throw new ToolError(message, kind, current);
 }
 
 export const versionOf = (text: string): string =>
@@ -33,8 +45,12 @@ export function checkVersion(file: string, base: string, current: string): void 
   fail(
     `${file} changed on disk since version ${base} (it is now ${current}) — someone saved it. ` +
       `Read it again and redo the edit against what is there now.`,
+    "stale",
+    current,
   );
 }
+
+let writes = 0;
 
 export type Loaded = { file: string; version: string; sprite: SpriteFile };
 
@@ -54,7 +70,7 @@ export class Store {
     const abs = path.resolve(this.root, name);
     const rel = path.relative(this.root, abs);
     if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
-      fail(`${file} is outside the sprite folder ${this.root}; name a file inside it`);
+      fail(`${file} is outside the sprite folder ${this.root}; name a file inside it`, "outside");
     }
     // A symlink inside the root may still point out of it.
     const real = await realpath(abs).catch(async (e) => {
@@ -65,19 +81,29 @@ export class Store {
     });
     const back = path.relative(this.root, real);
     if (back.startsWith("..") || path.isAbsolute(back)) {
-      fail(`${file} leads outside the sprite folder ${this.root}`);
+      fail(`${file} leads outside the sprite folder ${this.root}`, "outside");
     }
     return { rel: rel.split(path.sep).join("/"), abs };
   }
 
-  async load(file: string): Promise<Loaded> {
+  /** A file's text as it is on disk, and its version. */
+  async read(file: string): Promise<{ file: string; version: string; text: string }> {
     const { rel, abs } = await this.locate(file);
     const text = await readFile(abs, "utf8").catch((e) =>
-      missing(e) ? fail(`${rel} does not exist — list_sprites shows what does`) : Promise.reject(e),
+      missing(e)
+        ? fail(`${rel} does not exist — list_sprites shows what does`, "missing")
+        : Promise.reject(e),
     );
+    return { file: rel, version: versionOf(text), text };
+  }
+
+  async load(file: string): Promise<Loaded> {
+    const { file: rel, version, text } = await this.read(file);
     const read = fromJson(text);
-    if ("errors" in read) fail(`${rel} is not a valid sprite:\n- ${read.errors.join("\n- ")}`);
-    return { file: rel, version: versionOf(text), sprite: read.sprite };
+    if ("errors" in read) {
+      fail(`${rel} is not a valid sprite:\n- ${read.errors.join("\n- ")}`, "invalid");
+    }
+    return { file: rel, version, sprite: read.sprite };
   }
 
   /**
@@ -92,16 +118,23 @@ export class Store {
   ): Promise<{ file: string; version: string; changed: boolean }> {
     const { rel, abs } = await this.locate(file);
     const errors = validateSprite(sprite);
-    if (errors.length) fail(`that edit would make ${rel} invalid:\n- ${errors.join("\n- ")}`);
-    const now = await readFile(abs, "utf8").catch((e) => (missing(e) ? null : Promise.reject(e)));
-    if (base === null && now !== null) fail(`${rel} already exists — read it and edit it instead`);
+    if (errors.length) {
+      fail(`that edit would make ${rel} invalid:\n- ${errors.join("\n- ")}`, "invalid");
+    }
+    const now = await this.current(abs);
+    if (base === null && now !== null) {
+      fail(`${rel} already exists — read it and edit it instead`, "stale", versionOf(now));
+    }
     if (base !== null) {
-      if (now === null) fail(`${rel} has been deleted since version ${base}`);
+      if (now === null) fail(`${rel} has been deleted since version ${base}`, "stale", null);
       checkVersion(rel, base, versionOf(now));
     }
     const text = toJson(sprite);
     if (text === now) return { file: rel, version: versionOf(text), changed: false };
-    const tmp = path.join(path.dirname(abs), `.${path.basename(abs)}.${process.pid}.tmp`);
+    const tmp = path.join(
+      path.dirname(abs),
+      `.${path.basename(abs)}.${process.pid}.${writes++}.tmp`,
+    );
     try {
       await writeFile(tmp, text);
       await rename(tmp, abs);
@@ -112,15 +145,30 @@ export class Store {
     return { file: rel, version: versionOf(text), changed: true };
   }
 
-  /** Every `.json` under the root, as root-relative paths. */
-  async list(): Promise<string[]> {
+  /** Delete a file, if it is still the version the caller last saw. */
+  async remove(file: string, base: string): Promise<void> {
+    const { rel, abs } = await this.locate(file);
+    const now = await this.current(abs);
+    if (now === null) fail(`${rel} does not exist`, "missing");
+    checkVersion(rel, base, versionOf(now));
+    await rm(abs);
+  }
+
+  private current(abs: string): Promise<string | null> {
+    return readFile(abs, "utf8").catch((e) => (missing(e) ? null : Promise.reject(e)));
+  }
+
+  /** Every `.json` under the root, as root-relative paths. `deep: false` is the
+   *  root alone, which is the folder the editor shows. */
+  async list({ deep = true } = {}): Promise<string[]> {
     const out: string[] = [];
     const walk = async (dir: string) => {
       for (const e of await readdir(dir, { withFileTypes: true })) {
         if (e.name.startsWith(".") || e.name === "node_modules") continue;
         const abs = path.join(dir, e.name);
-        if (e.isDirectory()) await walk(abs);
-        else if (e.name.endsWith(".json")) out.push(path.relative(this.root, abs));
+        if (e.isDirectory()) {
+          if (deep) await walk(abs);
+        } else if (e.name.endsWith(".json")) out.push(path.relative(this.root, abs));
       }
     };
     await walk(this.root);

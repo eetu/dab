@@ -66,7 +66,12 @@ build:
     {{yarn}} build
     cargo build --release
 
-# The `dab` command, for an MCP client to run: cli/dist/dab.js.
+# The editor on a folder, served the way dab's Vite plugin serves it in a
+# consumer's dev server: any browser, no picker, versioned writes.
+ui-on folder: cli
+    DAB_ROOT="{{join(invocation_directory(), folder)}}" {{yarn}} workspace dab-frontend run dev
+
+# The `dab` command and the Vite plugin: cli/dist/dab.js and cli/dist/vite.js.
 cli:
     {{yarn}} workspace dab-cli run build
 

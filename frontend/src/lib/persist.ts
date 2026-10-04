@@ -75,10 +75,17 @@ export function recallFile(): string | null {
  * Kept separately from the file list so a reload mid-drawing comes back to the
  * drawing rather than to the last saved state — losing work to a hot reload is
  * the one failure this tool must not have.
+ *
+ * `folder` names the served folder it was drawn in, if any: a dev server's
+ * folder is one project, and a draft from anywhere else is not its work.
  */
-export function rememberDraft(sprite: SpriteFile, file: string | null) {
+export function rememberDraft(
+  sprite: SpriteFile,
+  file: string | null,
+  folder: string | null = null,
+) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ file, sprite: toJson(sprite) }));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ file, folder, sprite: toJson(sprite) }));
   } catch {
     /* quota or private mode — nothing to do but carry on */
   }
@@ -179,18 +186,18 @@ export function recallPrefs(): Prefs {
   }
 }
 
-type Held = { file: string | null; sprite: SpriteFile };
+type Held = { file: string | null; folder?: string | null; sprite: SpriteFile };
 
 function recall(key: string): Held | null {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
-    const held = JSON.parse(raw) as { file: string | null; sprite: string };
+    const held = JSON.parse(raw) as { file: string | null; folder?: string | null; sprite: string };
     const parsed = fromJson(held.sprite);
     // One that no longer parses is dropped rather than resurrected: the format
     // may have moved on since it was written.
     if ("errors" in parsed) return null;
-    return { file: held.file, sprite: parsed.sprite };
+    return { file: held.file, folder: held.folder ?? null, sprite: parsed.sprite };
   } catch {
     return null;
   }

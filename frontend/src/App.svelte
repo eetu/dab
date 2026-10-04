@@ -62,6 +62,7 @@
   import ExportDialog from "./lib/ExportDialog.svelte";
   import {
     canWriteToDisk,
+    Conflict,
     deleteFromFolder,
     downloadSprite,
     dropFolder,
@@ -75,6 +76,8 @@
     restoreFolder,
     saveSprite,
     saveToFolder,
+    servedFolder,
+    takeVersion,
   } from "./lib/files";
   import Frames from "./lib/Frames.svelte";
   import HelpDialog from "./lib/HelpDialog.svelte";
@@ -122,8 +125,11 @@
    *  has never seen the app. Decides the help AND the example document. */
   const firstVisit = !recallPrefs().seenHelp;
   // The help opens itself exactly once — the standalone build has no README in
-  // reach, and a blank canvas with nine icons explains nothing.
-  let helpOpen = $state(firstVisit);
+  // reach, and a blank canvas with nine icons explains nothing. Not over a
+  // served folder: that is someone's project in their own dev server, and each
+  // project is a new origin, so "once" would be once per project. Decided on
+  // mount, once the folder is known.
+  let helpOpen = $state(false);
   function closeHelp() {
     helpOpen = false;
     rememberPrefs({ seenHelp: true });
@@ -147,6 +153,13 @@
     editor.status = msg;
     editor.statusBad = true;
   };
+  /** A write that did not land. A served folder refuses a file that changed
+   *  since it was listed, so the listing is read again. */
+  async function writeFailed(e: unknown) {
+    if (!(e instanceof Conflict)) return sayBad(`not written — ${(e as Error).message ?? e}`);
+    await refresh();
+    sayBad(`${e.file} changed on disk, so it was not written — try again on what is there now`);
+  }
 
   /** What Revert would go back to, or null when there is nothing. Re-read on
    *  every change to the document, which is when it can have become nothing —
@@ -185,7 +198,24 @@
     if (folder && (await ensureWritable(folder))) {
       // A rename MOVES: the new file is written, then the old one removed. Two
       // files for one sprite leaves the folder lying about which is current.
-      const { file, removed } = await saveSprite(folder, editor.sprite, editor.file);
+      let saved: { file: string; removed: string | null };
+      try {
+        saved = await saveSprite(folder, editor.sprite, editor.file);
+      } catch (e) {
+        if (!(e instanceof Conflict)) return sayBad(`not saved — ${(e as Error).message}`);
+        // Something else wrote the file since it was opened — the model, or
+        // another tab. Undo cannot bring that version back, so this asks.
+        const sure = await confirmed({
+          title: `${e.file} changed on disk`,
+          note: "Something else saved it after you opened it — the model, or another tab. Overwriting loses that version, and undo cannot bring it back.",
+          confirm: "Overwrite",
+          danger: true,
+        });
+        if (!sure) return sayBad(`not saved — ${e.file} changed on disk`);
+        takeVersion(folder, e);
+        return save();
+      }
+      const { file, removed } = saved;
       editor.file = file;
       editor.dirty = false;
       needsReconnect = false;
@@ -295,9 +325,13 @@
     if (!name || name === entry.sprite.name) return;
     if (sheet.byName[name]) return sayBad(`${name} already exists`);
     if (!(await ensureWritable(folder))) return sayBad("permission refused");
-    const moved = await saveSprite(folder, { ...cloneSprite(entry.sprite), name }, entry.file);
-    await refresh();
-    say(`renamed ${entry.file} → ${moved.file}`);
+    try {
+      const moved = await saveSprite(folder, { ...cloneSprite(entry.sprite), name }, entry.file);
+      await refresh();
+      say(`renamed ${entry.file} → ${moved.file}`);
+    } catch (e) {
+      await writeFailed(e);
+    }
   }
 
   async function duplicateEntry(entry: Entry) {
@@ -305,9 +339,13 @@
       return sayBad("duplicate needs a writable folder");
     let name = `${entry.sprite.name} 2`;
     for (let i = 3; sheet.byName[name]; i++) name = `${entry.sprite.name} ${i}`;
-    const file = await saveToFolder(folder, { ...cloneSprite(entry.sprite), name });
-    await refresh();
-    say(`duplicated to ${file}`);
+    try {
+      const file = await saveToFolder(folder, { ...cloneSprite(entry.sprite), name });
+      await refresh();
+      say(`duplicated to ${file}`);
+    } catch (e) {
+      await writeFailed(e);
+    }
   }
 
   /** Disconnect from the folder. Files untouched; the handle and the listing
@@ -388,10 +426,14 @@
     if (!folder || !(await ensureWritable(folder))) {
       return sayBad("detach needs a folder to write the sprite into");
     }
-    const file = await saveToFolder(folder, sprite);
-    await refresh();
-    usePartInstead(path, sprite.name);
-    say(`${path.join("/")} now draws ${file} — duplicate it for another`);
+    try {
+      const file = await saveToFolder(folder, sprite);
+      await refresh();
+      usePartInstead(path, sprite.name);
+      say(`${path.join("/")} now draws ${file} — duplicate it for another`);
+    } catch (e) {
+      await writeFailed(e);
+    }
   }
 
   async function drop(e: DragEvent) {
@@ -639,7 +681,9 @@
   $effect(() => watchTheme());
 
   onMount(async () => {
-    const saved = await restoreFolder();
+    // A folder the dev server serves outranks one remembered in this browser:
+    // it is the project this page was opened from.
+    const saved = (await servedFolder()) ?? (await restoreFolder());
     if (saved) {
       if (await isWritable(saved)) {
         folder = saved;
@@ -660,17 +704,29 @@
       }
     }
     // A draft outranks whatever was just loaded: it is the newer state, and it
-    // is the one nobody else has a copy of.
+    // is the one nobody else has a copy of. But a served folder is one project,
+    // and a draft from anywhere else — the demo car, another folder on this
+    // origin — is not its work, so it stays out of the way.
+    const served = folder?.kind === "served" ? folder.name : null;
     const draft = recallDraft();
-    if (draft) {
+    if (draft && (!served || draft.folder === served)) {
       loadSprite(draft.sprite, draft.file);
       editor.dirty = true;
       say("restored unsaved work");
+    } else if (served) {
+      // Nothing of this folder's was open: say what is in it, where it is.
+      if (!editor.file) {
+        panels.nav = "folder";
+        say(
+          `${served}: ${entries.length} sprite${entries.length === 1 ? "" : "s"} — open one from the folder`,
+        );
+      }
     } else if (firstVisit && !editor.file) {
       // Nothing restored and nothing ever seen: open on the example rather
       // than a blank 16×16 — the car is what the format exists to say.
       await openExample();
     }
+    if (firstVisit && !served) helpOpen = true;
     // With no folder carrying the sheet, the example sprites sit under it as
     // the fallback. A RESTORED draft of the example car otherwise came back
     // with its `use: wheel` parts pointing at an empty sheet — the drawing
@@ -694,7 +750,8 @@
     const sprite = editor.sprite;
     const file = editor.file;
     if (!editor.dirty) return;
-    const id = setTimeout(() => rememberDraft(sprite, file), 400);
+    const served = folder?.kind === "served" ? folder.name : null;
+    const id = setTimeout(() => rememberDraft(sprite, file, served), 400);
     return () => clearTimeout(id);
   });
 
@@ -771,6 +828,8 @@
         <button class="save" onclick={reconnect} title="Grant access to the remembered folder">
           Reconnect {folder?.name}
         </button>
+      {:else if folder?.kind === "served"}
+        <button disabled title="The folder this dev server serves">Folder: {folder.name}</button>
       {:else}
         <button onclick={openFolder} title="Pick packages/player/src/sprites">
           {folder ? `Folder: ${folder.name}` : "Open folder…"}
@@ -827,12 +886,12 @@
       {entries}
       {problems}
       {folder}
-      canWrite={canWriteToDisk()}
+      canWrite={folder?.kind === "served" || canWriteToDisk()}
       onopen={open}
       onrename={renameEntry}
       onduplicate={duplicateEntry}
       ondelete={deleteEntry}
-      onforget={forgetFolder}
+      onforget={folder?.kind === "served" ? undefined : forgetFolder}
       ondetach={detach}
       onopensprite={(name) => {
         const entry = entries.find((e) => e.sprite.name === name);
