@@ -214,10 +214,18 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   grid. The encoders are core's and carry no dependency (zlib is the platform's
   `CompressionStream`); GIF's alpha is on or off, so the dialog says so when
   there is glass to lose. The JSON stays the working format.
-- **Files are edited in place** through the File System Access API. Chrome/Edge
-  can write back to the opened folder; other browsers get a download. The folder
-  handle is persisted (IndexedDB) so a dev-server reload comes back where it was —
-  the permission is not, so a re-grant click is expected after a cold start.
+- **Files are edited in place**, by one of two routes. A dev server running
+  dab's Vite plugin SERVES its sprite folder at `/__dab/api` (`cli/src/api.ts`):
+  any browser, no picker, and every write quotes the version it replaces, so a
+  file the model rewrote is a question ("Overwrite?") rather than a loss — the
+  one save that asks, because undo cannot bring the other version back. The
+  served folder wins when present, and it is one project: a draft from
+  anywhere else on that origin, the demo car included, is not restored over
+  it, and neither the first-visit help nor the example opens. Otherwise the
+  File System Access API: Chrome/Edge write back to the opened folder, other
+  browsers get a download. That handle is persisted (IndexedDB) so a
+  dev-server reload comes back where it was — the permission is not, so a
+  re-grant click is expected after a cold start.
 - **Undo holds whole sprites, not inverse operations.** A sprite is a handful of
   strings, so a hundred of them costs less than the machinery for correctly
   undoing a flood fill, and nothing can drift out of sync with the document.
@@ -364,7 +372,9 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   rather than about inventing art. A scene still asserts the minimum that makes
   its picture mean something: a screenshot of a component that failed to mount is
   a blank rectangle, and a blank rectangle reads as a design decision.
-- `just cli` builds `cli/dist/dab.js`. Register it with Claude Code from the
+- `just ui-on <folder>` — the editor on that folder through the built Vite
+  plugin, as a consumer's dev server will serve it. Any browser.
+- `just cli` builds `cli/dist/dab.js` and the plugin, `cli/dist/vite.js`. Register it with Claude Code from the
   consumer's repo: `claude mcp add dab -- node <dab>/cli/dist/dab.js mcp
 --root src/lib/sprites`.
 - The backend needs no config to serve the SPA; `backend/.env` is read if present.
