@@ -13,7 +13,7 @@ import { z } from "zod";
 import type { Store } from "../store";
 import { fail } from "../store";
 import { checkChars, checkFrame, unspaced } from "../text";
-import { arg, editNode, guard } from "./common";
+import { arg, registerWrite } from "./common";
 
 type Cell = readonly [number, number, string];
 
@@ -61,7 +61,9 @@ function paint(
 const ch = z.string().length(1).describe("A palette key, or . to erase");
 
 export function registerDraw(server: McpServer, store: Store) {
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "set_pixels",
     {
       description:
@@ -76,25 +78,25 @@ export function registerDraw(server: McpServer, store: Store) {
         show: arg.show,
       },
     },
-    guard(async (a) =>
-      editNode(
-        store,
-        a,
-        (n, ctx) => {
-          checkFrame(n, ctx.label, a.frame);
-          checkChars(
-            n,
-            ctx.label,
-            a.pixels.map((p) => p[2]),
-          );
-          return paint(n, a.frame, a.pixels, ctx);
-        },
-        { frame: a.frame, show: a.show },
-      ),
-    ),
+    (a) => ({
+      node: a.node,
+      frame: a.frame,
+      show: a.show,
+      fn: (n, ctx) => {
+        checkFrame(n, ctx.label, a.frame);
+        checkChars(
+          n,
+          ctx.label,
+          a.pixels.map((p) => p[2]),
+        );
+        return paint(n, a.frame, a.pixels, ctx);
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "draw",
     {
       description:
@@ -116,27 +118,27 @@ export function registerDraw(server: McpServer, store: Store) {
         show: arg.show,
       },
     },
-    guard(async (a) =>
-      editNode(
-        store,
-        a,
-        (n, ctx) => {
-          checkFrame(n, ctx.label, a.frame);
-          checkChars(n, ctx.label, [a.ch]);
-          const points = shape(n.frames[a.frame], a);
-          return paint(
-            n,
-            a.frame,
-            points.map(([x, y]) => [x, y, a.ch] as const),
-            ctx,
-          );
-        },
-        { frame: a.frame, show: a.show },
-      ),
-    ),
+    (a) => ({
+      node: a.node,
+      frame: a.frame,
+      show: a.show,
+      fn: (n, ctx) => {
+        checkFrame(n, ctx.label, a.frame);
+        checkChars(n, ctx.label, [a.ch]);
+        const points = shape(n.frames[a.frame], a);
+        return paint(
+          n,
+          a.frame,
+          points.map(([x, y]) => [x, y, a.ch] as const),
+          ctx,
+        );
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "put_rows",
     {
       description:
@@ -156,29 +158,27 @@ export function registerDraw(server: McpServer, store: Store) {
         show: arg.show,
       },
     },
-    guard(async (a) =>
-      editNode(
-        store,
-        a,
-        (n, ctx) => {
-          checkFrame(n, ctx.label, a.frame);
-          const rows = unspaced(a.rows);
-          checkChars(n, ctx.label, rows.join(""));
-          const x0 = a.x ?? 0;
-          const y0 = a.y ?? 0;
-          const cells: Cell[] = [];
-          rows.forEach((row, j) => {
-            for (let i = 0; i < row.length; i++) {
-              if (a.matte && row[i] === TRANSPARENT) continue;
-              cells.push([x0 + i, y0 + j, row[i]]);
-            }
-          });
-          if (!cells.length) fail("those rows hold nothing to write: every cell is a matte .");
-          return paint(n, a.frame, cells, ctx);
-        },
-        { frame: a.frame, show: a.show },
-      ),
-    ),
+    (a) => ({
+      node: a.node,
+      frame: a.frame,
+      show: a.show,
+      fn: (n, ctx) => {
+        checkFrame(n, ctx.label, a.frame);
+        const rows = unspaced(a.rows);
+        checkChars(n, ctx.label, rows.join(""));
+        const x0 = a.x ?? 0;
+        const y0 = a.y ?? 0;
+        const cells: Cell[] = [];
+        rows.forEach((row, j) => {
+          for (let i = 0; i < row.length; i++) {
+            if (a.matte && row[i] === TRANSPARENT) continue;
+            cells.push([x0 + i, y0 + j, row[i]]);
+          }
+        });
+        if (!cells.length) fail("those rows hold nothing to write: every cell is a matte .");
+        return paint(n, a.frame, cells, ctx);
+      },
+    }),
   );
 }
 

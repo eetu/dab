@@ -1,5 +1,6 @@
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { levelOf, type SpriteBody, withNode } from "dab-core";
+import { levelOf, type SpriteBody, type SpriteFile, withNode } from "dab-core";
 import { z } from "zod";
 
 import { checkVersion, type Store, ToolError } from "../store";
@@ -39,49 +40,86 @@ export const arg = {
   show: z.boolean().optional().describe("Also return the changed cells as a ruled grid"),
 };
 
-export type Target = { file: string; version: string; node?: string };
+export type Target = { file: string; version: string };
 
 type Context = { label: string; notes: string[] };
 
 /**
- * Every write: load, check the version, edit one node through `withNode`, save
- * through core's validator and writer. One call, one write — so one undo entry
- * in the editor.
+ * One edit, planned: the node it is to, what to do to that node, and how to
+ * report it. Every write tool is a plan; `editNode` runs one, `batch` runs
+ * several against one load and one save.
  *
  * `shared` is for what a level follows rather than owns — frames and
  * animations — and does it to the sprite when a level is named.
  */
-export async function editNode(
-  store: Store,
-  t: Target,
-  fn: (node: SpriteBody, ctx: Context) => SpriteBody,
-  opts: { shared?: boolean; frame?: number; show?: boolean } = {},
-): Promise<Result> {
-  const loaded = await store.load(t.file);
-  checkVersion(loaded.file, t.version, loaded.version);
-  let path = parseNode(t.node);
+export type Plan = {
+  node?: string;
+  fn: (node: SpriteBody, ctx: Context) => SpriteBody;
+  shared?: boolean;
+  frame?: number;
+  show?: boolean;
+};
+
+/** A plan applied in memory: the sprite after it, and what to say about it. */
+export function applyPlan(
+  sprite: SpriteFile,
+  file: string,
+  plan: Plan,
+): { sprite: SpriteFile; label: string; lines: string[]; shown?: string } {
+  let path = parseNode(plan.node);
   const notes: string[] = [];
-  if (opts.shared && levelOf(path) !== null) {
+  if (plan.shared && levelOf(path) !== null) {
     notes.push(`a level follows the sprite's frames and animations, so this went to the sprite`);
     path = [];
   }
-  const label = where(loaded.file, path);
-  const before = findNode(loaded.sprite, loaded.file, path);
-  const after = fn(before, { label, notes });
-  const saved = await store.save(
-    loaded.file,
-    loaded.version,
-    withNode(loaded.sprite, path, () => after),
-  );
-  if (!saved.changed)
-    return say(`${label}: nothing changed; version is still ${saved.version}`, ...notes);
-  const shown =
-    opts.show && opts.frame !== undefined ? showChange(before, after, opts.frame) : undefined;
+  const label = where(file, path);
+  const before = findNode(sprite, file, path);
+  const after = plan.fn(before, { label, notes });
+  return {
+    sprite: withNode(sprite, path, () => after),
+    label,
+    lines: [...summarise(before, after), ...notes],
+    shown:
+      plan.show && plan.frame !== undefined ? showChange(before, after, plan.frame) : undefined,
+  };
+}
+
+/**
+ * Every write: load, check the version, apply the plan, save through core's
+ * validator and writer. One call, one write — so one undo entry in the editor.
+ */
+export async function editNode(store: Store, t: Target, plan: Plan): Promise<Result> {
+  const loaded = await store.load(t.file);
+  checkVersion(loaded.file, t.version, loaded.version);
+  const done = applyPlan(loaded.sprite, loaded.file, plan);
+  const saved = await store.save(loaded.file, loaded.version, done.sprite);
+  if (!saved.changed) {
+    return say(`${done.label}: nothing changed; version is still ${saved.version}`, ...done.lines);
+  }
   return say(
-    `${label}: version ${loaded.version} → ${saved.version}`,
-    ...summarise(before, after),
-    ...notes,
-    shown,
+    `${done.label}: version ${loaded.version} → ${saved.version}`,
+    ...done.lines,
+    done.shown,
+  );
+}
+
+/** The write tools, by name: what each takes, and the plan it makes — so a
+ *  batch takes the same arguments as the tools it is made of. */
+export const writes = new Map<string, { schema: z.ZodType; plan: (args: never) => Plan }>();
+
+/** Register a write tool: the tool itself, and its entry in `writes`. */
+export function registerWrite<S extends z.ZodRawShape>(
+  server: McpServer,
+  store: Store,
+  name: string,
+  config: { description: string; inputSchema: S },
+  plan: (args: z.infer<z.ZodObject<S>>) => Plan,
+) {
+  writes.set(name, { schema: z.object(config.inputSchema), plan });
+  server.registerTool(
+    name,
+    config,
+    guard(async (a: z.infer<z.ZodObject<S>>) => editNode(store, a as Target, plan(a))) as never,
   );
 }
 

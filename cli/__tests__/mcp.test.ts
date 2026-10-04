@@ -222,6 +222,54 @@ describe("the dab MCP server", () => {
     expect(s.levels?.[0].frames).toHaveLength(2);
   });
 
+  test("a batch is one write: one version in, one out, however many ops", async () => {
+    await put("ship", { name: "ship", w: 4, h: 1, palette: PAL, frames: [["AABB"]] });
+    const v = versionIn((await call("read_sprite", { file: "ship" })).text);
+    const done = await call("batch", {
+      file: "ship",
+      version: v,
+      ops: [
+        { tool: "palette", args: { op: "add", ch: "C", hex: "#00ff00" } },
+        { tool: "set_pixels", args: { frame: 0, pixels: [[0, 0, "C"]] } },
+        { tool: "part", args: { op: "lift", name: "rear", x: 2, y: 0, w: 2, h: 1 } },
+      ],
+    });
+    expect(done.error).toBe(false);
+    expect(done.text).toMatch(/version \w+ → \w+, 3 ops in one write/);
+    expect(done.text).toContain("3. part ship.json: ");
+    const s = await disk("ship");
+    expect(s.frames[0]).toEqual(["CA.."]);
+    expect(s.parts?.[0]).toMatchObject({ name: "rear", frames: [["BB"]] });
+    // One write: the version moved once, from the one quoted to the one now on disk.
+    expect(versionIn(done.text)).toBe(
+      versionIn((await call("read_sprite", { file: "ship" })).text),
+    );
+  });
+
+  test("a batch is all or nothing, and says which op was refused", async () => {
+    await put("ship", { name: "ship", w: 2, h: 1, palette: PAL, frames: [["AB"]] });
+    const v = versionIn((await call("read_sprite", { file: "ship" })).text);
+    const refused = await call("batch", {
+      file: "ship",
+      version: v,
+      ops: [
+        { tool: "set_pixels", args: { frame: 0, pixels: [[0, 0, "B"]] } },
+        { tool: "set_pixels", args: { frame: 0, pixels: [[1, 0, "Z"]] } },
+      ],
+    });
+    expect(refused.error).toBe(true);
+    expect(refused.text).toContain("op 2 (set_pixels)");
+    expect(refused.text).toContain("nothing was written");
+    expect((await disk("ship")).frames[0]).toEqual(["AB"]);
+
+    const notAWrite = await call("batch", {
+      file: "ship",
+      version: v,
+      ops: [{ tool: "render", args: {} }],
+    });
+    expect(notAWrite.text).toContain("op 1 (render) is not a write tool");
+  });
+
   test("a piece drawn in place is lifted into a part of its own, and parts come and go", async () => {
     await put("ship", {
       name: "ship",
