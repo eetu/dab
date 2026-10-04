@@ -5,6 +5,7 @@ import type { Store } from "./store";
 import { registerBatch } from "./tools/batch";
 import { registerDraw } from "./tools/draw";
 import { registerEdit } from "./tools/edit";
+import { registerHistory } from "./tools/history";
 import { registerLook } from "./tools/look";
 import { registerRead } from "./tools/read";
 
@@ -30,6 +31,7 @@ export function createServer(store: Store): McpServer {
   registerLook(server, store);
   registerDraw(server, store);
   registerEdit(server, store);
+  registerHistory(server, store);
   registerBatch(server, store);
   return server;
 }

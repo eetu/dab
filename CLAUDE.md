@@ -11,7 +11,8 @@ vocabulary this follows), `../raspi` (deploy).
 core/        the format, its validator, and every pure operation on a sprite.
              One module per concern in src/ (format, tree, validate, geometry,
              blocks, colour, rotation, perspective, flatten, shapes, frames,
-             palette, cycles, levels, json), re-exported by index.ts; patch.ts,
+             palette, cycles, levels, parts, carry, image, json), re-exported
+             by index.ts; patch.ts,
              mapper.ts and sample.ts are shared between them and stay off the
              surface. A test file per module; node-only.
 frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
