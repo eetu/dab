@@ -39,7 +39,7 @@ jobs:
       - run: node .yarn/releases/yarn-4.16.0.cjs workspace dab-frontend run build
         env:
           DAB_BASE: /dab/
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: frontend/dist
 
