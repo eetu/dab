@@ -82,7 +82,9 @@
     return { i: sibs.findIndex((r) => pathKey(r.path) === pathKey(path)), of: sibs.length };
   }
 
-  const shownOf = (path: string[]) => editor.shown[pathKey(path)] ?? 0;
+  /** What a row's picker says: a frame, follow, an animation it plays, or ""
+   *  — auto, which plays the animation being played if the part has it. */
+  const shownOf = (path: string[]) => editor.shown[pathKey(path)] ?? "";
 
   /** The frame a row's picture shows — the one it is drawn at on the canvas. */
   const shownFrame = (row: Row) => (row.node ? frameOf(row.path, row.node) : 0);
@@ -189,8 +191,10 @@
 
   function setShown(path: string[], value: string) {
     const key = pathKey(path);
-    if (value === "follow") editor.shown[key] = "follow";
-    else editor.shown[key] = Number(value);
+    if (value === "") delete editor.shown[key];
+    else if (value === "follow" || value.startsWith("play:")) {
+      editor.shown[key] = value as "follow" | `play:${string}`;
+    } else editor.shown[key] = Number(value);
   }
 
   /** The sprite's own verbs. The root used to be the one row with NO menu —
@@ -357,12 +361,16 @@
           {#if row.node && row.node.frames.length > 1 && key !== active}
             <select
               class="frame"
-              title="Which frame this part shows while you draw"
+              title="Which frame this part shows, or which of its animations it plays. Auto plays the one being played, if the part has it"
               value={String(shownOf(row.path))}
               onchange={(e) => setShown(row.path, (e.target as HTMLSelectElement).value)}
             >
+              <option value="">auto</option>
               {#each row.node.frames as _, i (i)}<option value={String(i)}>{i + 1}</option>{/each}
               <option value="follow">↔</option>
+              {#each Object.keys(row.node.animations ?? {}) as name (name)}
+                <option value={`play:${name}`}>▶ {name}</option>
+              {/each}
             </select>
           {/if}
 

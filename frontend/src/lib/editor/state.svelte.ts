@@ -50,9 +50,11 @@ export const editor = $state({
    * Both are editor state and neither is written to the file: a part's frame is
    * the consumer's to choose, and a door that is gone is the consumer not
    * drawing it. `"follow"` tracks the active node, which is what makes drawing a
-   * raise across two parts legible.
+   * raise across two parts legible. `"play:walk"` plays the node's own "walk" on
+   * the one play head. Nothing chosen is "auto": the animation being played, if
+   * the node has one by that name — how a deer's four legs walk with it.
    */
-  shown: {} as Record<string, number | "follow">,
+  shown: {} as Record<string, number | "follow" | `play:${string}`>,
   hidden: {} as Record<string, boolean>,
   /** Parts picked together, as path keys — the selected one always among them.
    *  What the Move tool's arrows, drags and Delete act on. Editor state, like
