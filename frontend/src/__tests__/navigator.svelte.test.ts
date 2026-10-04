@@ -1,10 +1,9 @@
-// The folder listing, in a real browser — mounted as the Navigate region holds
-// it, because the tab strip is now where its count and its scroller live.
+// The Navigate region, in a real browser: the folder's files as one tree, with
+// the open sprite unfolded in place into its levels and parts.
 //
-// It is navigation: you use it to get somewhere and then you are there for an
-// hour. What is only checkable here is that a folder with thirty sprites in it
-// cannot push the parts tree off the bottom of a laptop — which is exactly what
-// it used to do when the two shared one column.
+// What is only checkable here: that thirty files cannot push the open sprite's
+// parts off a laptop (the region scrolls, and opening brings the sprite into
+// view), and that there is one list — no tab to have left on the wrong side.
 import type { SpriteFile } from "dab-core";
 import { mount, unmount } from "svelte";
 import { beforeEach, expect, test } from "vitest";
@@ -12,7 +11,7 @@ import { beforeEach, expect, test } from "vitest";
 import { editor, loadSprite } from "../lib/editor.svelte";
 import type { Entry } from "../lib/files";
 import Navigator from "../lib/Navigator.svelte";
-import { panels, setNavTab } from "../lib/panels.svelte";
+import { panels } from "../lib/panels.svelte";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -58,6 +57,12 @@ const NAMES = [
 ];
 const ENTRIES: Entry[] = NAMES.map((n) => ({ file: `${n}.json`, sprite: sprite(n) }));
 
+/** The car with a door on it, so the unfolded sprite has something inside. */
+const carWithDoor = (): SpriteFile => ({
+  ...sprite("car"),
+  parts: [{ ...sprite("door"), x: 1, y: 0 }],
+});
+
 let host: HTMLElement;
 let stop: () => void;
 let opened: Entry[];
@@ -89,43 +94,56 @@ function boot(entries: Entry[]) {
   };
 }
 
+const fileNames = () =>
+  [...host.querySelectorAll(".file .name")].map((b) => b.textContent?.trim() ?? "");
+
 beforeEach(() => {
   panels.folded = {};
-  setNavTab("folder");
-  loadSprite(sprite("car"), "car.json");
-  return () => {
-    stop?.();
-    setNavTab("parts");
-  };
+  loadSprite(carWithDoor(), "car.json");
+  return () => stop?.();
 });
 
-test("a long list scrolls the region rather than growing it", async () => {
+test("a long folder scrolls the region rather than growing it", async () => {
   boot(ENTRIES);
   await sleep(40);
   const body = host.querySelector(".body") as HTMLElement;
-  // Thirty rows do not fit in 500px, so the tab's body scrolls — which is what
-  // stops the list pushing the app taller than its own box.
   expect(body.scrollHeight).toBeGreaterThan(body.clientHeight);
   expect(host.scrollHeight).toBeLessThanOrEqual(host.clientHeight + 1);
 });
 
-test("the tab says how many there are, and the other tab puts the list away", async () => {
+test("one list: the heading names the folder and counts it, with no tabs", async () => {
   boot(ENTRIES);
   await sleep(40);
-  const tab = [...host.querySelectorAll("[role=tab]")].find((b) =>
-    b.textContent?.includes("Folder"),
-  );
-  expect(tab?.textContent).toContain("30");
-  expect(host.querySelector(".list")).toBeTruthy();
-
-  setNavTab("parts");
-  await sleep(40);
-  // The count stays readable on the tab with the list itself gone.
-  expect(host.querySelector(".list")).toBeNull();
-  expect(tab?.textContent).toContain("30");
+  const head = host.querySelector(".head")!;
+  expect(head.textContent).toContain("sprites");
+  expect(head.textContent).toContain("30");
+  expect(host.querySelector("[role=tab]")).toBeNull();
 });
 
-test("a filter appears once the list stops being scannable, and narrows it", async () => {
+test("the open sprite unfolds where its file is, with its parts inside", async () => {
+  boot(ENTRIES);
+  await sleep(40);
+  const items = [...host.querySelectorAll(".files > li")];
+  // car.json is first in this folder, so its tree is the first item.
+  expect(items[0].classList.contains("open")).toBe(true);
+  const rows = [...items[0].querySelectorAll(".name")].map((n) => n.textContent?.trim());
+  expect(rows).toEqual(["car", "door"]);
+  // Every other file is a closed row — 29 of them, the car not among them.
+  expect(fileNames()).toHaveLength(29);
+  expect(fileNames()).not.toContain("car");
+});
+
+test("a document not in the folder stands above the files", async () => {
+  loadSprite(sprite("sketch"), null);
+  boot(ENTRIES);
+  await sleep(40);
+  const body = host.querySelector(".body")!;
+  const open = body.querySelector(":scope > .open");
+  expect(open?.textContent).toContain("sketch");
+  expect(fileNames()).toHaveLength(30);
+});
+
+test("a filter appears once the list stops being scannable, and never hides the open sprite", async () => {
   boot(ENTRIES.slice(0, 4));
   await sleep(40);
   expect(host.querySelector(".find")).toBeNull();
@@ -134,26 +152,22 @@ test("a filter appears once the list stops being scannable, and narrows it", asy
   boot(ENTRIES);
   await sleep(40);
   const find = host.querySelector(".find input") as HTMLInputElement;
-  expect(find).toBeTruthy();
-
   find.value = "kana";
   find.dispatchEvent(new Event("input", { bubbles: true }));
   await sleep(40);
-  const names = [...host.querySelectorAll(".list button")].map((b) => b.textContent?.trim() ?? "");
-  expect(names.length).toBe(6);
-  expect(names.every((n) => n.toLowerCase().startsWith("signkana"))).toBe(true);
+  expect(fileNames()).toHaveLength(6);
+  expect(fileNames().every((n) => n.toLowerCase().startsWith("signkana"))).toBe(true);
+  expect(host.querySelector(".open")?.textContent).toContain("car");
 });
 
-test("the open sprite is marked, and picking one reports it", async () => {
+test("clicking a file reports it; the app is the one that opens it", async () => {
   boot(ENTRIES);
   await sleep(40);
-  const on = host.querySelector(".list button.on");
-  expect(on?.textContent?.trim().startsWith("car")).toBe(true);
-
-  const buttons = [...host.querySelectorAll(".list button")] as HTMLButtonElement[];
-  buttons.find((b) => b.textContent?.includes("palm"))?.click();
+  const palm = [...host.querySelectorAll(".file button")].find((b) =>
+    b.textContent?.includes("palm"),
+  ) as HTMLButtonElement;
+  palm.click();
   await sleep(20);
   expect(opened.map((e) => e.file)).toEqual(["palm.json"]);
-  // Reporting only: the list does not open it behind the app's back.
   expect(editor.file).toBe("car.json");
 });

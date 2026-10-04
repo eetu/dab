@@ -1,9 +1,9 @@
-// The Navigate region: the two lists that answer "what exists?".
+// The Navigate region: one tree answering "what exists?" — the folder,
+// and the open sprite unfolded in it.
 //
 // Mounted on its own, because the picture worth having is the one the editor
-// cannot easily be driven into — a folder with thirty sprites in it, which is
-// what the tabs exist for. Stacked under the parts tree, that list used to push
-// it off a laptop.
+// cannot easily be driven into: a folder of twenty sprites with a six-part car
+// open in the middle of it.
 // Mounted without App, so the tokens and the type have to be asked for here.
 import "../src/halo.css";
 
@@ -16,7 +16,6 @@ import { loadSprite, sheet } from "../src/lib/editor.svelte";
 import { EXAMPLE_SHEET, exampleCar } from "../src/lib/examples";
 import type { Entry } from "../src/lib/files";
 import Navigator from "../src/lib/Navigator.svelte";
-import { setNavTab } from "../src/lib/panels.svelte";
 import { sleep, SPRITES } from "./rig";
 
 const NAMES = [
@@ -50,7 +49,7 @@ const entries: Entry[] = NAMES.map((n) => ({
 function openNav() {
   const host = document.createElement("div");
   // The column the region gets in the app, bounded the same way: the body
-  // scrolls, the tab strip stays.
+  // scrolls, the heading stays.
   host.style.cssText =
     "position:fixed;top:0;left:0;bottom:0;width:16rem;display:grid;grid-template-rows:minmax(0,1fr);border-right:1px solid var(--halo-border)";
   document.body.appendChild(host);
@@ -73,31 +72,29 @@ function openNav() {
     stop: () => {
       unmount(app);
       host.remove();
-      setNavTab("parts");
     },
   };
 }
 
-test("the parts tab: the car and what it is made of", async () => {
+test("the tree: the car unfolded among its folder", async () => {
   // The sheet under it, or the borrowed wheels photograph as missing.
   sheet.byName = { ...EXAMPLE_SHEET };
   loadSprite(exampleCar(), "car.json");
-  setNavTab("parts");
   const nav = openNav();
   onTestFinished(nav.stop);
   await sleep(200);
-  expect(nav.host.querySelectorAll("ul li").length).toBe(6);
-  await page.screenshot({ path: "out/18-nav-parts.png" });
+  expect(nav.host.querySelectorAll(".open li").length).toBe(6);
+  expect(nav.host.querySelectorAll(".file").length).toBe(NAMES.length - 1);
+  await page.screenshot({ path: "out/18-nav-tree.png" });
 });
 
-test("the folder tab: twenty sprites, filter and all", async () => {
-  // The sheet under it, or the borrowed wheels photograph as missing.
+test("the tree: an unsaved sprite above the folder, filter and all", async () => {
   sheet.byName = { ...EXAMPLE_SHEET };
-  loadSprite(exampleCar(), "car.json");
-  setNavTab("folder");
+  loadSprite(exampleCar(), null);
   const nav = openNav();
   onTestFinished(nav.stop);
   await sleep(200);
+  expect(nav.host.querySelector(".body > .open")).toBeTruthy();
   expect(nav.host.querySelector(".find")).toBeTruthy();
-  await page.screenshot({ path: "out/19-nav-folder.png" });
+  await page.screenshot({ path: "out/19-nav-unsaved.png" });
 });

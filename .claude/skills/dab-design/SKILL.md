@@ -17,7 +17,9 @@ canvas says, because the canvas is the product.
 family wordmark (`dab.` with a riff) and a glyph are owed.
 
 **Layout / density** — the family shell (halo-interaction): Navigate left
-(parts tree, levels, folder), the surface centre, Subject right (sprite,
+as one tree (the folder's files, the open one unfolded into its levels and
+parts — a deliberate departure from the family's tabs, see the root
+CLAUDE.md), the surface centre, Subject right (sprite,
 palette, variants) with the tool rail beside it, the timeline docked across the
 bottom, the status bar with the region toggles at its right end. Dense: rows of
 small controls, `0.68–0.78rem` text, hairline borders inside panels.

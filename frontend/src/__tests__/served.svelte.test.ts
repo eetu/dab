@@ -19,7 +19,6 @@ import {
   servedFolder,
   takeVersion,
 } from "../lib/files";
-import { panels } from "../lib/panels.svelte";
 import { clearDraft, rememberDraft } from "../lib/persist";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -123,7 +122,7 @@ test("a new file says it is new, and a rename deletes the old file at its versio
   expect([...api.disk.keys()]).toEqual(["board.json"]);
 });
 
-/** The app mounted over the fake folder; `stop` puts the chrome back. */
+/** The app mounted over the fake folder; `stop` takes it down. */
 async function mountApp() {
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;inset:0";
@@ -133,7 +132,6 @@ async function mountApp() {
   return {
     host,
     stop: () => {
-      panels.nav = "parts";
       unmount(app);
       host.remove();
       clearDraft();
@@ -147,7 +145,6 @@ test("a draft from elsewhere — the demo car — is not restored over a served 
   try {
     expect(editor.sprite.name).not.toBe("car");
     expect(editor.dirty).toBe(false);
-    expect(panels.nav).toBe("folder");
     expect(editor.status).toContain("sprites: 1 sprite — open one");
   } finally {
     stop();

@@ -167,19 +167,14 @@ test("adding a part is a question with an answer, not a row that lingers", async
   expect(editor.sprite.parts?.length ?? 0).toBe(parts);
 });
 
-test("the part question is asked from the canvas, whichever tab is showing", async () => {
-  // It is asked from the parts tree and from the canvas menu, so it cannot be
-  // mounted inside the tree: the Navigate region may be showing the folder.
-  const { setNavTab } = await import("../lib/panels.svelte");
-  const { openPartDialog } = await import("../lib/partdialog.svelte");
-  setNavTab("folder");
-  await sleep(40);
+test("the part question is asked from the canvas as well as from the tree", async () => {
+  // So it is mounted at the app's root, not inside the tree: the Navigate
+  // region can be folded away while the canvas menu still offers it.
+  const { openPartDialog, closePartDialog } = await import("../lib/partdialog.svelte");
   openPartDialog();
   await sleep(40);
   expect(document.querySelector('[aria-label="New part"]')).toBeTruthy();
-  const { closePartDialog } = await import("../lib/partdialog.svelte");
   closePartDialog();
-  setNavTab("parts");
 });
 
 test("right-clicking a selection offers what to do with it", async () => {

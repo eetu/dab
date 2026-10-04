@@ -117,7 +117,7 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   is normally gone. A sprite that has never been saved has no baseline, and the
   button says so rather than disappearing.
 - **The regions are the family's, not this app's.** Navigate left (what exists:
-  the parts tree and the folder, as tabs), Surface centre, Subject right (the
+  one tree, below), Surface centre, Subject right (the
   sprite panel, its palette and variants), the tool rail beside the Subject panel
   it feeds, the timeline across the bottom, outcomes
   in the status bar with the region toggles at its right end. A person who has
@@ -125,6 +125,15 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   any local argument for a different column. The Subject panel follows the
   SUBJECT, never the tool: select is the most-used tool and has no settings, so
   a "tool options" panel would read broken every time you press V.
+- **Navigate is one tree: the folder's files, the open one unfolded.** Its
+  levels (`@far`) and parts sit under its row, where it is in the list, and a
+  document not in the folder (new, flattened, the demo) stands above the files.
+  This was two tabs, Parts and Folder, as the family's Navigate rule has it,
+  and it read as two brains: the tree on one tab belonged to the row lit on the
+  other. Godot and Unity keep files and scene apart because a scene is built
+  from many files; a sprite is one file and its parts are inside it. Only the
+  open file unfolds — peeking into a closed one would show rows that look
+  drawable and are not, which is the split again inside one list.
 - **An animation is a lane under the frames it names, and "animation" is what it
   is called.** The old arrangement was a row of frames with a column of clips
   beside it, each listing its frames again as chips: three reading directions for
@@ -201,7 +210,7 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   greyed rather than doing nothing.
 - **Prefs are the desk, document state is the drawing.** Tool, onion, grid, fps
   and backdrop persist globally (`sprite-editor:prefs`); the chrome — folded
-  panels, hidden regions, the Navigate tab, the loupe's state — lives beside it
+  panels, hidden regions, the loupe's state — lives beside it
   under `dab.chrome`. Both survive a reload;
   selection, variant, animation and the play head are per-document
   and reset in `loadSprite` — opening sprite B must not carry sprite A's view.
