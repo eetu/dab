@@ -8,10 +8,14 @@
 
 ```text
 src/dab.ts      the command: `dab mcp [--root DIR]` (else $DAB_ROOT, else cwd)
-src/vite.ts     the plugin: the files API at /__dab/api, dev server only
-src/api.ts      the files API — list, read, versioned write and delete. It
-                answers loopback requests addressed to localhost only, so
-                `vite --host` does not put a write API on the LAN
+src/vite.ts     the plugin, dev server only: the built editor at /__dab/ (from
+                dist/editor, beside it) and the files API at /__dab/api
+src/editor.ts   serves a built SPA from a folder, index.html for any route
+src/api.ts      the files API — list, read, versioned write and delete, and
+                /events, the folder's changes as server-sent events (one
+                watcher, alive while anyone listens). It answers loopback
+                requests addressed to localhost only, so `vite --host` does
+                not put a write API on the LAN
 src/server.ts   the MCP server, its instructions to the model, the tool modules
 src/store.ts    the folder: root confinement, versions, validated atomic writes,
                 and what a sprite's `use` parts resolve to. A refusal carries
@@ -41,9 +45,11 @@ src/tools/      read (outline, rows), look (render, lineup), draw (cells,
 
 ## Build and test
 
-- `vite build` bundles `src/dab.ts` with core's source inlined, because core's
-  own build keeps extensionless imports that node's ESM loader rejects. The
-  SDK and zod stay external.
+- `build` bundles `src/dab.ts` and `src/vite.ts` with core's source inlined,
+  because core's own build keeps extensionless imports that node's ESM loader
+  rejects; the SDK, zod and vite stay external. Then it builds the editor
+  into `dist/editor` with `/__dab/` as its base — after, since the first step
+  empties `dist/`.
 - Tests drive a real `Client` over `InMemoryTransport` against a temp folder.
   Before calling a tool done, use it on real sprites (copy them out first):
   nib's MCP found every one of its real bugs by drawing through it, and none

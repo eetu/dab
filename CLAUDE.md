@@ -230,7 +230,16 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   one save that asks, because undo cannot bring the other version back. The
   served folder wins when present, and it is one project: a draft from
   anywhere else on that origin, the demo car included, is not restored over
-  it, and neither the first-visit help nor the example opens. Otherwise the
+  it, and neither the first-visit help nor the example opens.
+- **A served folder says when its files change, and the open one follows.**
+  The API's `/events` feed announces each write with its version; the editor
+  ignores its own (in flight, or already known) and takes anyone else's. A
+  newer copy of the open file lands as ONE step undo takes back — a write from
+  the model is never something that happened to you without a way back — but
+  only when nothing would be lost: unsaved edits, a turn, a perspective brush
+  or a float are kept, still based on the version they started from, so Save
+  asks. Replacing held work silently is the one thing this must never do.
+  Otherwise the
   File System Access API: Chrome/Edge write back to the opened folder, other
   browsers get a download. That handle is persisted (IndexedDB) so a
   dev-server reload comes back where it was — the permission is not, so a

@@ -10,7 +10,7 @@ import { mount, unmount } from "svelte";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import App from "../App.svelte";
-import { editor, loadSprite } from "../lib/editor.svelte";
+import { editor, history, loadSprite, undoEdit } from "../lib/editor.svelte";
 import {
   Conflict,
   type Folder,
@@ -76,10 +76,31 @@ function fakeApi() {
 
 let api: ReturnType<typeof fakeApi>;
 
+/** The change feed, faked: the test says when a file changed on disk. */
+class FakeFeed {
+  static open: FakeFeed[] = [];
+  onmessage: ((e: MessageEvent<string>) => void) | null = null;
+  constructor(readonly url: string) {
+    FakeFeed.open.push(this);
+  }
+  close() {
+    FakeFeed.open = FakeFeed.open.filter((f) => f !== this);
+  }
+}
+/** Something else — the model — wrote `file`; the feed says so. */
+function theyWrote(file: string, rows: string) {
+  api.write(file, toJson(sign(rows)));
+  const version = api.disk.get(file)!.version;
+  for (const f of FakeFeed.open) {
+    f.onmessage?.({ data: JSON.stringify({ file, version }) } as MessageEvent<string>);
+  }
+}
+
 beforeEach(() => {
   api = fakeApi();
   api.write("sign.json", toJson(sign("AB")));
   vi.stubGlobal("fetch", api.fetch);
+  vi.stubGlobal("EventSource", FakeFeed);
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -216,6 +237,78 @@ test("the editor opens on the served folder, and asks before saving over a newer
     await sleep(80);
     expect(api.disk.get("sign.json")!.text).toBe(toJson(sign("BB")));
     expect(editor.dirty).toBe(false);
+  } finally {
+    stop();
+  }
+});
+
+/** The app on the served folder, with sign.json open as it is on disk. */
+async function openSign() {
+  const app = await mountApp();
+  loadSprite(sign("AB"), "sign.json");
+  return app;
+}
+
+test("a file the model rewrote is reloaded as one step undo takes back", async () => {
+  const { stop } = await openSign();
+  try {
+    theyWrote("sign.json", "AA");
+    await sleep(60);
+    expect(editor.sprite.frames[0]).toEqual(["AA"]);
+    expect(editor.dirty).toBe(false);
+    expect(history.undo).toBe(1);
+    expect(editor.status).toContain("sign.json changed on disk — reloaded");
+
+    undoEdit();
+    expect(editor.sprite.frames[0]).toEqual(["AB"]);
+  } finally {
+    stop();
+  }
+});
+
+test("unsaved work is never replaced: it is kept, and Save asks before writing over theirs", async () => {
+  const { host, stop } = await openSign();
+  try {
+    editor.sprite = { ...editor.sprite, frames: [["BB"]] };
+    editor.dirty = true;
+    theyWrote("sign.json", "AA");
+    await sleep(60);
+    expect(editor.sprite.frames[0]).toEqual(["BB"]);
+    expect(editor.statusBad).toBe(true);
+    expect(editor.status).toContain("your edits are kept");
+
+    (host.querySelector("header button.save") as HTMLButtonElement).click();
+    await sleep(80);
+    const overwrite = [...document.querySelectorAll("button")].find(
+      (b) => b.textContent?.trim() === "Overwrite",
+    );
+    expect(overwrite).toBeTruthy();
+    expect(api.disk.get("sign.json")!.text).toBe(toJson(sign("AA")));
+    (document.querySelector(".veil") as HTMLElement | null)?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  } finally {
+    stop();
+  }
+});
+
+test("this tab's own save coming back on the feed is not news", async () => {
+  const { host, stop } = await openSign();
+  try {
+    editor.sprite = { ...editor.sprite, frames: [["BB"]] };
+    editor.dirty = true;
+    (host.querySelector("header button.save") as HTMLButtonElement).click();
+    await sleep(80);
+    const saved = api.disk.get("sign.json")!;
+    for (const f of FakeFeed.open) {
+      f.onmessage?.({
+        data: JSON.stringify({ file: "sign.json", version: saved.version }),
+      } as MessageEvent<string>);
+    }
+    await sleep(60);
+    expect(editor.status).toBe("saved sign.json");
+    expect(history.undo).toBe(0);
   } finally {
     stop();
   }

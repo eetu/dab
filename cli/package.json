@@ -9,7 +9,7 @@
     "dab": "./dist/dab.js"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && yarn workspace dab-frontend vite build --base /__dab/ --outDir ../cli/dist/editor --emptyOutDir",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

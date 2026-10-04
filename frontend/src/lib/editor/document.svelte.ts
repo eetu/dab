@@ -2,12 +2,12 @@ import { blankSprite, isPartRef, nodeAt, type SpriteFile, TRANSPARENT } from "da
 import { SvelteSet } from "svelte/reactivity";
 
 import { closeMenu } from "../menu.svelte";
-import { commit, resetHistory } from "./history.svelte";
-import { endPerspective } from "./perspective.svelte";
-import { dropFloat, selection } from "./selection.svelte";
+import { commit, resetHistory, settle } from "./history.svelte";
+import { endPerspective, perspective } from "./perspective.svelte";
+import { dropFloat, floating, selection } from "./selection.svelte";
 import { editor } from "./state.svelte";
 import { allNodes, partAt, pathKey, resolvePart } from "./tree.svelte";
-import { endTurn } from "./turn.svelte";
+import { endTurn, turning } from "./turn.svelte";
 
 // Opening a document, and pointing the tools at a node in it. Both end every
 // state measured in the old terms — the turn, the float, the selection.
@@ -39,6 +39,28 @@ export function loadSprite(sprite: SpriteFile, file: string | null) {
   editor.ink = Object.keys(sprite.palette)[0] ?? TRANSPARENT;
   selection.cells = new SvelteSet();
   resetHistory();
+}
+
+/**
+ * Whether taking a newer copy of the file now would pull something out from
+ * under a person: unsaved edits, or a mode or a float measured in the copy
+ * they are holding.
+ */
+export const holdingWork = (): boolean =>
+  editor.dirty || turning.on || perspective.on || floating.on;
+
+/**
+ * Take a newer copy of the open file — the model wrote it, or another tab —
+ * as ONE step undo can take back, so a write from outside is never a thing
+ * that happened to you without a way back. The view stays where it was, as
+ * far as the new copy still has it; the document is clean, since it now is
+ * what is on disk.
+ */
+export function adoptFromDisk(sprite: SpriteFile) {
+  closeMenu();
+  commit(sprite);
+  settle();
+  editor.dirty = false;
 }
 
 /**

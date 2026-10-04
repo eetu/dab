@@ -22,6 +22,7 @@
   import { ask, confirmed, dialog } from "./lib/dialog.svelte";
   import {
     activeNode,
+    adoptFromDisk,
     applyTurn,
     cancelPaste,
     cancelTurn,
@@ -36,6 +37,7 @@
     gesture,
     hasSelection,
     history,
+    holdingWork,
     loadSprite,
     nudgePart,
     nudgeSelection,
@@ -78,6 +80,7 @@
     saveToFolder,
     servedFolder,
     takeVersion,
+    watchFolder,
   } from "./lib/files";
   import Frames from "./lib/Frames.svelte";
   import HelpDialog from "./lib/HelpDialog.svelte";
@@ -733,6 +736,41 @@
     // later, still replaces the sheet wholesale: your files outrank the demo.
     if (!folder) sheet.byName = { ...EXAMPLE_SHEET, ...sheet.byName };
   });
+
+  // A served folder says when its files change — the model drawing through
+  // MCP, another tab saving — so the editor is never a stale copy of them.
+  $effect(() => {
+    const f = folder;
+    if (f?.kind !== "served") return;
+    return watchFolder(f, (file, version) => void changedOnDisk(file, version));
+  });
+
+  /**
+   * A file changed under the editor. The listing always follows. The open file
+   * is taken as one undoable step when nothing would be lost by it; held work
+   * is kept, still based on the version it started from, so Save asks before
+   * writing over the newer one.
+   */
+  async function changedOnDisk(file: string, version: string | null) {
+    if (folder?.kind !== "served") return;
+    const open = file === editor.file;
+    const based = folder.versions.get(file);
+    const holding = open && holdingWork();
+    await refresh();
+    if (!open) return;
+    if (holding) {
+      if (based) folder.versions.set(file, based);
+      else folder.versions.delete(file);
+      return sayBad(`${file} changed on disk — your edits are kept, and Save asks first`);
+    }
+    if (version === null) return sayBad(`${file} was deleted on disk — Save writes it back`);
+    const entry = entries.find((e) => e.file === file);
+    if (!entry) return;
+    adoptFromDisk(cloneSprite(entry.sprite));
+    rememberSaved(entry.sprite, file);
+    clearDraft();
+    say(`${file} changed on disk — reloaded; undo takes it back`);
+  }
 
   async function reconnect() {
     if (!folder) return;
