@@ -12,7 +12,7 @@
   // art — with the previous one's colours.
   import type { SpriteBody } from "dab-core";
 
-  import { frameOf, resolvePart } from "./editor.svelte";
+  import { frameOf, resolvePart, stepOf } from "./editor.svelte";
   import { paintAssembly, paintRows } from "./render";
 
   type Props = {
@@ -21,11 +21,21 @@
     variant?: string | null;
     /** Draw the node's parts too — the whole subject rather than one grid. */
     assembly?: boolean;
+    /** Where the node is in the open sprite, so its parts are asked for their
+     *  frames under their own paths. */
+    base?: readonly string[];
     /** Fixed box, so a strip of them does not jump as the art changes shape. */
     height?: string;
   };
 
-  let { node, frame, variant = null, assembly = false, height = "3rem" }: Props = $props();
+  let {
+    node,
+    frame,
+    variant = null,
+    assembly = false,
+    base = [],
+    height = "3rem",
+  }: Props = $props();
 
   let canvas: HTMLCanvasElement | null = $state(null);
 
@@ -39,8 +49,10 @@
     if (!g) return;
     g.clearRect(0, 0, el.width, el.height);
     if (assembly) {
+      // A picture of THIS frame: its parts at the step this frame is in the run
+      // selected, never at the play head, or a strip would walk while playing.
       paintAssembly(g, node, 0, 0, {
-        frameOf: (path, n) => frameOf(path, n, frame),
+        frameOf: (path, n) => frameOf([...base, ...path], n, frame, stepOf(frame)),
         resolve: resolvePart,
         variant,
       });
