@@ -8,7 +8,7 @@ import type { SpriteFile } from "dab-core";
 import { mount, unmount } from "svelte";
 import { beforeEach, expect, test } from "vitest";
 
-import { editor, loadSprite } from "../lib/editor.svelte";
+import { editor, loadSprite, selectNode } from "../lib/editor.svelte";
 import type { Entry } from "../lib/files";
 import Navigator from "../lib/Navigator.svelte";
 import { panels } from "../lib/panels.svelte";
@@ -143,6 +143,55 @@ test("opening a sprite with nothing inside moves nothing: its row is a file row'
   const [open, closed] = [...host.querySelectorAll(".files > li")] as HTMLElement[];
   expect(open.classList.contains("open")).toBe(true);
   expect(open.getBoundingClientRect().height).toBeCloseTo(closed.getBoundingClientRect().height, 0);
+});
+
+const openNames = () => [...host.querySelectorAll(".open .name")].map((n) => n.textContent?.trim());
+const spriteRow = () => host.querySelector(".open li .pick") as HTMLButtonElement;
+
+test("a second click on the open sprite's row folds what is inside, and a third unfolds it", async () => {
+  boot(ENTRIES);
+  await sleep(40);
+  expect(spriteRow().getAttribute("aria-expanded")).toBe("true");
+  spriteRow().click();
+  await sleep(20);
+  expect(openNames()).toEqual(["car"]);
+  expect(spriteRow().getAttribute("aria-expanded")).toBe("false");
+  spriteRow().click();
+  await sleep(20);
+  expect(openNames()).toEqual(["car", "door"]);
+});
+
+test("with a part selected, the first click on the sprite's row selects the sprite", async () => {
+  boot(ENTRIES);
+  selectNode(["door"]);
+  await sleep(40);
+  spriteRow().click();
+  await sleep(20);
+  expect(editor.path).toEqual([]);
+  expect(openNames()).toEqual(["car", "door"]);
+});
+
+test("selecting a part some other way unfolds the tree to show it", async () => {
+  boot(ENTRIES);
+  await sleep(40);
+  spriteRow().click();
+  await sleep(20);
+  expect(openNames()).toEqual(["car"]);
+  selectNode(["door"]); // the canvas, a menu
+  await sleep(20);
+  expect(openNames()).toEqual(["car", "door"]);
+});
+
+test("a closed file with something inside points right; one without has no chevron", async () => {
+  const parted = { file: "truck.json", sprite: { ...carWithDoor(), name: "truck" } };
+  boot([...ENTRIES.slice(0, 3), parted]);
+  await sleep(40);
+  const twist = (name: string) =>
+    [...host.querySelectorAll(".file button")]
+      .find((b) => b.querySelector(".name")?.textContent?.trim() === name)!
+      .querySelector(".twist svg");
+  expect(twist("truck")).toBeTruthy();
+  expect(twist("spoke")).toBeNull();
 });
 
 test("a document not in the folder stands above the files", async () => {
