@@ -5,6 +5,7 @@ import {
   addColour,
   addFrame,
   addLevel,
+  addPart,
   blankSprite,
   COLOUR,
   cyclesOf,
@@ -13,6 +14,7 @@ import {
   flipRows,
   isPaletteKey,
   levelOf,
+  liftPart,
   moveFrame,
   movePaletteChar,
   moveParts,
@@ -21,6 +23,7 @@ import {
   removeColour,
   removeFrame,
   removeLevel,
+  removeParts,
   renameChar,
   renameLevel,
   resizeSprite,
@@ -403,5 +406,74 @@ export function registerEdit(server: McpServer, store: Store) {
         return moveParts(s, [p], dx, dy);
       }),
     ),
+  );
+
+  server.registerTool(
+    "part",
+    {
+      description:
+        "Make or remove parts of the node named. add: a blank w × h grid at x,y with the " +
+        "node's palette, or `use` another sprite there. lift: cut the cells of the rectangle " +
+        "x,y,w,h — in every frame — out of the node into a new part, placed where they were; " +
+        "`chars` lifts only cells of those characters, `keep` leaves them in the node too. A " +
+        "piece that moves on its own (a door that opens, a hull section that falls) is drawn " +
+        "in place with the rest and then lifted. remove: take away the part the node names.",
+      inputSchema: {
+        file: arg.file,
+        version: arg.version,
+        node: arg.node,
+        op: z.enum(["add", "lift", "remove"]),
+        name: z.string().optional().describe("add and lift: the new part's name"),
+        x: z.number().int().optional(),
+        y: z.number().int().optional(),
+        w: z.number().int().min(1).optional(),
+        h: z.number().int().min(1).optional(),
+        use: z.string().optional().describe("add: draw this sprite from the folder instead"),
+        chars: z.string().optional().describe("lift: only cells of these characters"),
+        keep: z.boolean().optional().describe("lift: leave the cells in the node as well"),
+      },
+    },
+    guard(async (a) => {
+      const path = parseNode(a.node);
+      if (a.op === "remove") {
+        if (!path.length || levelOf(path) !== null) fail("`node` names the part to remove");
+        return editNode(store, { ...a, node: undefined }, (s, { label }) => {
+          const parent = findNode(s, label, path.slice(0, -1));
+          if (!parent.parts?.some((p) => p.name === path.at(-1))) {
+            const names = (parent.parts ?? []).map((p) => p.name).join(", ") || "none";
+            fail(
+              `${where(label, path.slice(0, -1))} has no part ${path.at(-1)}; its parts: ${names}`,
+            );
+          }
+          return removeParts(s, [path]);
+        });
+      }
+      if (levelOf(path) !== null) fail("a level has no parts — add them to the sprite");
+      return editNode(store, a, (n, { label, notes }) => {
+        if (a.op === "add") {
+          const made = addPart(n, { name: a.name, x: a.x, y: a.y, w: a.w, h: a.h, use: a.use });
+          notes.push(`the new part is ${[...path, made.name].join("/")}`);
+          return made.node;
+        }
+        const x0 = need(a.x, "x");
+        const y0 = need(a.y, "y");
+        const only = a.chars ? new Set(a.chars) : null;
+        const cells: [number, number][] = [];
+        for (let y = y0; y < y0 + need(a.h, "h"); y++) {
+          for (let x = x0; x < x0 + need(a.w, "w"); x++) {
+            const drawn = n.frames.some((f) => {
+              const ch = f[y]?.[x];
+              return ch !== undefined && ch !== "." && (!only || only.has(ch));
+            });
+            if (drawn) cells.push([x, y]);
+          }
+        }
+        const made = liftPart(n, need(a.name, "name"), cells, { cut: !a.keep });
+        if (!made)
+          fail(`nothing is drawn there in ${label} to lift${only ? ` in ${a.chars}` : ""}`);
+        notes.push(`the new part is ${[...path, made.name].join("/")}`);
+        return made.node;
+      });
+    }),
   );
 }

@@ -1,25 +1,24 @@
 import {
-  blankFrame,
+  addPart as addPartTo,
   cloneSprite,
   flattenSprite,
   type Flip,
-  getPixel,
+  freePartName,
   isPartRef,
   levelOf,
+  liftPart,
   moveParts as movePartsIn,
   nodeAt,
   padSprite,
   type Part,
   removeParts as removePartsFrom,
-  setPixels,
   type SpriteBody,
   type SpriteFile,
-  TRANSPARENT,
   withNode,
 } from "dab-core";
 
 import { commit, settle } from "./history.svelte";
-import { clearSelection, hasSelection, isSelected, selection } from "./selection.svelte";
+import { clearSelection, hasSelection, selection } from "./selection.svelte";
 import { editor } from "./state.svelte";
 import { activeNode, frameOf, partAt, pathKey, resolvePart } from "./tree.svelte";
 
@@ -30,12 +29,6 @@ import { activeNode, frameOf, partAt, pathKey, resolvePart } from "./tree.svelte
 /** Rewrite a node's part list. */
 const withParts = (path: readonly string[], fn: (parts: Part[]) => Part[]) =>
   commit(withNode(editor.sprite, path, (n) => ({ ...n, parts: fn(n.parts ?? []) })));
-
-const freeName = (parts: Part[], want: string): string => {
-  const taken = new Set(parts.map((p) => p.name));
-  if (!taken.has(want)) return want;
-  for (let i = 2; ; i++) if (!taken.has(`${want}${i}`)) return `${want}${i}`;
-};
 
 /**
  * Add a part to the active node: a blank grid, or a reference to another sprite.
@@ -62,20 +55,9 @@ export function addPart(spec: {
   if (onLevel()) return null;
   const node = activeNode();
   if (spec.use === editor.sprite.name) return null;
-  const name = freeName(node.parts ?? [], spec.name?.trim() || spec.use || "part");
-  const w = Math.max(1, spec.w ?? Math.min(8, node.w));
-  const h = Math.max(1, spec.h ?? Math.min(8, node.h));
-  const part: Part = spec.use
-    ? { name, x: 0, y: 0, use: spec.use }
-    : // The parent's palette, copied in. A lamp on a car is painted in the car's
-      // colours far more often than not, and the alternative is retyping them
-      // into a part that is about to be drawn against the ones it should match.
-      // Copied rather than inherited: a cell's colour stays `variant?.[ch] ??
-      // palette[ch]` on one node, which is the rule the whole format rests on.
-      // What is not used is reported as unused, the way it always was.
-      { name, x: 0, y: 0, w, h, palette: { ...node.palette }, frames: [blankFrame(w, h)] };
-  withParts(editor.path, (parts) => [...parts, part]);
-  return name;
+  const made = addPartTo(node, spec);
+  commit(withNode(editor.sprite, editor.path, () => made.node));
+  return made.name;
 }
 
 /**
@@ -95,45 +77,12 @@ export function addPart(spec: {
  */
 export function partFromSelection(name: string, lift = false): string | null {
   if (!hasSelection() || onLevel()) return null;
-  const node = activeNode();
-  const x0 = selection.x0;
-  const y0 = selection.y0;
-  const w = selection.x1 - x0 + 1;
-  const h = selection.y1 - y0 + 1;
   const pts = [...selection.cells].map((k) => k.split(",").map(Number) as [number, number]);
-
-  const frames = node.frames.map((f) =>
-    Array.from({ length: h }, (_, y) =>
-      Array.from({ length: w }, (_, x) =>
-        isSelected(x0 + x, y0 + y) ? getPixel(f, x0 + x, y0 + y) : TRANSPARENT,
-      ).join(""),
-    ),
-  );
-
-  const key = freeName(node.parts ?? [], name.trim() || "part");
-  const part: Part = {
-    name: key,
-    x: x0,
-    y: y0,
-    w,
-    h,
-    // The parent's colours, as a new part always gets: this drawing came from
-    // that palette and is about to be edited against it.
-    palette: { ...node.palette },
-    ...(node.variants ? { variants: cloneSprite(node).variants } : {}),
-    frames,
-  };
-
-  commit(
-    withNode(editor.sprite, editor.path, (n) => ({
-      ...n,
-      // Lifting clears every frame, because every frame was taken.
-      frames: lift ? n.frames.map((f) => setPixels(f, pts, TRANSPARENT)) : n.frames,
-      parts: [...(n.parts ?? []), part],
-    })),
-  );
+  const made = liftPart(activeNode(), name, pts, { cut: lift });
+  if (!made) return null;
+  commit(withNode(editor.sprite, editor.path, () => made.node));
   clearSelection();
-  return key;
+  return made.name;
 }
 
 /** A part's body, as a sprite that could stand on its own. */
@@ -229,7 +178,7 @@ export function duplicatePart(path: readonly string[]) {
     // Not cloneSprite for a reference: it has no frames to clone, and asking it
     // for some is how duplicating a borrowed part used to throw.
     const copy = (isPartRef(part) ? { ...part } : { ...cloneSprite(part as SpriteBody) }) as Part;
-    copy.name = freeName(parts, part.name);
+    copy.name = freePartName(parts, part.name);
     const i = parts.findIndex((p) => p.name === part.name);
     return [...parts.slice(0, i + 1), copy, ...parts.slice(i + 1)];
   });
