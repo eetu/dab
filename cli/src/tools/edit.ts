@@ -422,11 +422,13 @@ export function registerEdit(server: McpServer, store: Store) {
     {
       description:
         "Make or remove parts of the node named. add: a blank w × h grid at x,y with the " +
-        "node's palette, or `use` another sprite there. lift: cut the cells of the rectangle " +
-        "x,y,w,h — in every frame — out of the node into a new part, placed where they were; " +
-        "`chars` lifts only cells of those characters, `keep` leaves them in the node too. A " +
-        "piece that moves on its own (a door that opens, a hull section that falls) is drawn " +
-        "in place with the rest and then lifted. remove: take away the part the node names.",
+        "node's palette, or `use` another sprite there. lift: cut what is drawn in the " +
+        "rectangle x,y,w,h out of the node into a new part, placed where it was — frame by " +
+        "frame, so a piece that moves is taken from wherever it is in each. `chars` takes only " +
+        "cells of those characters, `attach` adds cells of others touching the piece (a leg's " +
+        "hooves), `keep` leaves them in the node too. The part gets the node's animations. A " +
+        "piece that moves on its own (a leg, a door, a hull section that falls) is drawn in " +
+        "place with the rest and then lifted. remove: take away the part the node names.",
       inputSchema: {
         file: arg.file,
         version: arg.version,
@@ -439,6 +441,12 @@ export function registerEdit(server: McpServer, store: Store) {
         h: z.number().int().min(1).optional(),
         use: z.string().optional().describe("add: draw this sprite from the folder instead"),
         chars: z.string().optional().describe("lift: only cells of these characters"),
+        attach: z
+          .string()
+          .optional()
+          .describe(
+            "lift: and cells of these characters touching the piece, inside the rectangle — a leg's hooves",
+          ),
         keep: z.boolean().optional().describe("lift: leave the cells in the node as well"),
       },
     },
@@ -471,18 +479,40 @@ export function registerEdit(server: McpServer, store: Store) {
           }
           const x0 = need(a.x, "x");
           const y0 = need(a.y, "y");
+          const w = need(a.w, "w");
+          const h = need(a.h, "h");
           const only = a.chars ? new Set(a.chars) : null;
-          const cells: [number, number][] = [];
-          for (let y = y0; y < y0 + need(a.h, "h"); y++) {
-            for (let x = x0; x < x0 + need(a.w, "w"); x++) {
-              const drawn = n.frames.some((f) => {
-                const ch = f[y]?.[x];
-                return ch !== undefined && ch !== "." && (!only || only.has(ch));
-              });
-              if (drawn) cells.push([x, y]);
+          const attach = a.attach ? new Set(a.attach) : null;
+          // Each frame's own cells: a piece that moves is wherever it is in that
+          // frame, and a cell it covers in another frame is not its to take.
+          const pick = (_: number, rows: readonly string[]) => {
+            const got = new Map<string, [number, number]>();
+            for (let y = y0; y < y0 + h; y++) {
+              for (let x = x0; x < x0 + w; x++) {
+                const ch = rows[y]?.[x];
+                if (ch && ch !== "." && (!only || only.has(ch))) got.set(`${x},${y}`, [x, y]);
+              }
             }
-          }
-          const made = liftPart(n, need(a.name, "name"), cells, { cut: !a.keep });
+            // And what hangs off it in the attached characters — a leg's hoof, a
+            // haunch drawn in the body's colour — inside the rectangle, which
+            // is what keeps "the body's colour" from meaning the whole body.
+            const inRect = (x: number, y: number) => x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
+            const queue = attach ? [...got.values()] : [];
+            while (queue.length) {
+              const [x, y] = queue.pop()!;
+              for (let j = -1; j <= 1; j++) {
+                for (let i = -1; i <= 1; i++) {
+                  const key = `${x + i},${y + j}`;
+                  if (got.has(key) || !inRect(x + i, y + j)) continue;
+                  if (!attach!.has(rows[y + j]?.[x + i] ?? ".")) continue;
+                  got.set(key, [x + i, y + j]);
+                  queue.push([x + i, y + j]);
+                }
+              }
+            }
+            return got.values();
+          };
+          const made = liftPart(n, need(a.name, "name"), pick, { cut: !a.keep });
           if (!made)
             fail(`nothing is drawn there in ${label} to lift${only ? ` in ${a.chars}` : ""}`);
           notes.push(`the new part is ${[...path, made.name].join("/")}`);

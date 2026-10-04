@@ -101,6 +101,13 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 - **Which frame a part shows is runtime state, not authored state.** Shown
   frames, visibility and the previewed variant are editor state and are never
   written; a door that has fallen off is the consumer not drawing that part.
+- **Animations play together by name.** A part with nothing chosen plays its
+  own animation of the name being played, on the one play head — a deer whose
+  four legs are parts walks when "walk" plays, each leg through its own run,
+  which is how a consumer asks for it too. A part's picker can hold a frame,
+  follow, or play another of its animations (the head grazing while the legs
+  walk). Lifting a part carries the parent's animations, since it has the
+  parent's frames, so a subject cut into parts plays exactly as it did.
 - **Every frame operation remaps animations.** An animation left pointing past the end of a
   shortened strip is a file that fails validation the next time it is opened —
   the same surprise `removeColour` avoids by erasing the pixels it orphans.

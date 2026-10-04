@@ -65,6 +65,35 @@ describe("making parts", () => {
     ]);
   });
 
+  test("a piece that moves is lifted from where it is in each frame, and keeps the runs", () => {
+    // A leg (L) in front of the body in frame 0 and behind it in frame 1. One
+    // cell set for both frames would take body (B) along wherever the leg was
+    // in the other frame.
+    const walker: SpriteBody = {
+      w: 4,
+      h: 2,
+      palette: { B: "#8a5a34", L: "#6a4426" },
+      animations: { walk: [0, 1] },
+      frames: [
+        ["L...", "BBBB"],
+        ["BBL.", "BBBB"],
+      ],
+    };
+    const legs = (_: number, rows: readonly string[]) =>
+      rows.flatMap((row, y) => [...row].flatMap((ch, x) => (ch === "L" ? [[x, y] as const] : [])));
+    const { node } = liftPart(walker, "leg", legs, { cut: true })!;
+    const leg = node.parts![0] as SpriteBody & { x: number; y: number };
+    expect([leg.x, leg.y, leg.w, leg.h]).toEqual([0, 0, 3, 1]);
+    expect(leg.frames).toEqual([["L.."], ["..L"]]);
+    expect(leg.animations).toEqual({ walk: [0, 1] });
+    // Only the leg's own cells left each frame: the body under frame 1's leg
+    // position stays in frame 0, and the other way round.
+    expect(node.frames).toEqual([
+      ["....", "BBBB"],
+      ["BB..", "BBBB"],
+    ]);
+  });
+
   test("nothing to lift is no part at all", () => {
     expect(liftPart(body(), "x", [[9, 9]])).toBeNull();
   });

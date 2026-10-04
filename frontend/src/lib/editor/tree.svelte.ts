@@ -1,4 +1,5 @@
 import {
+  animationFrames,
   groupBox,
   isPartRef,
   levelOf,
@@ -90,9 +91,31 @@ export function frameOf(
   node: SpriteBody,
   active: number = editor.frame,
 ): number {
-  const want = pathKey(path) === pathKey(editor.path) ? active : (editor.shown[pathKey(path)] ?? 0);
-  const i = want === "follow" ? active : want;
-  return Math.max(0, Math.min(i, node.frames.length - 1));
+  const clamp = (i: number) => Math.max(0, Math.min(i, node.frames.length - 1));
+  const key = pathKey(path);
+  if (key === pathKey(editor.path)) return clamp(active);
+  const want = editor.shown[key];
+  // A part plays an animation: the one chosen for it, or — nothing chosen — the
+  // one being played, if it has one by that name. Several animations on one
+  // play head, each node stepping through its own run of the same name.
+  const play =
+    typeof want === "string" && want.startsWith("play:")
+      ? want.slice("play:".length)
+      : want === undefined
+        ? editor.animation
+        : null;
+  const run = play ? node.animations?.[play] : undefined;
+  if (run?.length) return clamp(run[playStep() % run.length]);
+  return clamp(want === "follow" ? active : typeof want === "number" ? want : 0);
+}
+
+/** How far into a run the play head is: its step while playing; stopped, the
+ *  place the frame being drawn has in the run selected — so a part playing
+ *  alongside shows what it would at that moment. */
+function playStep(): number {
+  if (editor.playing) return editor.playhead;
+  const run = editor.animation ? animationFrames(activeNode(), editor.animation) : null;
+  return Math.max(0, run?.indexOf(editor.frame) ?? 0);
 }
 
 /** The box the whole assembly fills, in the sprite's coordinates. Negative
