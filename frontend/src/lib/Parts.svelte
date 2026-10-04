@@ -686,7 +686,8 @@
   }
   .frame {
     grid-column: 2;
-    width: 3rem;
+    /* "auto" has to fit, or the default reads as a typo. */
+    width: 3.6rem;
     height: 1.6rem;
     padding: 0 0.15rem;
   }
