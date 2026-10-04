@@ -22,8 +22,10 @@ frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
              variants, cycles, animations, parts) → document. src/lib/editor.svelte.ts is its
              public surface; commit and the other shared helpers stay among
              the modules.
-cli/         `dab` on a folder of sprites: `dab mcp`, an MCP server over core for
-             a model to read, render and draw with. Node, run locally.
+cli/         @anarkisti/dab, the published package (0.x): `dab mcp`, an MCP server
+             over core for a model to read, render and draw with, and the Vite
+             plugin serving the editor and a sprite folder in a dev server. Node,
+             run locally. Released by tag (release.yaml).
 schema/      sprite.schema.json — the format for consumers, beside FORMAT.md (the
              prose). core's schema test holds it to validateSprite both ways; a
              rule the schema cannot say is listed in both places.

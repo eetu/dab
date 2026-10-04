@@ -1,8 +1,9 @@
 # cli — working here
 
-`dab` on one folder of sprites: `dab mcp` is an MCP server over stdio, and
-`dab/vite` a Vite plugin serving the folder to the editor. The root
-`CLAUDE.md` has why it is a local process and not a service on the Pi.
+The published package, `@anarkisti/dab`: `dab mcp`, an MCP server over stdio
+on one folder of sprites, and `@anarkisti/dab/vite`, a Vite plugin serving the
+editor and the folder in a dev server. The root `CLAUDE.md` has why it is a
+local process and not a service on the Pi.
 
 ## Layout
 
@@ -66,3 +67,19 @@ src/tools/      read (outline, rows), look (render, lineup), draw (cells,
   Before calling a tool done, use it on real sprites (copy them out first):
   nib's MCP found every one of its real bugs by drawing through it, and none
   by compiling or unit tests.
+
+## Publishing
+
+- What ships is `dist/` (the two entries, core inlined, and the built
+  editor), `types/vite.d.ts` — written by hand, so no declarations of the
+  internals ship; `__tests__/types.check.ts` fails the typecheck if it drifts
+  — the README and the LICENSE. `dab-core` is a dev dependency: private, and
+  bundled in, so it never reaches npm.
+- `scripts/publish-smoke.mjs` packs the package as npm would, installs it
+  into a throwaway project and uses what shipped: the plugin, the editor,
+  the types, and `dab mcp` over stdio. Run it after changing what ships.
+- A release is a version bump in `package.json`, merged, then a `v<version>`
+  tag on main: `.github/workflows/release.yaml` runs the whole gate and the
+  smoke test, then publishes with provenance through npm trusted publishing
+  (OIDC, no token). 0.x on purpose: the interface may still change between
+  minor versions.

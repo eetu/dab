@@ -192,7 +192,21 @@ side at one scale), and every edit is one of core's operations, validated and
 written the way the editor writes. Each read returns a version and each write
 must quote it, so a save made in the editor in between is never overwritten.
 
-With dab's Vite plugin in a project's dev server, MCP is on port 3061 in every
+Both come in [`@anarkisti/dab`](cli/README.md) on npm, with the Vite plugin
+that puts the editor in a project's own dev server:
+
+```sh
+npm install -D @anarkisti/dab
+```
+
+```ts
+// vite.config.ts
+import dab from "@anarkisti/dab/vite";
+
+export default defineConfig({ plugins: [dab({ sprites: "src/lib/sprites" })] });
+```
+
+`vite dev` serves the editor at `/__dab/`, and MCP on port 3061 in every
 project. Register it once; it serves whichever project's dev server is running:
 
 ```sh
@@ -202,8 +216,7 @@ claude mcp add --transport http dab http://localhost:3061/mcp
 Without a dev server, over stdio, per folder:
 
 ```sh
-just cli
-claude mcp add dab -- node ~/dev/dab/cli/dist/dab.js mcp --root src/lib/sprites
+claude mcp add dab -- npx @anarkisti/dab mcp --root src/lib/sprites
 ```
 
 ## Working on it

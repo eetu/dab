@@ -1,0 +1,52 @@
+# @anarkisti/dab
+
+[dab](https://github.com/eetu/dab) on a folder of character-grid sprites — rows
+of characters plus the palette they mean ([the format](https://github.com/eetu/dab/blob/main/FORMAT.md)).
+Two ways in:
+
+- **A Vite plugin**: the pixel editor in your project's dev server, editing your
+  sprite folder in place — any browser, no folder picker. A sprite written by
+  anything else shows up in the open editor.
+- **An MCP server**: a model reads frames as ruled rows, looks at renders, and
+  draws through the same operations the editor uses. Every read returns a
+  version and every write must quote it, so a save in the editor is never
+  overwritten.
+
+0.x: the interface may change between minor versions.
+
+## In a Vite project
+
+```sh
+npm install -D @anarkisti/dab
+```
+
+```ts
+// vite.config.ts
+import dab from "@anarkisti/dab/vite";
+
+export default defineConfig({
+  plugins: [dab({ sprites: "src/lib/sprites" })],
+});
+```
+
+`vite dev` then serves the editor at `/__dab/`, and MCP on port 3061. That port
+is the same in every project, so the MCP server is registered once:
+
+```sh
+claude mcp add --transport http dab http://localhost:3061/mcp
+```
+
+It serves whichever project's dev server is running, one at a time. Pass
+`mcp: <port>` for another port, or `mcp: false` for none.
+
+## Without a dev server
+
+```sh
+claude mcp add dab -- npx @anarkisti/dab mcp --root src/lib/sprites
+```
+
+`dab mcp` serves one folder over stdio.
+
+## License
+
+MIT

@@ -5,6 +5,29 @@ __metadata:
   version: 10
   cacheKey: 10
 
+"@anarkisti/dab@workspace:cli":
+  version: 0.0.0-use.local
+  resolution: "@anarkisti/dab@workspace:cli"
+  dependencies:
+    "@anarkisti/eslint-config": "npm:^1.0.0"
+    "@modelcontextprotocol/sdk": "npm:^1.32.0"
+    "@types/node": "npm:^26.6.3"
+    dab-core: "workspace:*"
+    eslint: "npm:^10.8.0"
+    typescript: "npm:^6.0.2"
+    vite: "npm:^8.3.1"
+    vitest: "npm:^4.1.10"
+    zod: "npm:^4.6.5"
+  peerDependencies:
+    vite: ">=6"
+  peerDependenciesMeta:
+    vite:
+      optional: true
+  bin:
+    dab: ./dist/dab.js
+  languageName: unknown
+  linkType: soft
+
 "@anarkisti/eslint-config@npm:^1.0.0":
   version: 1.1.0
   resolution: "@anarkisti/eslint-config@npm:1.1.0"
@@ -1293,24 +1316,6 @@ __metadata:
   checksum: 10/0e161912c1306861d8f46e1883be1cbc8b1b2879f0f509287c0db71796e4ddfb97ac96bdfca38f77f452e2c10554e1bb5678c99b07a5cf947a12778f73e47e12
   languageName: node
   linkType: hard
-
-"dab-cli@workspace:cli":
-  version: 0.0.0-use.local
-  resolution: "dab-cli@workspace:cli"
-  dependencies:
-    "@anarkisti/eslint-config": "npm:^1.0.0"
-    "@modelcontextprotocol/sdk": "npm:^1.32.0"
-    "@types/node": "npm:^26.6.3"
-    dab-core: "workspace:*"
-    eslint: "npm:^10.8.0"
-    typescript: "npm:^6.0.2"
-    vite: "npm:^8.3.1"
-    vitest: "npm:^4.1.10"
-    zod: "npm:^4.6.5"
-  bin:
-    dab: ./dist/dab.js
-  languageName: unknown
-  linkType: soft
 
 "dab-core@workspace:*, dab-core@workspace:core":
   version: 0.0.0-use.local
