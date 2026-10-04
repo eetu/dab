@@ -39,8 +39,16 @@ export type Folder =
   | { kind: "disk"; handle: DirHandle; name: string }
   /** `id` is the folder's path on the serving machine — its identity, since
    *  two projects can both call theirs `sprites`. `versions` is what each file
-   *  was when last listed or written: what the next write of it replaces. */
-  | { kind: "served"; name: string; id: string; versions: Map<string, string> };
+   *  was when last listed or written: what the next write of it replaces.
+   *  `writing` is the files this tab has a write in flight to, whose change
+   *  can come back on the feed before the write's own answer does. */
+  | {
+      kind: "served";
+      name: string;
+      id: string;
+      versions: Map<string, string>;
+      writing: Set<string>;
+    };
 
 /** Where dab's Vite plugin serves the folder. */
 export const API = "/__dab/api";
@@ -69,9 +77,47 @@ export async function servedFolder(): Promise<Folder | null> {
     const res = await fetch(`${API}/files`);
     if (!res.ok || !res.headers.get("content-type")?.includes("json")) return null;
     const { name, root } = (await res.json()) as { name: string; root: string };
-    return { kind: "served", name, id: root, versions: new Map() };
+    return { kind: "served", name, id: root, versions: new Map(), writing: new Set() };
   } catch {
     return null;
+  }
+}
+
+/**
+ * A served folder's changes as they happen — the model writing a sprite,
+ * another tab saving one — each with its version now, or null once it is
+ * gone. This tab's own writes are left out: they answer for themselves.
+ */
+export function watchFolder(
+  folder: Folder,
+  on: (file: string, version: string | null) => void,
+): () => void {
+  if (folder.kind !== "served" || typeof EventSource === "undefined") return () => {};
+  const source = new EventSource(`${API}/events`);
+  source.onmessage = (e: MessageEvent<string>) => {
+    const { file, version } = JSON.parse(e.data) as { file: string; version: string | null };
+    if (folder.writing.has(file)) return;
+    // Already known: this tab's own write, answered before the feed caught up —
+    // or a file it deleted, which it has already forgotten.
+    if (version === null ? !folder.versions.has(file) : folder.versions.get(file) === version) {
+      return;
+    }
+    on(file, version);
+  };
+  return () => source.close();
+}
+
+/** A served write, marked in flight for as long as it is. */
+async function writing<T>(
+  folder: Folder & { kind: "served" },
+  file: string,
+  run: () => Promise<T>,
+) {
+  folder.writing.add(file);
+  try {
+    return await run();
+  } finally {
+    folder.writing.delete(file);
   }
 }
 
@@ -142,16 +188,20 @@ export async function saveToFolder(folder: Folder, sprite: SpriteFile): Promise<
   const file = `${sprite.name}.json`;
   if (folder.kind === "served") {
     const known = folder.versions.get(file);
-    const res = await fetch(`${API}/files/${encodeURIComponent(file)}`, {
-      method: "PUT",
-      body: toJson(sprite),
-      headers: known ? { "if-match": `"${known}"` } : { "if-none-match": "*" },
+    // Marked until the new version is recorded, not just until the answer
+    // starts: in between, the feed's word on this write would read as news.
+    return writing(folder, file, async () => {
+      const res = await fetch(`${API}/files/${encodeURIComponent(file)}`, {
+        method: "PUT",
+        body: toJson(sprite),
+        headers: known ? { "if-match": `"${known}"` } : { "if-none-match": "*" },
+      });
+      const body = (await res.json()) as { version?: string | null; error?: string };
+      if (res.status === 412) throw new Conflict(file, body.version ?? null);
+      if (!res.ok || !body.version) throw new Error(body.error ?? `${file} was not saved`);
+      folder.versions.set(file, body.version);
+      return file;
     });
-    const body = (await res.json()) as { version?: string | null; error?: string };
-    if (res.status === 412) throw new Conflict(file, body.version ?? null);
-    if (!res.ok || !body.version) throw new Error(body.error ?? `${file} was not saved`);
-    folder.versions.set(file, body.version);
-    return file;
   }
   const handle = await folder.handle.getFileHandle(file, { create: true });
   const w = await handle.createWritable();
@@ -187,12 +237,14 @@ export async function deleteFromFolder(folder: Folder, file: string): Promise<bo
   if (folder.kind === "served") {
     const known = folder.versions.get(file);
     if (!known) return false;
-    const res = await fetch(`${API}/files/${encodeURIComponent(file)}`, {
-      method: "DELETE",
-      headers: { "if-match": `"${known}"` },
+    return writing(folder, file, async () => {
+      const res = await fetch(`${API}/files/${encodeURIComponent(file)}`, {
+        method: "DELETE",
+        headers: { "if-match": `"${known}"` },
+      });
+      if (res.ok) folder.versions.delete(file);
+      return res.ok;
     });
-    if (res.ok) folder.versions.delete(file);
-    return res.ok;
   }
   try {
     await folder.handle.removeEntry?.(file);

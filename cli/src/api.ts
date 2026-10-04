@@ -1,3 +1,4 @@
+import { type FSWatcher, watch } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 
@@ -14,6 +15,8 @@ import { type Refusal, type Store, ToolError } from "./store";
 //   PUT    /files/<file>   a sprite's JSON, If-Match its version, or
 //                          If-None-Match: * for a new file
 //   DELETE /files/<file>   If-Match its version
+//   GET    /events         server-sent events: { file, version } each time a
+//                          sprite in the root is written or removed (null)
 //
 // A stale write is 412 with the version on disk now.
 
@@ -31,8 +34,9 @@ const LIMIT = 4 << 20;
 type Next = (err?: unknown) => void;
 
 export function filesApi(store: Store) {
+  const changes = feed(store);
   return (req: IncomingMessage, res: ServerResponse, next?: Next) => {
-    handle(store, req, res, next).catch((e: unknown) => {
+    handle(store, changes, req, res, next).catch((e: unknown) => {
       if (e instanceof ToolError) {
         send(res, STATUS[e.kind], { error: e.message, version: e.current });
       } else send(res, 500, { error: e instanceof Error ? e.message : String(e) });
@@ -40,13 +44,22 @@ export function filesApi(store: Store) {
   };
 }
 
-async function handle(store: Store, req: IncomingMessage, res: ServerResponse, next?: Next) {
+async function handle(
+  store: Store,
+  changes: Feed,
+  req: IncomingMessage,
+  res: ServerResponse,
+  next?: Next,
+) {
   const url = new URL(req.url ?? "/", "http://localhost");
   const [head, ...rest] = url.pathname.split("/").filter(Boolean);
-  if (head !== "files") return next ? next() : send(res, 404, { error: "not found" });
+  if (head !== "files" && head !== "events") {
+    return next ? next() : send(res, 404, { error: "not found" });
+  }
   // The API writes files: it answers this machine, and only under a name for
   // it, so neither the LAN (`vite --host`) nor a rebinding page can reach it.
   if (!local(req)) return send(res, 403, { error: "dab's files answer only on this machine" });
+  if (head === "events") return changes.subscribe(res);
   const file = rest.map(decodeURIComponent).join("/");
 
   if (!file) {
@@ -88,6 +101,69 @@ async function handle(store: Store, req: IncomingMessage, res: ServerResponse, n
     return;
   }
   send(res, 405, { error: "GET, PUT or DELETE" });
+}
+
+type Feed = ReturnType<typeof feed>;
+
+/**
+ * The root's changes, to whoever is listening: one watcher, started for the
+ * first listener and stopped with the last. A burst of events for one file —
+ * a rename into place is two — becomes one announcement of the version it
+ * settled on, and a touch that left the bytes alone is not news.
+ */
+function feed(store: Store) {
+  const clients = new Set<ServerResponse>();
+  const last = new Map<string, string | null>();
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  let watcher: FSWatcher | null = null;
+
+  const announce = async (file: string) => {
+    const version = (await store.read(file).catch(() => null))?.version ?? null;
+    if (last.get(file) === version) return;
+    last.set(file, version);
+    const line = `data: ${JSON.stringify({ file, version })}\n\n`;
+    for (const c of clients) c.write(line);
+  };
+
+  const start = () => {
+    watcher = watch(store.root, (_, name) => {
+      // The store writes beside the file and renames into place; the hidden
+      // temporary is not a sprite.
+      if (!name || name.startsWith(".") || !name.endsWith(".json")) return;
+      clearTimeout(timers.get(name));
+      timers.set(
+        name,
+        setTimeout(() => {
+          timers.delete(name);
+          void announce(name);
+        }, 40),
+      );
+    });
+  };
+
+  return {
+    subscribe(res: ServerResponse) {
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      });
+      res.write(": dab\n\n");
+      clients.add(res);
+      if (!watcher) start();
+      // A comment now and then, so nothing between here and the tab decides
+      // the connection is idle.
+      const beat = setInterval(() => res.write(": \n\n"), 25_000);
+      res.on("close", () => {
+        clearInterval(beat);
+        clients.delete(res);
+        if (!clients.size) {
+          watcher?.close();
+          watcher = null;
+        }
+      });
+    },
+  };
 }
 
 /** The version a write replaces: If-Match, or null for a new file. */

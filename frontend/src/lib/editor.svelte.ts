@@ -35,6 +35,8 @@ export {
   shownVariant,
 } from "./editor/cycles.svelte";
 export {
+  adoptFromDisk,
+  holdingWork,
   loadSprite,
   newSprite,
   pickAllParts,

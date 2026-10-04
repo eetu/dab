@@ -34,6 +34,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  // A change feed holds its connection open; close it with the server.
+  server.closeAllConnections();
   await new Promise((done) => server.close(done));
   await rm(root, { recursive: true, force: true });
 });
@@ -105,5 +107,35 @@ describe("the files API", () => {
       ).end();
     });
     expect(status).toBe(403);
+  });
+
+  test("announces each change to a sprite, with its version — whoever wrote it", async () => {
+    const quit = new AbortController();
+    const res = await fetch(`${base}/events`, { signal: quit.signal });
+    expect(res.headers.get("content-type")).toBe("text/event-stream");
+    const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+    let heard = "";
+    /** Read the feed until `want` has been said. */
+    const until = async (want: string) => {
+      while (!heard.includes(want)) heard += (await reader.read()).value ?? "";
+    };
+    await until(": dab");
+
+    // Someone else — the model, another editor — writes the file.
+    const theirs = toJson(sign("BB"));
+    await writeFile(path.join(root, "sign.json"), theirs);
+    await until(versionOf(theirs));
+    expect(heard).toContain(`"file":"sign.json","version":"${versionOf(theirs)}"`);
+
+    // A write through the API is announced the same way, and a removal as null.
+    const ours = toJson(sign("AA"));
+    await put("sign.json", sign("AA"), { "if-match": versionOf(theirs) });
+    await until(versionOf(ours));
+    await fetch(`${base}/files/sign.json`, {
+      method: "DELETE",
+      headers: { "if-match": versionOf(ours) },
+    });
+    await until('"version":null');
+    quit.abort();
   });
 });
