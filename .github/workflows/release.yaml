@@ -1,0 +1,59 @@
+name: Release
+
+# Publish @anarkisti/dab (cli/) to the public npm registry when a v* tag is
+# pushed — the same shape as ../i-got-your-back.
+#
+# Tokenless: authenticates through npm trusted publishing (OIDC) and attaches a
+# provenance statement — there is NO NPM_TOKEN secret. The package needs a
+# trusted publisher configured on npm (repo eetu/dab, workflow
+# .github/workflows/release.yaml) before its first OIDC publish; 0.1.0 was the
+# seed, published once by hand.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write # mint the OIDC token npm exchanges for a short-lived publish credential
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history (+ origin/main) so the tag-on-main check works
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Verify the tag is on main
+        run: git merge-base --is-ancestor "${{ github.sha }}" origin/main
+      - name: Verify the tag matches the package version
+        run: |
+          v="v$(node -p "require('./cli/package.json').version")"
+          if [ "$v" != "${{ github.ref_name }}" ]; then
+            echo "@anarkisti/dab is $v but the tag is ${{ github.ref_name }}"
+            exit 1
+          fi
+      - name: Validate, build & publish
+        run: |
+          yarn() { node .yarn/releases/yarn-*.cjs "$@"; }
+          yarn install --immutable
+          # The full gate first: a tag must never ship unvalidated code, and an
+          # npm publish is effectively irreversible.
+          yarn workspace dab-frontend exec playwright install --with-deps chromium
+          yarn lint
+          yarn format
+          yarn typecheck
+          yarn test
+          node scripts/publish-smoke.mjs
+          # npm dist-tag: prereleases (0.2.0-rc.1) → `rc`, finals → `latest`.
+          VERSION=$(node -p "require('./cli/package.json').version")
+          if [[ "$VERSION" == *-* ]]; then TAG=rc; else TAG=latest; fi
+          # Reruns are idempotent: republishing a version is a hard 403.
+          if npm view "@anarkisti/dab@$VERSION" version >/dev/null 2>&1; then
+            echo "@anarkisti/dab@$VERSION already published — nothing to do"
+            exit 0
+          fi
+          yarn workspace @anarkisti/dab pack --out /tmp/dab.tgz
+          npm publish /tmp/dab.tgz --provenance --access public --tag "$TAG"

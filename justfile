@@ -73,7 +73,7 @@ ui-on folder: cli
 
 # The `dab` command and the Vite plugin: cli/dist/dab.js and cli/dist/vite.js.
 cli:
-    {{yarn}} workspace dab-cli run build
+    {{yarn}} workspace @anarkisti/dab run build
 
 # Build core's dist. Not a publish step — core is private (see CLAUDE.md); this
 # exists so a type error in the format fails locally the way it will in CI.

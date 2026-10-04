@@ -1,27 +1,64 @@
 {
-  "name": "dab-cli",
+  "name": "@anarkisti/dab",
   "version": "0.1.0",
-  "description": "dab on a sprite folder: the editor, its files and an MCP server, in one local process.",
+  "description": "dab on a folder of character-grid sprites: a Vite plugin serving the pixel editor and the folder to it, and an MCP server for drawing with a model.",
+  "keywords": [
+    "pixel-art",
+    "sprite",
+    "sprite-editor",
+    "vite-plugin",
+    "mcp",
+    "model-context-protocol"
+  ],
   "license": "MIT",
-  "private": true,
   "type": "module",
-  "bin": {
-    "dab": "./dist/dab.js"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eetu/dab.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/eetu/dab#readme",
+  "bin": "./dist/dab.js",
+  "exports": {
+    "./vite": {
+      "types": "./types/vite.d.ts",
+      "import": "./dist/vite.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "types"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "vite build && yarn workspace dab-frontend vite build --base /__dab/ --outDir ../cli/dist/editor --emptyOutDir",
+    "prepack": "yarn build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
   },
+  "peerDependencies": {
+    "vite": ">=6"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
-    "dab-core": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@anarkisti/eslint-config": "^1.0.0",
     "@types/node": "^26.6.3",
+    "dab-core": "workspace:*",
     "eslint": "^10.8.0",
     "typescript": "^6.0.2",
     "vite": "^8.3.1",
