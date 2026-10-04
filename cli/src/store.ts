@@ -56,11 +56,34 @@ export type Loaded = { file: string; version: string; sprite: SpriteFile };
 
 const missing = (e: unknown) => (e as NodeJS.ErrnoException).code === "ENOENT";
 
+/** Versions of a file kept for `diff` and `carry`, the newest this many. */
+const KEPT = 64;
+
 export class Store {
+  /** Every version of a file this store has read or written, by file then
+   *  version — what "since the version I read" is measured from. */
+  private seen = new Map<string, Map<string, string>>();
+
   private constructor(readonly root: string) {}
 
   static async open(root: string): Promise<Store> {
     return new Store(await realpath(root));
+  }
+
+  private remember(rel: string, text: string): void {
+    let kept = this.seen.get(rel);
+    if (!kept) this.seen.set(rel, (kept = new Map()));
+    const version = versionOf(text);
+    kept.delete(version);
+    kept.set(version, text);
+    if (kept.size > KEPT) kept.delete(kept.keys().next().value!);
+  }
+
+  /** A version of `file` this store has read or written, or null. */
+  textAt(file: string, version: string): string | null {
+    const name = file.endsWith(".json") ? file : `${file}.json`;
+    const rel = path.relative(this.root, path.resolve(this.root, name)).split(path.sep).join("/");
+    return this.seen.get(rel)?.get(version) ?? null;
   }
 
   /** `file` as a path inside the root: `car`, `car.json` and `cars/car.json`
@@ -94,6 +117,7 @@ export class Store {
         ? fail(`${rel} does not exist — list_sprites shows what does`, "missing")
         : Promise.reject(e),
     );
+    this.remember(rel, text);
     return { file: rel, version: versionOf(text), text };
   }
 
@@ -122,6 +146,7 @@ export class Store {
       fail(`that edit would make ${rel} invalid:\n- ${errors.join("\n- ")}`, "invalid");
     }
     const now = await this.current(abs);
+    if (now !== null) this.remember(rel, now);
     if (base === null && now !== null) {
       fail(`${rel} already exists — read it and edit it instead`, "stale", versionOf(now));
     }
@@ -142,6 +167,7 @@ export class Store {
       await rm(tmp, { force: true });
       throw e;
     }
+    this.remember(rel, text);
     return { file: rel, version: versionOf(text), changed: true };
   }
 

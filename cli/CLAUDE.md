@@ -26,7 +26,8 @@ src/text.ts     node paths, located refusals, the ruled grid
 src/render.ts   flatten → composite → PNG, scaled to about 512 px
 src/tools/      read (outline, rows), look (render, lineup), draw (cells,
                 shapes, rows), edit (frames, palette, animations, levels,
-                transforms, parts); common.ts has `editNode`
+                transforms, parts), history (diff, carry — measured from a
+                version the store has seen), batch; common.ts has the plans
 ```
 
 ## Adding a tool
@@ -35,10 +36,15 @@ src/tools/      read (outline, rows), look (render, lineup), draw (cells,
   into core first, with its test there, and the tool wraps it. Setting a key
   (a variant's colour, an animation's run) is data rather than logic, and may
   be done here.
-- **A write is `editNode`**: load, check the quoted version, edit ONE node
-  through `withNode`, then save through `validateSprite` and `toJson`. One call
-  is one write, which is one undo entry in the editor. What a level follows
-  rather than owns (frames, animations) passes `shared`.
+- **A write tool is a plan, registered with `registerWrite`**: the node, a
+  pure function on it, how to report it. `editNode` runs one — load, check the
+  quoted version, apply through `withNode`, save through `validateSprite` and
+  `toJson` — and `batch` runs many against one load and one save, so a tool is
+  batchable the moment it exists. One write is one undo entry in the editor.
+  What a level follows rather than owns (frames, animations) passes `shared`.
+- **"Since" is a version the store has seen.** It keeps every version it reads
+  or writes, the last 64 per file; `diff` and `carry` measure from one, and
+  say so when asked about one they never saw.
 - **A refusal is `fail`, and says where and what to do**: the node, the
   range, the keys there are. A model acts on the sentence it is given, so
   "frame 7 is out of range" without the range just gets a second guess.

@@ -222,6 +222,92 @@ describe("the dab MCP server", () => {
     expect(s.levels?.[0].frames).toHaveLength(2);
   });
 
+  test("the deer case: the person paints spots on frame 0, and they are carried along the walk", async () => {
+    const DEER = { B: "#8a5a34", L: "#6a4426", W: "#f0e8dc" };
+    const walk = [
+      [
+        "............",
+        "..BBBBBB....",
+        "..BBBBBB....",
+        "..B....B....",
+        "..L....L....",
+        "............",
+      ],
+      [
+        "............",
+        "............",
+        "..BBBBBB....",
+        "..BBBBBB....",
+        "..B....B....",
+        "..L....L....",
+      ],
+      [
+        "............",
+        "...BBBBBB...",
+        "...BBBBBB...",
+        "...B....B...",
+        "...L....L...",
+        "............",
+      ],
+      [
+        "............",
+        "..BBBBBB....",
+        "..BBBBLB....",
+        "..B....B....",
+        "..L....L....",
+        "............",
+      ],
+    ];
+    await put("deer", { name: "deer", w: 12, h: 6, palette: DEER, frames: walk });
+    const seen = versionIn((await call("read_sprite", { file: "deer" })).text);
+
+    // The person, in the editor: two spots on the shoulder of frame 0, saved.
+    const spotted = [
+      "............",
+      "..BBBBWB....",
+      "..BBBBWB....",
+      "..B....B....",
+      "..L....L....",
+      "............",
+    ];
+    await put("deer", {
+      name: "deer",
+      w: 12,
+      h: 6,
+      palette: DEER,
+      frames: [spotted, ...walk.slice(1)],
+    });
+
+    const diff = await call("diff", { file: "deer", from: seen });
+    expect(diff.text).toContain("cells changed: 2 on frame 0");
+    expect(diff.text).toContain("frame 0: 2 cells, x 5–7, y 0–3");
+    expect(diff.text).toMatch(/before:[\s\S]*BBB[\s\S]*after:[\s\S]*BWB/);
+
+    const now = versionIn((await call("read_sprite", { file: "deer" })).text);
+    const carried = await call("carry", {
+      file: "deer",
+      version: now,
+      from: seen,
+      frame: 0,
+      to: [{ frame: 1 }, { frame: 2 }, { frame: 3 }],
+    });
+    expect(carried.text).toContain("frame 1 at (0,1), found");
+    expect(carried.text).toContain("frame 2 at (1,0), found");
+    expect(carried.text).toContain("frame 3 at (0,0)");
+    expect(carried.text).toContain("1 where the frame has moved on — (6,2) has L, not B");
+    const s = await disk("deer");
+    expect(s.frames[1][2]).toBe("..BBBBWB....");
+    expect(s.frames[2][1]).toBe("...BBBBWB...");
+    expect(s.frames[3].slice(1, 3)).toEqual(["..BBBBWB....", "..BBBBLB...."]);
+  });
+
+  test("diff and carry measure from a version this server has seen, and say so when not", async () => {
+    await put("sign", { name: "sign", w: 2, h: 1, palette: PAL, frames: [["AB"]] });
+    const unseen = await call("diff", { file: "sign", from: "0123456789ab" });
+    expect(unseen.error).toBe(true);
+    expect(unseen.text).toContain("is not one this server has seen");
+  });
+
   test("a batch is one write: one version in, one out, however many ops", async () => {
     await put("ship", { name: "ship", w: 4, h: 1, palette: PAL, frames: [["AABB"]] });
     const v = versionIn((await call("read_sprite", { file: "ship" })).text);

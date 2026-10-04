@@ -33,6 +33,7 @@
 // package's surface.
 
 export * from "./blocks";
+export * from "./carry";
 export * from "./colour";
 export * from "./cycles";
 export * from "./flatten";
