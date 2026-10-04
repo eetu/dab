@@ -36,7 +36,7 @@ import { z } from "zod";
 
 import { fail, type Store } from "../store";
 import { checkFrame, findNode, parseNode, where } from "../text";
-import { arg, editNode, guard, say } from "./common";
+import { arg, guard, type Plan, registerWrite, say } from "./common";
 
 const hex = z.string().describe("#rrggbb, or #rrggbbaa to see through it");
 
@@ -90,7 +90,9 @@ export function registerEdit(server: McpServer, store: Store) {
     }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "frames",
     {
       description:
@@ -105,30 +107,28 @@ export function registerEdit(server: McpServer, store: Store) {
         to: arg.frame.optional().describe("move: where the frame ends up"),
       },
     },
-    guard(async (a) =>
-      editNode(
-        store,
-        a,
-        (n, { label }) => {
-          if (a.index !== undefined) checkFrame(n, label, a.index);
-          if (a.op === "add") return addFrame(n, a.index ?? n.frames.length - 1);
-          const i = need(a.index, "index");
-          if (a.op === "duplicate") return duplicateFrame(n, i);
-          if (a.op === "remove") {
-            if (n.frames.length === 1)
-              fail(`${label} has one frame, and a node keeps at least one`);
-            return removeFrame(n, i);
-          }
-          const to = need(a.to, "to");
-          checkFrame(n, label, to);
-          return moveFrame(n, i, to);
-        },
-        { shared: true },
-      ),
-    ),
+    (a) => ({
+      node: a.node,
+      shared: true,
+      fn: (n, { label }) => {
+        if (a.index !== undefined) checkFrame(n, label, a.index);
+        if (a.op === "add") return addFrame(n, a.index ?? n.frames.length - 1);
+        const i = need(a.index, "index");
+        if (a.op === "duplicate") return duplicateFrame(n, i);
+        if (a.op === "remove") {
+          if (n.frames.length === 1) fail(`${label} has one frame, and a node keeps at least one`);
+          return removeFrame(n, i);
+        }
+        const to = need(a.to, "to");
+        checkFrame(n, label, to);
+        return moveFrame(n, i, to);
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "palette",
     {
       description:
@@ -148,8 +148,9 @@ export function registerEdit(server: McpServer, store: Store) {
         variant: z.string().optional(),
       },
     },
-    guard(async (a) =>
-      editNode(store, a, (n, { label, notes }) => {
+    (a) => ({
+      node: a.node,
+      fn: (n, { label, notes }) => {
         const known = (c: string | undefined) => {
           const k = need(c, "ch");
           if (!(k in n.palette))
@@ -213,11 +214,13 @@ export function registerEdit(server: McpServer, store: Store) {
           return renameChar(n, k, to);
         }
         return movePaletteChar(n, known(a.ch), need(a.index, "index"));
-      }),
-    ),
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "animation",
     {
       description:
@@ -233,41 +236,40 @@ export function registerEdit(server: McpServer, store: Store) {
         remove: z.boolean().optional(),
       },
     },
-    guard(async (a) =>
-      editNode(
-        store,
-        a,
-        (n, { label }) => {
-          const ops = [a.frames, a.rename, a.remove].filter((x) => x !== undefined).length;
-          if (ops !== 1) fail("pass exactly one of `frames`, `rename` or `remove`");
-          const animations = { ...n.animations };
-          if (a.frames) {
-            for (const f of a.frames) checkFrame(n, label, f);
-            animations[a.name] = a.frames;
-          } else {
-            if (!(a.name in animations)) {
-              fail(
-                `${label} has no animation ${a.name}; it has: ${Object.keys(animations).join(", ") || "none"}`,
-              );
-            }
-            if (a.rename) {
-              if (a.rename in animations) fail(`${label} already has an animation ${a.rename}`);
-              const renamed = Object.entries(animations).map(([k, v]) => [
-                k === a.name ? a.rename! : k,
-                v,
-              ]);
-              return { ...n, animations: Object.fromEntries(renamed) };
-            }
-            delete animations[a.name];
+    (a) => ({
+      node: a.node,
+      shared: true,
+      fn: (n, { label }) => {
+        const ops = [a.frames, a.rename, a.remove].filter((x) => x !== undefined).length;
+        if (ops !== 1) fail("pass exactly one of `frames`, `rename` or `remove`");
+        const animations = { ...n.animations };
+        if (a.frames) {
+          for (const f of a.frames) checkFrame(n, label, f);
+          animations[a.name] = a.frames;
+        } else {
+          if (!(a.name in animations)) {
+            fail(
+              `${label} has no animation ${a.name}; it has: ${Object.keys(animations).join(", ") || "none"}`,
+            );
           }
-          return { ...n, animations: Object.keys(animations).length ? animations : undefined };
-        },
-        { shared: true },
-      ),
-    ),
+          if (a.rename) {
+            if (a.rename in animations) fail(`${label} already has an animation ${a.rename}`);
+            const renamed = Object.entries(animations).map(([k, v]) => [
+              k === a.name ? a.rename! : k,
+              v,
+            ]);
+            return { ...n, animations: Object.fromEntries(renamed) };
+          }
+          delete animations[a.name];
+        }
+        return { ...n, animations: Object.keys(animations).length ? animations : undefined };
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "level",
     {
       description:
@@ -285,8 +287,8 @@ export function registerEdit(server: McpServer, store: Store) {
         to: z.string().optional(),
       },
     },
-    guard(async (a) =>
-      editNode(store, a, (s, { label }) => {
+    (a) => ({
+      fn: (s, { label }) => {
         const names = (s.levels ?? []).map((l) => `@${l.name}`).join(", ") || "none";
         if (a.op === "derive") {
           const fromPath = parseNode(a.from);
@@ -312,11 +314,13 @@ export function registerEdit(server: McpServer, store: Store) {
           renameLevel(s, a.name, to),
           `cannot rename level ${a.name} to ${to}: no such level, or the new name is taken or has a /; levels: ${names}`,
         );
-      }),
-    ),
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "transform",
     {
       description:
@@ -343,8 +347,9 @@ export function registerEdit(server: McpServer, store: Store) {
         samples: z.number().int().min(1).max(8).optional(),
       },
     },
-    guard(async (a) =>
-      editNode(store, a, (n, { label, notes }): SpriteBody => {
+    (a) => ({
+      node: a.node,
+      fn: (n, { label, notes }): SpriteBody => {
         if (a.op === "resize") return resizeSprite(n, need(a.w, "w"), need(a.h, "h"), a.anchor);
         if (a.op === "pad")
           return padSprite(n, a.left ?? 0, a.top ?? 0, a.right ?? 0, a.bottom ?? 0);
@@ -369,11 +374,13 @@ export function registerEdit(server: McpServer, store: Store) {
         const frames = [...n.frames];
         frames[frame] = r.rows;
         return { ...n, palette: r.palette, frames };
-      }),
-    ),
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "move_part",
     {
       description:
@@ -388,8 +395,8 @@ export function registerEdit(server: McpServer, store: Store) {
         y: z.number().int().optional(),
       },
     },
-    guard(async (a) =>
-      editNode(store, a, (s, { label }) => {
+    (a) => ({
+      fn: (s, { label }) => {
         const p = parseNode(a.part);
         if (levelOf(p) !== null) fail("a level has no placement to move");
         const parent = findNode(s, label, p.slice(0, -1));
@@ -404,11 +411,13 @@ export function registerEdit(server: McpServer, store: Store) {
         const dx = a.x !== undefined ? a.x - placed.x : (a.dx ?? 0);
         const dy = a.y !== undefined ? a.y - placed.y : (a.dy ?? 0);
         return moveParts(s, [p], dx, dy);
-      }),
-    ),
+      },
+    }),
   );
 
-  server.registerTool(
+  registerWrite(
+    server,
+    store,
     "part",
     {
       description:
@@ -433,47 +442,53 @@ export function registerEdit(server: McpServer, store: Store) {
         keep: z.boolean().optional().describe("lift: leave the cells in the node as well"),
       },
     },
-    guard(async (a) => {
+    (a): Plan => {
       const path = parseNode(a.node);
       if (a.op === "remove") {
         if (!path.length || levelOf(path) !== null) fail("`node` names the part to remove");
-        return editNode(store, { ...a, node: undefined }, (s, { label }) => {
-          const parent = findNode(s, label, path.slice(0, -1));
-          if (!parent.parts?.some((p) => p.name === path.at(-1))) {
-            const names = (parent.parts ?? []).map((p) => p.name).join(", ") || "none";
-            fail(
-              `${where(label, path.slice(0, -1))} has no part ${path.at(-1)}; its parts: ${names}`,
-            );
-          }
-          return removeParts(s, [path]);
-        });
+        // Taking a part away is an edit to the tree above it: planned on the sprite.
+        return {
+          fn: (s, { label }) => {
+            const parent = findNode(s, label, path.slice(0, -1));
+            if (!parent.parts?.some((p) => p.name === path.at(-1))) {
+              const names = (parent.parts ?? []).map((p) => p.name).join(", ") || "none";
+              fail(
+                `${where(label, path.slice(0, -1))} has no part ${path.at(-1)}; its parts: ${names}`,
+              );
+            }
+            return removeParts(s, [path]);
+          },
+        };
       }
       if (levelOf(path) !== null) fail("a level has no parts — add them to the sprite");
-      return editNode(store, a, (n, { label, notes }) => {
-        if (a.op === "add") {
-          const made = addPart(n, { name: a.name, x: a.x, y: a.y, w: a.w, h: a.h, use: a.use });
+      return {
+        node: a.node,
+        fn: (n, { label, notes }) => {
+          if (a.op === "add") {
+            const made = addPart(n, { name: a.name, x: a.x, y: a.y, w: a.w, h: a.h, use: a.use });
+            notes.push(`the new part is ${[...path, made.name].join("/")}`);
+            return made.node;
+          }
+          const x0 = need(a.x, "x");
+          const y0 = need(a.y, "y");
+          const only = a.chars ? new Set(a.chars) : null;
+          const cells: [number, number][] = [];
+          for (let y = y0; y < y0 + need(a.h, "h"); y++) {
+            for (let x = x0; x < x0 + need(a.w, "w"); x++) {
+              const drawn = n.frames.some((f) => {
+                const ch = f[y]?.[x];
+                return ch !== undefined && ch !== "." && (!only || only.has(ch));
+              });
+              if (drawn) cells.push([x, y]);
+            }
+          }
+          const made = liftPart(n, need(a.name, "name"), cells, { cut: !a.keep });
+          if (!made)
+            fail(`nothing is drawn there in ${label} to lift${only ? ` in ${a.chars}` : ""}`);
           notes.push(`the new part is ${[...path, made.name].join("/")}`);
           return made.node;
-        }
-        const x0 = need(a.x, "x");
-        const y0 = need(a.y, "y");
-        const only = a.chars ? new Set(a.chars) : null;
-        const cells: [number, number][] = [];
-        for (let y = y0; y < y0 + need(a.h, "h"); y++) {
-          for (let x = x0; x < x0 + need(a.w, "w"); x++) {
-            const drawn = n.frames.some((f) => {
-              const ch = f[y]?.[x];
-              return ch !== undefined && ch !== "." && (!only || only.has(ch));
-            });
-            if (drawn) cells.push([x, y]);
-          }
-        }
-        const made = liftPart(n, need(a.name, "name"), cells, { cut: !a.keep });
-        if (!made)
-          fail(`nothing is drawn there in ${label} to lift${only ? ` in ${a.chars}` : ""}`);
-        notes.push(`the new part is ${[...path, made.name].join("/")}`);
-        return made.node;
-      });
-    }),
+        },
+      };
+    },
   );
 }
