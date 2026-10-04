@@ -133,6 +133,18 @@ test("the open sprite unfolds where its file is, with its parts inside", async (
   expect(fileNames()).not.toContain("car");
 });
 
+test("opening a sprite with nothing inside moves nothing: its row is a file row's height", async () => {
+  // Opening one unfolds it in place. With no parts and no levels there is
+  // nothing to unfold, so the list must not shift by a hair — it did, by the
+  // open block's own padding, and the jump read as something having opened.
+  loadSprite(sprite("car"), "car.json");
+  boot(ENTRIES);
+  await sleep(40);
+  const [open, closed] = [...host.querySelectorAll(".files > li")] as HTMLElement[];
+  expect(open.classList.contains("open")).toBe(true);
+  expect(open.getBoundingClientRect().height).toBeCloseTo(closed.getBoundingClientRect().height, 0);
+});
+
 test("a document not in the folder stands above the files", async () => {
   loadSprite(sprite("sketch"), null);
   boot(ENTRIES);
