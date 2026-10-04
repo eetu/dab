@@ -45,8 +45,13 @@ const tail = () => deer().parts![1] as SpriteFile;
 beforeEach(() => loadSprite(deer(), "deer.json"));
 afterEach(() => loadSprite(deer(), "deer.json"));
 
-test("with nothing playing and nothing chosen, a part shows its first frame", () => {
+test("with nothing selected and nothing chosen, a part plays along with the frame shown", () => {
   expect(frameOf(["leg"], leg())).toBe(0);
+  // Stepping the body steps the leg — the whole subject moves together.
+  editor.frame = 2;
+  expect(frameOf(["leg"], leg())).toBe(2);
+  // As far as a part has frames: the tail has two.
+  expect(frameOf(["tail"], tail())).toBe(1);
 });
 
 test("while an animation is selected, each part with one by that name steps through its own", () => {
@@ -62,8 +67,19 @@ test("while an animation is selected, each part with one by that name steps thro
   expect(frameOf(["leg"], leg())).toBe(2);
   editor.playhead = 4;
   expect(frameOf(["leg"], leg())).toBe(1);
-  // A part without a walk keeps its frame.
-  expect(frameOf(["tail"], tail())).toBe(0);
+  // A part without a walk plays along with the frame shown, clamped.
+  expect(frameOf(["tail"], tail(), 0)).toBe(0);
+  expect(frameOf(["tail"], tail(), 2)).toBe(1);
+});
+
+test("a picture of one frame asks for that frame's step, not the play head's", () => {
+  editor.animation = "walk";
+  editor.playing = true;
+  editor.playhead = 2;
+  // The strip's thumbnail of frame 0 is step 0 of the walk: the leg's walk[0].
+  expect(frameOf(["leg"], leg(), 0, 0)).toBe(2);
+  // A frame outside the run selected: the leg plays along.
+  expect(frameOf(["leg"], leg(), 1, -1)).toBe(1);
 });
 
 test("a part can be set to play another of its animations, or to hold a frame", () => {

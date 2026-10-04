@@ -90,32 +90,32 @@ export function frameOf(
   path: readonly string[],
   node: SpriteBody,
   active: number = editor.frame,
+  step: number = editor.playing ? editor.playhead : stepOf(active),
 ): number {
   const clamp = (i: number) => Math.max(0, Math.min(i, node.frames.length - 1));
   const key = pathKey(path);
   if (key === pathKey(editor.path)) return clamp(active);
   const want = editor.shown[key];
+  if (typeof want === "number") return clamp(want);
   // A part plays an animation: the one chosen for it, or — nothing chosen — the
   // one being played, if it has one by that name. Several animations on one
   // play head, each node stepping through its own run of the same name.
-  const play =
-    typeof want === "string" && want.startsWith("play:")
-      ? want.slice("play:".length)
-      : want === undefined
-        ? editor.animation
-        : null;
+  const chosen = typeof want === "string" && want.startsWith("play:");
+  const play = chosen ? want.slice("play:".length) : want === undefined ? editor.animation : null;
   const run = play ? node.animations?.[play] : undefined;
-  if (run?.length) return clamp(run[playStep() % run.length]);
-  return clamp(want === "follow" ? active : typeof want === "number" ? want : 0);
+  if (run?.length && (chosen || step >= 0)) return clamp(run[Math.max(0, step) % run.length]);
+  // Otherwise it plays along: the frame the drawing is on, as far as it has
+  // one. A part lifted out of a drawing has the drawing's frames, so stepping
+  // or playing the whole subject moves every piece of it — which is what the
+  // export, a flatten and a consumer all do with a part nobody posed.
+  return clamp(active);
 }
 
-/** How far into a run the play head is: its step while playing; stopped, the
- *  place the frame being drawn has in the run selected — so a part playing
- *  alongside shows what it would at that moment. */
-function playStep(): number {
-  if (editor.playing) return editor.playhead;
+/** Where `frame` is in the run selected — the step a part playing alongside
+ *  shows — or -1 when it is not in it, or nothing is selected. */
+export function stepOf(frame: number): number {
   const run = editor.animation ? animationFrames(activeNode(), editor.animation) : null;
-  return Math.max(0, run?.indexOf(editor.frame) ?? 0);
+  return run ? run.indexOf(frame) : -1;
 }
 
 /** The box the whole assembly fills, in the sprite's coordinates. Negative

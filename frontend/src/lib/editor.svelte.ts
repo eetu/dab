@@ -127,6 +127,7 @@ export {
   sheet,
   stageBox,
   stageNode,
+  stepOf,
   usedBy,
 } from "./editor/tree.svelte";
 export {

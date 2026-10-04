@@ -509,7 +509,17 @@
           onclick={() => (turning.on ? turnFrame(i) : (editor.frame = i))}
           title={frames.length > 1 ? `Frame ${i + 1} — drag to reorder` : `Frame ${i + 1}`}
         >
-          <Thumbnail {node} frame={i} variant={editor.variant} height="3.2rem" />
+          <!-- The whole subject at this frame, parts and all, as every tool with
+               layers or bones shows it: a deer whose legs are parts is a deer
+               in the strip, not a body on a row of empty frames. -->
+          <Thumbnail
+            {node}
+            frame={i}
+            variant={editor.variant}
+            assembly={!!node.parts?.length}
+            base={editor.path}
+            height="3.2rem"
+          />
         </button>
       </div>
     {/each}
