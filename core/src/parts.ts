@@ -44,39 +44,53 @@ export function addPart<T extends SpriteBody>(node: T, spec: NewPart): { node: T
   return { node: patch(node, { parts: [...parts, part] }), name };
 }
 
+type Cells = Iterable<readonly [number, number]>;
+
+/** Which cells to lift: one set for every frame, or a set per frame — for a
+ *  piece that moves, which is somewhere else in each. */
+export type Pick = Cells | ((frame: number, rows: readonly string[]) => Cells);
+
 /**
  * Lift cells of `node` out into a new part, placed where they were: every
- * frame comes along, cropped to the cells' box, with whatever is not one of
- * the cells left transparent. The part gets the parent's palette and variants,
- * since the drawing came from them. `cut` clears the cells from every frame
- * of the parent — a piece that is to fall away must not leave its pixels
- * behind; without it the parent keeps them, which is what trimming a part
- * afterwards wants.
+ * frame comes along, cropped to one box round all of them, with whatever is
+ * not one of that frame's cells left transparent. The part gets the parent's
+ * palette, variants and animations — the drawing and its frames came from
+ * there, so the same runs play it. `cut` clears the cells from the parent —
+ * a piece that is to fall away, or to move on its own, must not leave its
+ * pixels behind; without it the parent keeps them, which is what trimming a
+ * part afterwards wants.
  */
 export function liftPart<T extends SpriteBody>(
   node: T,
   name: string,
-  cells: Iterable<readonly [number, number]>,
+  pick: Pick,
   opts: { cut?: boolean } = {},
 ): { node: T; name: string } | null {
-  const pts = [...cells].filter(([x, y]) => x >= 0 && y >= 0 && x < node.w && y < node.h);
-  if (!pts.length) return null;
-  const inside = new Set(pts.map(([x, y]) => `${x},${y}`));
-  const xs = pts.map(([x]) => x);
-  const ys = pts.map(([, y]) => y);
+  const fixed = typeof pick === "function" ? null : [...pick];
+  const onGrid = ([x, y]: readonly [number, number]) =>
+    x >= 0 && y >= 0 && x < node.w && y < node.h;
+  const per = node.frames.map((rows, f) =>
+    [...(typeof pick === "function" ? pick(f, rows) : fixed!)].filter(onGrid),
+  );
+  const all = per.flat();
+  if (!all.length) return null;
+  const xs = all.map(([x]) => x);
+  const ys = all.map(([, y]) => y);
   const x0 = Math.min(...xs);
   const y0 = Math.min(...ys);
   const w = Math.max(...xs) - x0 + 1;
   const h = Math.max(...ys) - y0 + 1;
-  const frames = node.frames.map((f) =>
-    Array.from({ length: h }, (_, y) =>
+  const frames = node.frames.map((f, i) => {
+    const inside = new Set(per[i].map(([x, y]) => `${x},${y}`));
+    return Array.from({ length: h }, (_, y) =>
       Array.from({ length: w }, (_, x) =>
         inside.has(`${x0 + x},${y0 + y}`) ? getPixel(f, x0 + x, y0 + y) : TRANSPARENT,
       ).join(""),
-    ),
-  );
+    );
+  });
   const parts = node.parts ?? [];
   const key = freePartName(parts, name.trim() || "part");
+  const copy = cloneSprite(node);
   const part: Part = {
     name: key,
     x: x0,
@@ -84,12 +98,13 @@ export function liftPart<T extends SpriteBody>(
     w,
     h,
     palette: { ...node.palette },
-    ...(node.variants ? { variants: cloneSprite(node).variants } : {}),
+    ...(copy.variants ? { variants: copy.variants } : {}),
+    ...(copy.animations ? { animations: copy.animations } : {}),
     frames,
   };
   return {
     node: patch(node, {
-      frames: opts.cut ? node.frames.map((f) => setPixels(f, pts, TRANSPARENT)) : node.frames,
+      frames: opts.cut ? node.frames.map((f, i) => setPixels(f, per[i], TRANSPARENT)) : node.frames,
       parts: [...parts, part],
     }),
     name: key,
