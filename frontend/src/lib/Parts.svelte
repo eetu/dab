@@ -6,6 +6,8 @@
   // row is a separate grid at an offset, with its own frames and its own state.
   // Which is why every row carries a frame picker: a door can be open while the
   // body is dented, and that is the whole reason parts exist.
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
@@ -263,6 +265,31 @@
   }
 
   const levels = $derived(editor.sprite.levels ?? []);
+
+  /** Whether the sprite's levels and parts are folded away under its row. Each
+   *  sprite opens unfolded; clicking its row again folds them, the way a second
+   *  click on a folder's row closes it. */
+  let folded = $state(false);
+  const inside = $derived(rows.length - 1 + levels.length);
+  // Never hide what the tools draw on: a part or a level selected some other
+  // way — on the canvas, from a menu — unfolds the tree to show its row.
+  $effect(() => {
+    if (editor.path.length) folded = false;
+  });
+
+  /** A click on a row draws on that node; on the sprite's own row, once it is
+   *  already what you are drawing, or on its chevron, it folds and unfolds. */
+  function pickRow(e: MouseEvent, row: Row) {
+    if (e.shiftKey) return pickNode(row.path);
+    const twist = (e.target as Element).closest(".twist");
+    if (!row.path.length && inside && (twist || active === pathKey([]))) {
+      folded = !folded;
+      // Folding away the part being drawn puts you back on the sprite.
+      if (folded && editor.path.length) selectNode([]);
+      return;
+    }
+    selectNode(row.path);
+  }
 </script>
 
 <div class="tree">
@@ -271,155 +298,166 @@
       {@const key = pathKey(row.path)}
       {@const ref = row.part && isPartRef(row.part)}
       {@const missing = ref && !row.node}
-      <li
-        class:on={key === active}
-        class:picked={key !== active && editor.picked.length > 1 && editor.picked.includes(key)}
-        class:borrowed={ref}
-        style:--depth={row.depth}
-        oncontextmenu={(e) =>
-          openMenu(
-            e,
-            row.part ? row.path.join("/") : editor.sprite.name,
-            row.part ? itemsFor(row) : rootItems(),
-          )}
-      >
-        <button
-          class="pick"
-          onclick={(e) => (e.shiftKey ? pickNode(row.path) : selectNode(row.path))}
-          title={ref
-            ? `Draws ${(row.part as { use: string }).use} — pick it up with Move (V)`
-            : `Draw on ${key || "the sprite"}`}
+      {#if !row.path.length || !folded}<li
+          class:on={key === active}
+          class:picked={key !== active && editor.picked.length > 1 && editor.picked.includes(key)}
+          class:borrowed={ref}
+          style:--depth={row.depth}
+          oncontextmenu={(e) =>
+            openMenu(
+              e,
+              row.part ? row.path.join("/") : editor.sprite.name,
+              row.part ? itemsFor(row) : rootItems(),
+            )}
         >
-          <!-- You identify a layer by looking at it. The name is the label; the
-               picture is what tells you which door this is. -->
-          <span class="shot" class:borrowed={ref}>
-            {#if row.node}
-              <Thumbnail
-                node={row.node}
-                frame={shownFrame(row)}
-                variant={editor.variant}
-                assembly={row.path.length === 0}
-                height="1.4rem"
-              />
-            {/if}
-          </span>
-          <span class="name">{row.path.at(-1) ?? editor.sprite.name}</span>
-          {#if !row.path.length && editor.dirty}<span class="dirty" title="Unsaved changes">•</span
-            >{/if}
-          {#if !row.path.length && levels.length}<span class="size"
-              >{editor.sprite.w}×{editor.sprite.h}</span
-            >{/if}
-          {#if ref}<span class="tag" title={`Borrowed from ${(row.part as { use: string }).use}`}
-              >{(row.part as { use: string }).use}</span
-            >{/if}
-          {#if missing}<span class="bad" title="No sprite in this folder has that name">?</span
-            >{/if}
-        </button>
-
-        {#if row.node && row.node.frames.length > 1 && key !== active}
-          <select
-            class="frame"
-            title="Which frame this part shows while you draw"
-            value={String(shownOf(row.path))}
-            onchange={(e) => setShown(row.path, (e.target as HTMLSelectElement).value)}
+          <button
+            class="pick"
+            onclick={(e) => pickRow(e, row)}
+            aria-expanded={!row.path.length && inside ? !folded : undefined}
+            title={ref
+              ? `Draws ${(row.part as { use: string }).use} — pick it up with Move (V)`
+              : !row.path.length && inside && key === active
+                ? folded
+                  ? `Unfold ${editor.sprite.name} — ${inside} inside`
+                  : `Fold ${editor.sprite.name}`
+                : `Draw on ${key || "the sprite"}`}
           >
-            {#each row.node.frames as _, i (i)}<option value={String(i)}>{i + 1}</option>{/each}
-            <option value="follow">↔</option>
-          </select>
-        {/if}
+            <span class="twist" aria-hidden="true">
+              {#if !row.path.length && inside}
+                {#if folded}<ChevronRight size={12} />{:else}<ChevronDown size={12} />{/if}
+              {/if}
+            </span>
+            <!-- You identify a layer by looking at it. The name is the label; the
+               picture is what tells you which door this is. -->
+            <span class="shot" class:borrowed={ref}>
+              {#if row.node}
+                <Thumbnail
+                  node={row.node}
+                  frame={shownFrame(row)}
+                  variant={editor.variant}
+                  assembly={row.path.length === 0}
+                  height="1.4rem"
+                />
+              {/if}
+            </span>
+            <span class="name">{row.path.at(-1) ?? editor.sprite.name}</span>
+            {#if !row.path.length && editor.dirty}<span class="dirty" title="Unsaved changes"
+                >•</span
+              >{/if}
+            {#if !row.path.length && levels.length}<span class="size"
+                >{editor.sprite.w}×{editor.sprite.h}</span
+              >{/if}
+            {#if ref}<span class="tag" title={`Borrowed from ${(row.part as { use: string }).use}`}
+                >{(row.part as { use: string }).use}</span
+              >{/if}
+            {#if missing}<span class="bad" title="No sprite in this folder has that name">?</span
+              >{/if}
+          </button>
 
-        <!-- The GLYPH carries the state — an open eye is visible, a struck one
+          {#if row.node && row.node.frames.length > 1 && key !== active}
+            <select
+              class="frame"
+              title="Which frame this part shows while you draw"
+              value={String(shownOf(row.path))}
+              onchange={(e) => setShown(row.path, (e.target as HTMLSelectElement).value)}
+            >
+              {#each row.node.frames as _, i (i)}<option value={String(i)}>{i + 1}</option>{/each}
+              <option value="follow">↔</option>
+            </select>
+          {/if}
+
+          <!-- The GLYPH carries the state — an open eye is visible, a struck one
              is not — never `active`, whose accent means "this is on" everywhere
              else and lit up here when the part was HIDDEN: exactly backwards. -->
-        <IconButton
-          size="sm"
-          ghost
-          label={editor.hidden[key]
-            ? `Show ${row.path.at(-1) ?? "the sprite"}`
-            : `Hide ${row.path.at(-1) ?? "the sprite"}`}
-          hint={row.path.length
-            ? "Hide while drawing — never written to the file"
-            : "Hide the body and leave its parts — never written to the file"}
-          onclick={() => (editor.hidden[key] = !editor.hidden[key])}
-        >
-          {#if editor.hidden[key]}<EyeOff size={12} />{:else}<Eye size={12} />{/if}
-        </IconButton>
+          <IconButton
+            size="sm"
+            ghost
+            label={editor.hidden[key]
+              ? `Show ${row.path.at(-1) ?? "the sprite"}`
+              : `Hide ${row.path.at(-1) ?? "the sprite"}`}
+            hint={row.path.length
+              ? "Hide while drawing — never written to the file"
+              : "Hide the body and leave its parts — never written to the file"}
+            onclick={() => (editor.hidden[key] = !editor.hidden[key])}
+          >
+            {#if editor.hidden[key]}<EyeOff size={12} />{:else}<Eye size={12} />{/if}
+          </IconButton>
 
-        {#if row.part}
-          <!-- The three toggles stay on the row because they are STATE: which
+          {#if row.part}
+            <!-- The three toggles stay on the row because they are STATE: which
                side of the parent it draws on, whether it is mirrored, whether it
                is hidden. Those have to be readable without opening anything.
                Every verb — reorder, rename, duplicate, remove — is in the menu,
                where the list can grow without the row growing with it. -->
-          <div class="acts">
-            <IconButton
-              size="sm"
-              active={!!row.part.behind}
-              label="Draw behind the parent — a seat showing through the windows"
-              onclick={() => setPartBehind(row.path, !row.part!.behind)}
-            >
-              <Layers size={12} />
-            </IconButton>
-            <!-- Cycles the FOUR states the format has, and says which it is on —
+            <div class="acts">
+              <IconButton
+                size="sm"
+                active={!!row.part.behind}
+                label="Draw behind the parent — a seat showing through the windows"
+                onclick={() => setPartBehind(row.path, !row.part!.behind)}
+              >
+                <Layers size={12} />
+              </IconButton>
+              <!-- Cycles the FOUR states the format has, and says which it is on —
                  this used to hardcode `h`, so a hand-authored `flip:"v"` read as
                  active and was silently rewritten on the first click. -->
-            <IconButton
-              size="sm"
-              active={!!row.part.flip}
-              label={row.part.flip
-                ? `Mirrored ${row.part.flip} — click to cycle`
-                : "Mirror this part"}
-              onclick={() => {
-                const order = [null, "h", "v", "hv"] as const;
-                const next = order[(order.indexOf(row.part!.flip ?? null) + 1) % order.length];
-                setPartFlip(row.path, next);
-              }}
-            >
-              <FlipHorizontal size={12} />
-              {#if row.part.flip}<span class="fliptag">{row.part.flip}</span>{/if}
-            </IconButton>
-            <label class="xy">
-              <span>x</span>
-              <input
-                type="number"
-                value={row.part.x}
-                onchange={(e) =>
-                  placePart(row.path, { x: Number((e.target as HTMLInputElement).value) || 0 })}
-              />
-            </label>
-            <label class="xy">
-              <span>y</span>
-              <input
-                type="number"
-                value={row.part.y}
-                onchange={(e) =>
-                  placePart(row.path, { y: Number((e.target as HTMLInputElement).value) || 0 })}
-              />
-            </label>
-            <IconButton
-              size="sm"
-              label={`Actions for ${row.path.at(-1)}`}
-              onclick={(e) => openMenu(e, row.path.join("/"), itemsFor(row))}
-            >
-              <Ellipsis size={13} />
-            </IconButton>
-          </div>
-        {:else}
-          <!-- The root's own trigger: the same items as right-clicking the row,
+              <IconButton
+                size="sm"
+                active={!!row.part.flip}
+                label={row.part.flip
+                  ? `Mirrored ${row.part.flip} — click to cycle`
+                  : "Mirror this part"}
+                onclick={() => {
+                  const order = [null, "h", "v", "hv"] as const;
+                  const next = order[(order.indexOf(row.part!.flip ?? null) + 1) % order.length];
+                  setPartFlip(row.path, next);
+                }}
+              >
+                <FlipHorizontal size={12} />
+                {#if row.part.flip}<span class="fliptag">{row.part.flip}</span>{/if}
+              </IconButton>
+              <label class="xy">
+                <span>x</span>
+                <input
+                  type="number"
+                  value={row.part.x}
+                  onchange={(e) =>
+                    placePart(row.path, { x: Number((e.target as HTMLInputElement).value) || 0 })}
+                />
+              </label>
+              <label class="xy">
+                <span>y</span>
+                <input
+                  type="number"
+                  value={row.part.y}
+                  onchange={(e) =>
+                    placePart(row.path, { y: Number((e.target as HTMLInputElement).value) || 0 })}
+                />
+              </label>
+              <IconButton
+                size="sm"
+                label={`Actions for ${row.path.at(-1)}`}
+                onclick={(e) => openMenu(e, row.path.join("/"), itemsFor(row))}
+              >
+                <Ellipsis size={13} />
+              </IconButton>
+            </div>
+          {:else}
+            <!-- The root's own trigger: the same items as right-clicking the row,
                because the two routes always agree. On the row itself: the open
                sprite is a file row in the tree, and a file row is one line. -->
-          <div class="acts root">
-            <IconButton
-              size="sm"
-              label={`Actions for ${editor.sprite.name}`}
-              onclick={(e) => openMenu(e, editor.sprite.name, rootItems())}
-            >
-              <Ellipsis size={13} />
-            </IconButton>
-          </div>
-        {/if}
-      </li>
-      {#if !row.path.length}
+            <div class="acts root">
+              <IconButton
+                size="sm"
+                label={`Actions for ${editor.sprite.name}`}
+                onclick={(e) => openMenu(e, editor.sprite.name, rootItems())}
+              >
+                <Ellipsis size={13} />
+              </IconButton>
+            </div>
+          {/if}
+        </li>{/if}
+      {#if !row.path.length && !folded}
         <!-- The same subject at other sizes, first under the sprite: a level is
              not a piece of it but another drawing of all of it, so it comes
              before the pieces. Named the way a path names it. -->
@@ -435,6 +473,7 @@
               onclick={() => selectNode(path)}
               title={`Draw the ${level.name} level`}
             >
+              <span class="twist" aria-hidden="true"></span>
               <span class="shot">
                 <Thumbnail
                   node={level}
@@ -534,6 +573,15 @@
     cursor: pointer;
     min-width: 0;
     text-align: left;
+  }
+  /* The disclosure column, on every row so the pictures line up: a chevron
+     on the sprite's own row when it has anything inside, a gap elsewhere. */
+  .twist {
+    flex: none;
+    width: 0.8rem;
+    display: grid;
+    place-items: center;
+    color: var(--halo-text-light);
   }
   .shot {
     flex: none;

@@ -11,6 +11,7 @@
   // Exactly one file is unfolded, and it is the open one. Peeking into a closed
   // sprite would show rows that look drawable and are not — the split again,
   // inside one list — so a closed file is a row you open, and that is all.
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
@@ -126,7 +127,9 @@
   });
 
   const meta = (e: Entry) =>
-    `${e.sprite.w}×${e.sprite.h}${e.sprite.frames.length > 1 ? ` ·${e.sprite.frames.length}f` : ""}`;
+    `${e.sprite.w}×${e.sprite.h}${e.sprite.frames.length > 1 ? ` ·${e.sprite.frames.length}f` : ""}${
+      e.sprite.parts?.length ? ` ·${e.sprite.parts.length}p` : ""
+    }`;
 </script>
 
 <aside class="nav">
@@ -203,6 +206,12 @@
         {:else}
           <li class="file" oncontextmenu={(ev) => fileMenu(ev, e)}>
             <button onclick={() => onopen(e)} title={`Open ${e.file}`}>
+              <!-- Closed, so it points right; opening unfolds it in place. -->
+              <span class="twist" aria-hidden="true">
+                {#if (e.sprite.parts?.length ?? 0) + (e.sprite.levels?.length ?? 0)}
+                  <ChevronRight size={12} />
+                {/if}
+              </span>
               <span class="shot">
                 <Thumbnail node={e.sprite} frame={0} assembly height="1.4rem" />
               </span>
@@ -314,6 +323,14 @@
   .file button:hover {
     border-color: var(--halo-border);
     background: var(--halo-bg-main);
+  }
+  /* The disclosure column the open sprite's row has, so every picture lines up. */
+  .twist {
+    flex: none;
+    width: 0.8rem;
+    display: grid;
+    place-items: center;
+    color: var(--halo-text-light);
   }
   /* The same picture box a part row has: a file is identified by looking at it
      too, and one box shape down the column reads as one list. */
