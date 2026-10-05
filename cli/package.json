@@ -1,6 +1,6 @@
 {
   "name": "@anarkisti/dab",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "dab on a folder of character-grid sprites: a Vite plugin serving the pixel editor and the folder to it, an MCP server for drawing with a model, and the format itself for a game to read sprites with.",
   "keywords": [
     "pixel-art",
