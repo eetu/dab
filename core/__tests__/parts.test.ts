@@ -7,6 +7,7 @@ import {
   groupBox,
   moveParts,
   nodeAt,
+  orderPart,
   padSprite,
   type Part,
   removeParts,
@@ -184,5 +185,21 @@ describe("parts", () => {
     expect(s.parts!.map((p) => p.name)).toEqual(["doorL"]);
     expect(removeParts(s, [["doorL"]]).parts).toBeUndefined();
     expect(validateSprite(s)).toEqual([]);
+  });
+
+  test("a part steps through its parent's draw order, the parent's own grid one of the steps", () => {
+    const order = (s: { parts?: Part[] }) =>
+      s.parts!.map((p) => (p.behind ? "~" : "") + p.name).join(" ");
+    const back = orderPart(car(), ["wheel"], "backward");
+    expect(order(back)).toBe("wheel doorL wheelR");
+    // past doorL is past the car's own grid: the wheel draws behind it now
+    const behind = orderPart(back, ["wheel"], "backward");
+    expect(order(behind)).toBe("~wheel doorL wheelR");
+    expect(order(orderPart(behind, ["wheel"], "backward"))).toBe("~wheel doorL wheelR");
+    expect(order(orderPart(behind, ["wheel"], "forward"))).toBe("wheel doorL wheelR");
+    expect(order(orderPart(car(), ["doorL"], "front"))).toBe("wheel wheelR doorL");
+    expect(order(orderPart(car(), ["wheelR"], "back"))).toBe("~wheelR doorL wheel");
+    expect(order(orderPart(car(), ["wheelR"], "backward", 2))).toBe("wheelR doorL wheel");
+    expect(validateSprite(behind)).toEqual([]);
   });
 });

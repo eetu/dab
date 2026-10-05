@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { levelOf, type SpriteBody, type SpriteFile, withNode } from "dab-core";
+import { drawOrder, levelOf, type SpriteBody, type SpriteFile, withNode } from "dab-core";
 import { z } from "zod";
 
 import { checkVersion, type Store, ToolError } from "../store";
@@ -169,6 +169,9 @@ export function summarise(a: SpriteBody, b: SpriteBody): string[] {
     const q = a.parts?.find((x) => x.name === p.name);
     if (q && (q.x !== p.x || q.y !== p.y)) out.push(`${p.name} moved to ${p.x},${p.y}`);
   }
+  const order = (n: SpriteBody) => drawOrder(n).map((p) => p?.name ?? "(its own grid)");
+  if (a.parts?.length && b.parts?.length && !same(order(a), order(b)))
+    out.push(`drawn: ${order(b).join(", ")}`);
   return out;
 }
 

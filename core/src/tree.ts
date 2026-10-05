@@ -1,4 +1,4 @@
-import { isPartRef, levelOf, type SpriteBody } from "./format.ts";
+import { isPartRef, levelOf, type Part, type SpriteBody } from "./format.ts";
 import { patch } from "./patch.ts";
 
 // A path is the list of part names from the root down. `[]` is the sprite
@@ -86,6 +86,53 @@ export function moveParts<T extends SpriteBody>(
     }));
   }
   return next;
+}
+
+/** Where a part goes in its parent's draw order: steps nearer the front or the back, or all
+ *  the way. */
+export type PartOrder = "forward" | "backward" | "front" | "back";
+
+/** A node's draw order: its parts marked `behind`, null for its own grid, then the rest. */
+export function drawOrder(n: SpriteBody): (Part | null)[] {
+  const parts = n.parts ?? [];
+  return [...parts.filter((p) => p.behind), null, ...parts.filter((p) => !p.behind)];
+}
+
+/**
+ * Move a part through its parent's draw order. The parent's own grid is one of the steps, so a
+ * part stepped past it changes sides and `behind` follows: a far leg, drawn whole, goes back
+ * behind the body that hides most of it. The parts come back listed in the order they draw.
+ */
+export function orderPart<T extends SpriteBody>(
+  s: T,
+  path: readonly string[],
+  to: PartOrder,
+  steps = 1,
+): T {
+  if (!path.length || levelOf(path) !== null) return s;
+  const name = path[path.length - 1];
+  return withNode(s, path.slice(0, -1), (n) => {
+    const order = drawOrder(n);
+    const from = order.findIndex((p) => p?.name === name);
+    if (from < 0) return n;
+    const [part] = order.splice(from, 1);
+    const at =
+      to === "front"
+        ? order.length
+        : to === "back"
+          ? 0
+          : Math.max(0, Math.min(order.length, from + (to === "forward" ? steps : -steps)));
+    order.splice(at, 0, part);
+    const grid = order.indexOf(null);
+    const parts = order.flatMap((p, i) => {
+      if (!p) return [];
+      const next = { ...p };
+      if (i < grid) next.behind = true;
+      else delete next.behind;
+      return [next];
+    });
+    return { ...n, parts };
+  });
 }
 
 /** Take several parts out at once. */

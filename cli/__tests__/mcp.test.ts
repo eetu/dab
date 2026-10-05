@@ -194,6 +194,27 @@ describe("the dab MCP server", () => {
       x: 3,
     });
     expect(moved.text).toContain("wheel moved to 3,1");
+
+    const back = await call("order_part", {
+      file: "car",
+      version: versionIn(moved.text),
+      part: "wheel",
+      to: "back",
+    });
+    expect(back.text).toContain("drawn: wheel, (its own grid), door");
+    expect((await disk("car")).parts?.map((p) => [p.name, !!p.behind])).toEqual([
+      ["wheel", true],
+      ["door", false],
+    ]);
+    const listed = await call("read_sprite", { file: "car" });
+    expect(listed.text).toMatch(/ {2}wheel at 3,1: .*\(behind\)\n {2}\(its own grid\)\n {2}door/);
+    const lost = await call("order_part", {
+      file: "car",
+      version: versionIn(listed.text),
+      part: "hood",
+      to: "front",
+    });
+    expect(lost.text).toContain("has no part hood; its parts: wheel, door");
   });
 
   test("a frame edit named on a level is the sprite's, and the levels stay in step", async () => {
