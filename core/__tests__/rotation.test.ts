@@ -11,7 +11,7 @@ import {
   rotateRows,
   SAME_COLOUR,
   validateSprite,
-} from "../src";
+} from "../src/index.ts";
 
 describe("rotation", () => {
   // An oblong with a distinguishable corner, so a turn that went the wrong way

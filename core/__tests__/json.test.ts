@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { cloneSprite, fromJson, type SpriteFile, toJson } from "../src";
-import { car, spoke } from "./fixtures";
+import { cloneSprite, fromJson, type SpriteFile, toJson } from "../src/index.ts";
+import { car, spoke } from "./fixtures.ts";
 
 describe("serialisation", () => {
   const s: SpriteFile = {

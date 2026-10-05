@@ -1,5 +1,5 @@
-import { TRANSPARENT } from "./format";
-import { getPixel } from "./geometry";
+import { TRANSPARENT } from "./format.ts";
+import { getPixel } from "./geometry.ts";
 
 /** Bresenham. Integer steps only — a float line rounds to an uneven stair. */
 export function linePoints(x0: number, y0: number, x1: number, y1: number): [number, number][] {

@@ -1,6 +1,6 @@
-import { type Stamp } from "./blocks";
-import { TRANSPARENT } from "./format";
-import { resample } from "./sample";
+import { type Stamp } from "./blocks.ts";
+import { TRANSPARENT } from "./format.ts";
+import { resample } from "./sample.ts";
 
 export type Rotation = {
   rows: string[];

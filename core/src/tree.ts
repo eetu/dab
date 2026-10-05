@@ -1,5 +1,5 @@
-import { isPartRef, levelOf, type SpriteBody } from "./format";
-import { patch } from "./patch";
+import { isPartRef, levelOf, type SpriteBody } from "./format.ts";
+import { patch } from "./patch.ts";
 
 // A path is the list of part names from the root down. `[]` is the sprite
 // itself, `["doorL"]` its door, `["doorL", "handle"]` the handle on that door.

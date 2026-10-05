@@ -1,16 +1,15 @@
-import { channels } from "./colour";
+import { channels } from "./colour.ts";
 import {
   alphaOf,
   cellColour,
   flipRows,
-  isPartRef,
-  type Part,
   type SpriteBody,
   TRANSPARENT,
   withAlpha,
-} from "./format";
-import { paletteMapper } from "./mapper";
-import { groupBox } from "./tree";
+} from "./format.ts";
+import { paletteMapper } from "./mapper.ts";
+import { layers } from "./read.ts";
+import { groupBox } from "./tree.ts";
 
 export type Flattened = {
   frames: string[][];
@@ -72,10 +71,7 @@ function over(fg: string, bg: string | null): string {
  * its art keeps its characters.
  */
 export function flattenSprite(node: SpriteBody, view: FlattenView = {}): Flattened {
-  const resolve = view.resolve ?? (() => null);
-  const box = groupBox(node, resolve);
-  const frameFor = (path: string[], n: SpriteBody, f: number) =>
-    Math.max(0, Math.min(view.frameOf ? view.frameOf(path, n, f) : f, n.frames.length - 1));
+  const box = groupBox(node, view.resolve);
   const { pal, added, charFor } = paletteMapper(node.palette, view.tolerance);
 
   const frames = node.frames.map((_, f) => {
@@ -96,26 +92,15 @@ export function flattenSprite(node: SpriteBody, view: FlattenView = {}): Flatten
         }
       }
     };
-    const paintPart = (p: Part, ox: number, oy: number, path: string[]) => {
-      const sub = [...path, p.name];
-      // A shared part is a leaf: its own parts, if it has any, are not expanded.
-      const inner = isPartRef(p) ? resolve(p.use) : p;
-      if (!inner) return;
-      if (isPartRef(p) || p.flip) {
-        if (view.hidden?.(sub)) return;
-        const rows = inner.frames[frameFor(sub, inner, f)] ?? [];
-        stamp(inner, p.flip ? flipRows(rows, p.flip) : rows, ox + p.x, oy + p.y);
-        return;
-      }
-      walk(inner, ox + p.x, oy + p.y, sub);
-    };
-    const walk = (n: SpriteBody, ox: number, oy: number, path: string[]) => {
-      const parts = n.parts ?? [];
-      for (const p of parts) if (p.behind) paintPart(p, ox, oy, path);
-      if (!view.hidden?.(path)) stamp(n, n.frames[frameFor(path, n, f)] ?? [], ox, oy);
-      for (const p of parts) if (!p.behind) paintPart(p, ox, oy, path);
-    };
-    walk(node, -box.x, -box.y, []);
+    const walk = layers(node, f, {
+      resolve: view.resolve,
+      frameOf: view.frameOf,
+      hidden: view.hidden,
+    });
+    for (const l of walk) {
+      const rows = l.body.frames[l.frame] ?? [];
+      stamp(l.body, l.flip ? flipRows(rows, l.flip) : rows, l.x - box.x, l.y - box.y);
+    }
     return grid.map((cells) => cells.map((hex) => (hex ? charFor(hex) : TRANSPARENT)).join(""));
   });
 

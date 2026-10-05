@@ -2,7 +2,7 @@
 
 [dab](https://github.com/eetu/dab) on a folder of character-grid sprites — rows
 of characters plus the palette they mean ([the format](https://github.com/eetu/dab/blob/main/FORMAT.md)).
-Two ways in:
+Three ways in:
 
 - **A Vite plugin**: the pixel editor in your project's dev server, editing your
   sprite folder in place — any browser, no folder picker. A sprite written by
@@ -11,6 +11,13 @@ Two ways in:
   draws through the same operations the editor uses. Every read returns a
   version and every write must quote it, so a save in the editor is never
   overwritten.
+- **`@anarkisti/dab/core`**: the format itself, for a game to draw its sprites
+  with — the walk the editor draws an assembly in (`layers`), a grid's frame as
+  packed pixels (`pixels`), a whole subject in one (`assembly`), animations
+  (`frameAt`), the validator. Pure, no DOM; a bundler takes only what is used.
+
+The package installs no dependencies of its own: what the MCP server and the
+plugin run is bundled in (licences in `dist/THIRD-PARTY-LICENSES.txt`).
 
 0.x: the interface may change between minor versions.
 
@@ -46,6 +53,21 @@ claude mcp add dab -- npx @anarkisti/dab mcp --root src/lib/sprites
 ```
 
 `dab mcp` serves one folder over stdio.
+
+## In a game
+
+```ts
+import { assembly, frameAt } from "@anarkisti/dab/core";
+import deer from "./sprites/deer.json";
+
+// The deer at its walk's step, parts and all, facing left, as an ImageData.
+const { w, h, x, y, px } = assembly(deer, frameAt(deer, "walk", step), { flip: "h" });
+ctx.putImageData(new ImageData(new Uint8ClampedArray(px.buffer), w, h), left - x, top - y);
+```
+
+`layers` gives the same subject grid by grid, for a game that holds a part's own
+frame or caches each grid; `pixels` draws one. Cache what you draw: these
+compute a fresh grid every call.
 
 ## License
 

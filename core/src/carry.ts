@@ -1,4 +1,4 @@
-import { TRANSPARENT } from "./format";
+import { TRANSPARENT } from "./format.ts";
 
 // Carrying an edit from one frame to the others: a spot added to the deer in
 // frame 0 belongs on every frame of the walk, but the deer bobs and strides,

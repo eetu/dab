@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { framePoint, type Plane, planeGrid, planePoint, projectRows } from "../src";
+import { framePoint, type Plane, planeGrid, planePoint, projectRows } from "../src/index.ts";
 
 /** A 4×4 brush with a diagonal, so a crisp stamp and a smooth one differ. */
 const BRUSH = ["AB..", "ABB.", "ABBB", "AAAA"];

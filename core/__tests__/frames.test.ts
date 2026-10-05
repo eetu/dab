@@ -1,7 +1,14 @@
 import { describe, expect, test } from "vitest";
 
-import { addFrame, blankSprite, duplicateFrame, moveFrame, removeFrame, setPixel } from "../src";
-import { sprite } from "./fixtures";
+import {
+  addFrame,
+  blankSprite,
+  duplicateFrame,
+  moveFrame,
+  removeFrame,
+  setPixel,
+} from "../src/index.ts";
+import { sprite } from "./fixtures.ts";
 
 describe("frames", () => {
   const s = blankSprite("x", 2, 1);

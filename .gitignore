@@ -34,3 +34,6 @@ vite.config.ts.timestamp-*
 
 # Screenshot rig output — pictures to look at, not artefacts to keep.
 frontend/shots/out/
+
+# Copied from core/dist by the build (cli/scripts/core-types.mjs).
+cli/types/core/

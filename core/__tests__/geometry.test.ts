@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { duplicateFrame, resizeSprite, setPixel, setPixels } from "../src";
-import { sprite } from "./fixtures";
+import { duplicateFrame, resizeSprite, setPixel, setPixels } from "../src/index.ts";
+import { sprite } from "./fixtures.ts";
 
 describe("pixels", () => {
   test("setPixel replaces one cell and leaves the row's length alone", () => {

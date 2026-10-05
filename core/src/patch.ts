@@ -1,4 +1,4 @@
-import { type SpriteBody } from "./format";
+import { type SpriteBody } from "./format.ts";
 
 /**
  * Spread a patch over a node, keeping whatever else it carries — its name at the

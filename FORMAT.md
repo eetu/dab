@@ -1,9 +1,10 @@
 # The dab sprite format
 
 One sprite is one JSON file: rows of characters, and the palette they mean. The
-format is the contract — there is no library to depend on. A consumer owns its
-reader (the one at the end of this page is enough for most), and can check a
-file without running dab's code against
+format is the contract, and `@anarkisti/dab/core` reads it the way the editor
+draws it (the README shows how); a consumer that would rather not depend on it can
+write a reader from the rules here (the sketch at the end draws one grid), and can
+check a file without running dab's code against
 [`schema/sprite.schema.json`](schema/sprite.schema.json). The rules below are
 the ones `validateSprite` enforces; the schema says every one of them that JSON
 Schema can, and the last section lists the ones it cannot.
@@ -167,5 +168,5 @@ function draw(
 ```
 
 A level is the same call on `sprite.levels.find((l) => l.name === "far")`; parts
-add the loop under Parts. The README has that loop written out, from the
-renderer dab draws with.
+add the loop under Parts, which is `layers` in `@anarkisti/dab/core`, the walk
+the editor draws with.

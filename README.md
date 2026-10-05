@@ -147,42 +147,45 @@ that part.
 ## Layout
 
 ```text
-core/       the format and every pure operation on it (private to this repo)
+core/       the format and every pure operation on it: @anarkisti/dab/core
 frontend/   the editor: a Vite + Svelte SPA
-cli/        `dab`: an MCP server over a folder of sprites
+cli/        `dab`: an MCP server over a folder of sprites, the Vite plugin, and core
 backend/    a small axum binary that serves the built SPA
 ```
 
-`core` is not published. The whole rule a consumer needs for colour is one line —
-`ch === "." ? null : (variant?.[ch] ?? palette[ch])` — so the **format** is the
-contract, not a library. [FORMAT.md](FORMAT.md) is the spec, and
+[FORMAT.md](FORMAT.md) is the spec, and
 [`schema/sprite.schema.json`](schema/sprite.schema.json) checks a file without
 running dab.
 
-Parts add a loop rather than a rule, and it is the loop the editor itself draws with
-(`frontend/src/lib/render.ts`): for each node, the parts marked `behind`, then its
-own grid, then the rest — each at its parent's offset plus its own, each showing
-whichever frame the consumer's state says.
+## Drawing sprites in a game
+
+A game reads its sprites through `@anarkisti/dab/core`: pure functions, no DOM, no
+dependencies of its own, the same ones the editor draws with, so what the editor
+shows is what the game draws. `layers` is the walk: for each node, the parts marked
+`behind`, then its own grid, then the rest, each at its parent's offset plus its own,
+each showing whichever frame the game's state says (`frameOf`); a `use` part or a
+flipped one is a leaf. `pixels` turns one grid's frame into packed words a canvas
+takes as they are; `assembly` lays the whole subject into one.
 
 ```ts
-function draw(node, ox, oy, state, look, path = "") {
-  const parts = node.parts ?? [];
-  for (const p of parts) if (p.behind) drawPart(p, ox, oy, state, look, path);
-  drawGrid(node, node.frames[state[path] ?? 0], ox, oy, look);
-  for (const p of parts) if (!p.behind) drawPart(p, ox, oy, state, look, path);
-}
+import { assembly, frameAt, layers, pixels } from "@anarkisti/dab/core";
 
-function drawPart(p, ox, oy, state, look, path) {
-  // A shared part is a leaf: its own parts, if any, are not expanded.
-  const node = p.use ? { ...sheet[p.use], parts: undefined } : p;
-  if (!node.frames) return; // a name the sheet hasn't got: draw nothing
-  draw(node, ox + p.x, oy + p.y, state, look, path ? `${path}/${p.name}` : p.name);
+// One image per frame, parts and all, facing left:
+const { w, h, x, y, px } = assembly(deer, frameAt(deer, "walk", step), { flip: "h" });
+ctx.putImageData(new ImageData(new Uint8ClampedArray(px.buffer), w, h), left - x, top - y);
+
+// Or grid by grid, to hold a part's own frame (a door left open):
+for (const l of layers(car, 0, {
+  resolve,
+  frameOf: (path, n, f) => (path[0] === "door" ? 2 : f),
+})) {
+  const g = pixels(l.body, l.frame, { variant: "night", flip: l.flip });
+  // …draw g at (left + l.x, top + l.y)
 }
 ```
 
-`flip` mirrors a node's rows on the way out (reverse the rows, reverse each), and
-a node carrying `flip` never carries parts, so there are no child offsets to
-mirror with it.
+0.x: core's surface may change between minor versions, and the format with it;
+every consumer is in-house and moves with them.
 
 ## Drawing with a model
 

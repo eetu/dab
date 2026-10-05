@@ -14,8 +14,8 @@ import {
   topmost,
   validateSprite,
   withNode,
-} from "../src";
-import { car, spoke } from "./fixtures";
+} from "../src/index.ts";
+import { car, spoke } from "./fixtures.ts";
 
 describe("parts", () => {
   test("a sprite with parts is valid, and a part is validated as a sprite", () => {

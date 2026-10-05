@@ -1,13 +1,17 @@
 # cli — working here
 
 The published package, `@anarkisti/dab`: `dab mcp`, an MCP server over stdio
-on one folder of sprites, and `@anarkisti/dab/vite`, a Vite plugin serving the
-editor and the folder in a dev server. The root `CLAUDE.md` has why it is a
-local process and not a service on the Pi.
+on one folder of sprites; `@anarkisti/dab/vite`, a Vite plugin serving the
+editor and the folder in a dev server; and `@anarkisti/dab/core`, core itself,
+for a game to draw sprites with. The root `CLAUDE.md` has why it is a local
+process and not a service on the Pi.
 
 ## Layout
 
 ```text
+src/core.ts     `/core`: core re-exported, bundled to dist/core.js; its declarations
+                are core's own build, copied to types/core/ by
+                scripts/core-types.mjs (not committed)
 src/dab.ts      the command: `dab mcp [--root DIR]` (else $DAB_ROOT, else cwd)
 src/vite.ts     the plugin, dev server only: the built editor at /__dab/ (from
                 dist/editor, beside it), the files API at /__dab/api, and MCP
@@ -58,11 +62,15 @@ src/tools/      read (outline, rows), look (render, lineup), draw (cells,
 
 ## Build and test
 
-- `build` bundles `src/dab.ts` and `src/vite.ts` with core's source inlined,
-  because core's own build keeps extensionless imports that node's ESM loader
-  rejects; the SDK, zod and vite stay external. Then it builds the editor
-  into `dist/editor` with `/__dab/` as its base — after, since the first step
-  empties `dist/`.
+- `build` builds core (its declarations become `types/core/`), then bundles
+  `src/dab.ts`, `src/vite.ts` and `src/core.ts` with everything they import
+  but Node's own modules: core's source, and the SDK and zod as far as dab
+  reaches into them. So the package has no `dependencies` and a consumer
+  installs one package; the SDK and zod are dev dependencies, and a fix in
+  either reaches users by a dab release. The bundle's licences go to
+  `dist/THIRD-PARTY-LICENSES.txt`. Vite is only ever a type. Then it builds
+  the editor into `dist/editor` with `/__dab/` as its base — after, since the
+  bundle step empties `dist/`.
 - Tests drive a real `Client` over `InMemoryTransport` against a temp folder.
   Before calling a tool done, use it on real sprites (copy them out first):
   nib's MCP found every one of its real bugs by drawing through it, and none
@@ -70,14 +78,16 @@ src/tools/      read (outline, rows), look (render, lineup), draw (cells,
 
 ## Publishing
 
-- What ships is `dist/` (the two entries, core inlined, and the built
-  editor), `types/vite.d.ts` — written by hand, so no declarations of the
-  internals ship; `__tests__/types.check.ts` fails the typecheck if it drifts
-  — the README and the LICENSE. `dab-core` is a dev dependency: private, and
+- What ships is `dist/` (the three entries, the built editor, the bundled
+  licences), `types/vite.d.ts` — written by hand; `__tests__/types.check.ts`
+  fails the typecheck if it drifts — `types/core/`, core's own declarations,
+  the README and the LICENSE. `dab-core` is a dev dependency: private, and
   bundled in, so it never reaches npm.
 - `scripts/publish-smoke.mjs` packs the package as npm would, installs it
   into a throwaway project and uses what shipped: the plugin, the editor,
-  the types, and `dab mcp` over stdio. Run it after changing what ships.
+  the types, the licences, `dab mcp` over stdio, and `/core` in bare node and
+  to tsc with node's resolution. It fails if the package declares a
+  dependency. Run it after changing what ships.
 - A release is a version bump in `package.json`, merged, then a `v<version>`
   tag on main: `.github/workflows/release.yaml` runs the whole gate and the
   smoke test, then publishes with provenance through npm trusted publishing

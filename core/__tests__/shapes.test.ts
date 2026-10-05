@@ -10,7 +10,7 @@ import {
   linePoints,
   rectPoints,
   shapePoints,
-} from "../src";
+} from "../src/index.ts";
 
 describe("shapes", () => {
   test("a line is a Bresenham run with no gaps and no doubled pixels", () => {

@@ -1,4 +1,4 @@
-import { TRANSPARENT } from "./format";
+import { TRANSPARENT } from "./format.ts";
 
 /**
  * A lifted block of pixels: what was there, and where each cell sat relative to

@@ -1,5 +1,5 @@
-import { type SpriteBody, TRANSPARENT } from "./format";
-import { patch } from "./patch";
+import { type SpriteBody, TRANSPARENT } from "./format.ts";
+import { patch } from "./patch.ts";
 
 export type Anchor = "topLeft" | "center";
 

@@ -11,10 +11,11 @@ vocabulary this follows), `../raspi` (deploy).
 core/        the format, its validator, and every pure operation on a sprite.
              One module per concern in src/ (format, tree, validate, geometry,
              blocks, colour, rotation, perspective, flatten, shapes, frames,
-             palette, cycles, levels, parts, carry, image, json), re-exported
-             by index.ts; patch.ts,
-             mapper.ts and sample.ts are shared between them and stay off the
-             surface. A test file per module; node-only.
+             palette, cycles, levels, parts, carry, image, json, read),
+             re-exported by index.ts; patch.ts, mapper.ts and sample.ts are
+             shared between them and stay off the surface. A test file per
+             module; node-only. Imports name their `.ts` files, so its build is
+             plain ESM. Published as `@anarkisti/dab/core`.
 frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
              src/lib/editor/ is the store, one module per concern, layered so
              imports only point down: state → tree → selection → history → the
@@ -23,9 +24,10 @@ frontend/    the editor — Vite + Svelte 5 (runes) SPA, browser-mode vitest.
              public surface; commit and the other shared helpers stay among
              the modules.
 cli/         @anarkisti/dab, the published package (0.x): `dab mcp`, an MCP server
-             over core for a model to read, render and draw with, and the Vite
-             plugin serving the editor and a sprite folder in a dev server. Node,
-             run locally. Released by tag (release.yaml).
+             over core for a model to read, render and draw with; the Vite
+             plugin serving the editor and a sprite folder in a dev server; and
+             `/core`, core itself, for a game to draw sprites with. Released by
+             tag (release.yaml).
 schema/      sprite.schema.json — the format for consumers, beside FORMAT.md (the
              prose). core's schema test holds it to validateSprite both ways; a
              rule the schema cannot say is listed in both places.
@@ -36,9 +38,13 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
 
 ## Conventions
 
-- **The format is the contract; there is no library to depend on.** A cell's
-  colour is `variant?.[ch] ?? palette[ch]`, with `.` transparent — one line, so a
-  consumer owns its own reader and nothing has to be versioned between repos.
+- **The format is the contract, and core reads it.** A cell's colour is
+  `variant?.[ch] ?? palette[ch]`, with `.` transparent; an assembly is the walk
+  in core's `layers` (behind-parts, own grid, the rest; a `use` or flipped part
+  a leaf). The editor, `flattenSprite` and a game all draw through that walk:
+  a game takes `@anarkisti/dab/core` (pure, no DOM, no dependencies of its own)
+  rather than writing a reader, so a format change ships with the reader that
+  draws it. 0.x: core's surface may change between minor versions.
 - **The format may break.** Every consumer is in-house (`../scene`,
   `../nahkarele`), so a format change is designed on its merits and the readers
   and the files they hold are migrated with it — "an old reader still draws

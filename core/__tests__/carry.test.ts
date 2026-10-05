@@ -3,7 +3,7 @@
 // and in one frame a leg swings across where a spot would go.
 import { describe, expect, test } from "vitest";
 
-import { bestOffset, carryEdits, frameEdits } from "../src";
+import { bestOffset, carryEdits, frameEdits } from "../src/index.ts";
 
 /** The deer's walk, before the spots. Its body ends at x 7 with the shoulder. */
 const WALK = [

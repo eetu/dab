@@ -1,5 +1,5 @@
-import { colourGap, type Lab, oklab, SAME_COLOUR } from "./colour";
-import { PALETTE_CHARS } from "./palette";
+import { colourGap, type Lab, oklab, SAME_COLOUR } from "./colour.ts";
+import { PALETTE_CHARS } from "./palette.ts";
 
 /**
  * Characters for colours nobody drew by hand — the palette side of every
