@@ -1,6 +1,6 @@
-import { type Level, type SpriteBody } from "./format";
-import { patch } from "./patch";
-import { resample } from "./sample";
+import { type Level, type SpriteBody } from "./format.ts";
+import { patch } from "./patch.ts";
+import { resample } from "./sample.ts";
 
 // Levels of detail: one subject drawn at more than one size (see `Level`).
 //

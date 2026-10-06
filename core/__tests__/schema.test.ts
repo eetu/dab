@@ -17,8 +17,8 @@ import {
   deriveLevel,
   type SpriteFile,
   validateSprite,
-} from "../src";
-import { car as carFixture, spoke, sprite } from "./fixtures";
+} from "../src/index.ts";
+import { car as carFixture, spoke, sprite } from "./fixtures.ts";
 
 const check = new Ajv2020({ allErrors: true }).compile(schema);
 

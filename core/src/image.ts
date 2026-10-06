@@ -1,4 +1,4 @@
-import { alphaOf, cellColour, type SpriteBody, TRANSPARENT } from "./format";
+import { alphaOf, cellColour, type SpriteBody, TRANSPARENT } from "./format.ts";
 
 // Images for things that are not dab: an indexed PNG of a frame, a GIF of a
 // run. The JSON stays the working format — art that diffs as art — and these

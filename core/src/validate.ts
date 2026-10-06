@@ -7,7 +7,7 @@ import {
   type SpriteBody,
   type SpriteFile,
   TRANSPARENT,
-} from "./format";
+} from "./format.ts";
 
 /**
  * Everything wrong with a sprite, as sentences.

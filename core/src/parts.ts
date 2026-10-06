@@ -1,6 +1,6 @@
-import { blankFrame, cloneSprite, type Part, type SpriteBody, TRANSPARENT } from "./format";
-import { getPixel, setPixels } from "./geometry";
-import { patch } from "./patch";
+import { blankFrame, cloneSprite, type Part, type SpriteBody, TRANSPARENT } from "./format.ts";
+import { getPixel, setPixels } from "./geometry.ts";
+import { patch } from "./patch.ts";
 
 // Making parts: a blank one, a borrowed one, or one lifted out of what is
 // already drawn. The last is how a subject usually becomes an assembly — a door

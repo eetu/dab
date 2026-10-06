@@ -1,4 +1,4 @@
-import { alphaOf } from "./format";
+import { alphaOf } from "./format.ts";
 
 /**
  * A colour in OKLab, plus its opacity — used for one question only: is this the

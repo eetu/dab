@@ -1,4 +1,4 @@
-import { type SpriteFile } from "../src";
+import { type SpriteFile } from "../src/index.ts";
 
 export const sprite = (
   rows: string[],

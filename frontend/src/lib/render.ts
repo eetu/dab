@@ -2,10 +2,10 @@
 // those.
 //
 // Shared by the canvas and the preview rather than written twice, so the two
-// cannot disagree about what a sprite looks like. It is deliberately the same
-// loop a consumer writes — behind-parts, own grid, the rest — because the format
-// is the contract and this is the thing that proves the contract is small.
-import { cellColour, flipRows, isPartRef, type Part, type SpriteBody, TRANSPARENT } from "dab-core";
+// cannot disagree about what a sprite looks like. The walk is core's `layers`,
+// the one a game draws with through `@anarkisti/dab/core`, so what the editor
+// shows is what is drawn.
+import { cellColour, flipRows, layers, type SpriteBody, TRANSPARENT } from "dab-core";
 
 /** How one node is drawn. The editor dims everything but the node being edited;
  *  the preview draws the whole thing full, because that is what will be drawn.
@@ -127,65 +127,25 @@ export function paintAssembly(
   opts: PaintOptions,
   path: string[] = [],
 ): void {
-  const parts = node.parts ?? [];
-  for (const p of parts) if (p.behind) paintPart(g, p, ox, oy, opts, path);
-  if (!opts.hidden?.(path)) {
+  // A `use` name the folder has not got draws nothing. It is reported in the
+  // tree rather than here — silently dropping the entry is the unrecoverable thing.
+  const under = (p: string[]) => [...path, ...p];
+  const walk = layers(node, 0, {
+    resolve: opts.resolve,
+    frameOf: (p, n) => opts.frameOf(under(p), n),
+    hidden: opts.hidden && ((p) => opts.hidden?.(under(p)) ?? false),
+  });
+  for (const l of walk) {
+    const rows = l.body.frames[l.frame] ?? [];
+    const at = under(l.path);
     paintRows(
       g,
-      node.frames[opts.frameOf(path, node)] ?? [],
-      node,
-      ox,
-      oy,
+      l.flip ? flipRows(rows, l.flip) : rows,
+      l.body,
+      ox + l.x,
+      oy + l.y,
       opts.variant,
-      opts.style?.(path) ?? "full",
+      opts.style?.(at) ?? "full",
     );
   }
-  for (const p of parts) if (!p.behind) paintPart(g, p, ox, oy, opts, path);
-}
-
-function paintPart(
-  g: CanvasRenderingContext2D,
-  p: Part,
-  ox: number,
-  oy: number,
-  opts: PaintOptions,
-  path: string[],
-): void {
-  const sub = [...path, p.name];
-  // A shared part is a leaf: its own parts, if it has any, are not expanded.
-  const node = isPartRef(p) ? opts.resolve(p.use) : p;
-  // A name the folder has not got draws nothing. It is reported in the tree
-  // rather than here — silently dropping the entry is the unrecoverable thing.
-  if (!node) return;
-  // A leaf has nothing under it, so hidden is the end of the matter. A part
-  // with pixels of its own goes through paintAssembly, which asks again for
-  // each node it reaches.
-  if ((isPartRef(p) || p.flip) && opts.hidden?.(sub)) return;
-  if (p.flip) {
-    // A flipped part carries no parts of its own, so mirroring its grid is the
-    // whole job — no child offsets to mirror with it.
-    paintRows(
-      g,
-      flipRows(node.frames[opts.frameOf(sub, node)] ?? [], p.flip),
-      node,
-      ox + p.x,
-      oy + p.y,
-      opts.variant,
-      opts.style?.(sub) ?? "full",
-    );
-    return;
-  }
-  if (isPartRef(p)) {
-    paintRows(
-      g,
-      node.frames[opts.frameOf(sub, node)] ?? [],
-      node,
-      ox + p.x,
-      oy + p.y,
-      opts.variant,
-      opts.style?.(sub) ?? "full",
-    );
-    return;
-  }
-  paintAssembly(g, node, ox + p.x, oy + p.y, opts, sub);
 }

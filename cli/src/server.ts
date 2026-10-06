@@ -20,7 +20,9 @@ const INSTRUCTIONS = `dab sprites: JSON files of rows of characters plus the pal
 - One write is one change in the file and one undo step in the editor, so a change made of
   several edits goes in one \`batch\`.
 - A subject with pieces that move on their own (doors, wheels, debris) is easiest drawn whole,
-  so its light and outline read as one, and then cut apart with \`part\` lift.`;
+  so its light and outline read as one, and then cut apart with \`part\` lift.
+- What is hidden can still be drawn: a far leg whole, a body whole under the near legs.
+  order_part sets who covers whom, a part going behind its parent's grid or in front.`;
 
 export function createServer(store: Store): McpServer {
   const server = new McpServer(

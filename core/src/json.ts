@@ -1,5 +1,5 @@
-import { isPartRef, type Part, type SpriteBody, type SpriteFile } from "./format";
-import { validateSprite } from "./validate";
+import { isPartRef, type Part, type SpriteBody, type SpriteFile } from "./format.ts";
+import { validateSprite } from "./validate.ts";
 
 /**
  * Stable JSON: keys in a fixed order and one frame row per line.

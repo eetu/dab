@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { flattenSprite, type Part } from "../src";
+import { flattenSprite, type Part } from "../src/index.ts";
 
 describe("flatten", () => {
   const body = (rows: string[], palette: Record<string, string>, parts?: Part[]) => ({

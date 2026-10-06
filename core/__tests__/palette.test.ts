@@ -17,8 +17,8 @@ import {
   validateSprite,
   withAlpha,
   writePaletteFile,
-} from "../src";
-import { sprite } from "./fixtures";
+} from "../src/index.ts";
+import { sprite } from "./fixtures.ts";
 
 describe("palette", () => {
   test("a new colour takes the next free character", () => {

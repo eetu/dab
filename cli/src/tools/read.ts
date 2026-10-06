@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { cyclesOf, groupBox, isPartRef, type Part, phaseName, type SpriteBody } from "dab-core";
+import { cyclesOf, drawOrder, groupBox, isPartRef, phaseName, type SpriteBody } from "dab-core";
 import { z } from "zod";
 
 import { fail, type Loaded, type Store } from "../store";
@@ -120,7 +120,7 @@ function outline(loaded: Loaded, resolve: (name: string) => SpriteBody | null): 
   }
   if (s.parts?.length) {
     lines.push("parts, in drawing order (x,y in the parent's pixels):");
-    lines.push(...parts(s.parts, "  ", resolve));
+    lines.push(...parts(s, "  ", resolve));
   }
   for (const l of s.levels ?? []) {
     lines.push(`level @${l.name}: ${l.w}×${l.h}`, ...body(l, "  "));
@@ -158,12 +158,15 @@ function body(n: SpriteBody, indent: string): string[] {
   return out;
 }
 
+/** A node's parts in the order they draw; with any behind it, its own grid among them. */
 function parts(
-  list: Part[],
+  node: SpriteBody,
   indent: string,
   resolve: (name: string) => SpriteBody | null,
 ): string[] {
-  return list.flatMap((p) => {
+  const order = drawOrder(node);
+  return order.flatMap((p) => {
+    if (!p) return order[0] ? [`${indent}(its own grid)`] : [];
     const flags = [p.behind && "behind", p.flip && `flip ${p.flip}`].filter(Boolean).join(", ");
     const tail = flags ? `  (${flags})` : "";
     if (isPartRef(p)) {
@@ -174,7 +177,7 @@ function parts(
     return [
       `${indent}${p.name} at ${p.x},${p.y}: ${p.w}×${p.h}, ${p.frames.length} frame${p.frames.length === 1 ? "" : "s"}${tail}`,
       ...body(p, `${indent}  `),
-      ...parts(p.parts ?? [], `${indent}  `, resolve),
+      ...parts(p, `${indent}  `, resolve),
     ];
   });
 }

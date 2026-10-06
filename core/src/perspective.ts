@@ -1,4 +1,4 @@
-import { resample } from "./sample";
+import { resample } from "./sample.ts";
 
 // Deluxe Paint's perspective brush: a plane in front of the eye, and the brush
 // laid on it wherever the pointer lands.

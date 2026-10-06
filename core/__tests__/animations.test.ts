@@ -12,8 +12,8 @@ import {
   type SpriteFile,
   toJson,
   validateSprite,
-} from "../src";
-import { car, spoke } from "./fixtures";
+} from "../src/index.ts";
+import { car, spoke } from "./fixtures.ts";
 
 describe("animations", () => {
   test("an animation names frames the sprite has, and holds are repeats", () => {

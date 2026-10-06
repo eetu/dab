@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { readStamp, setPixels, stampCells } from "../src";
+import { readStamp, setPixels, stampCells } from "../src/index.ts";
 
 describe("blocks", () => {
   const frame = ["AB..", ".C..", "....", "...."];

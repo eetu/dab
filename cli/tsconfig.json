@@ -12,8 +12,10 @@
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
     // core resolved to source, matching the alias in vite.config.ts: its
-    // `exports` point at dist/, which a clean clone has not built.
-    "paths": { "dab-core": ["../core/src/index.ts"] }
+    // `exports` point at dist/, which a clean clone has not built. Its imports
+    // name their `.ts` files, as Node runs them.
+    "paths": { "dab-core": ["../core/src/index.ts"] },
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*.ts", "__tests__/**/*.ts", "*.config.ts"]
 }

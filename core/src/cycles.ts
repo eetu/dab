@@ -1,5 +1,5 @@
-import { type SpriteBody, TRANSPARENT, variantNames } from "./format";
-import { patch } from "./patch";
+import { type SpriteBody, TRANSPARENT, variantNames } from "./format.ts";
+import { patch } from "./patch.ts";
 
 // Colour cycling — Deluxe Paint's cycle ranges — said in palette variants.
 //

@@ -1,7 +1,7 @@
 {
   "name": "@anarkisti/dab",
-  "version": "0.1.0",
-  "description": "dab on a folder of character-grid sprites: a Vite plugin serving the pixel editor and the folder to it, and an MCP server for drawing with a model.",
+  "version": "0.2.0",
+  "description": "dab on a folder of character-grid sprites: a Vite plugin serving the pixel editor and the folder to it, an MCP server for drawing with a model, and the format itself for a game to read sprites with.",
   "keywords": [
     "pixel-art",
     "sprite",
@@ -20,6 +20,10 @@
   "homepage": "https://github.com/eetu/dab#readme",
   "bin": "./dist/dab.js",
   "exports": {
+    "./core": {
+      "types": "./types/core/index.d.ts",
+      "import": "./dist/core.js"
+    },
     "./vite": {
       "types": "./types/vite.d.ts",
       "import": "./dist/vite.js"
@@ -37,7 +41,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && yarn workspace dab-frontend vite build --base /__dab/ --outDir ../cli/dist/editor --emptyOutDir",
+    "build": "yarn workspace dab-core build && node scripts/core-types.mjs && vite build && yarn workspace dab-frontend vite build --base /__dab/ --outDir ../cli/dist/editor --emptyOutDir",
     "prepack": "yarn build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
@@ -51,17 +55,15 @@
       "optional": true
     }
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.0",
-    "zod": "^4.6.5"
-  },
   "devDependencies": {
     "@anarkisti/eslint-config": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@types/node": "^26.6.3",
     "dab-core": "workspace:*",
     "eslint": "^10.8.0",
     "typescript": "^6.0.2",
     "vite": "^8.3.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "zod": "^4.6.5"
   }
 }

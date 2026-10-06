@@ -1,5 +1,5 @@
-import { isPaletteKey, type SpriteBody, TRANSPARENT } from "./format";
-import { patch } from "./patch";
+import { isPaletteKey, type SpriteBody, TRANSPARENT } from "./format.ts";
+import { patch } from "./patch.ts";
 
 /** Characters a sprite may use, in a stable order, skipping the taken ones. */
 export const PALETTE_CHARS =

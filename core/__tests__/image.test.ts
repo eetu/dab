@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { composite, crc32, encodeGif, encodePng, picture, type SpriteBody } from "../src";
+import { composite, crc32, encodeGif, encodePng, picture, type SpriteBody } from "../src/index.ts";
 
 const SIGN: SpriteBody = {
   w: 3,

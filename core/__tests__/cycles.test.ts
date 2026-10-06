@@ -15,8 +15,8 @@ import {
   type SpriteFile,
   toJson,
   validateSprite,
-} from "../src";
-import { sprite } from "./fixtures";
+} from "../src/index.ts";
+import { sprite } from "./fixtures.ts";
 
 /** A strip of water: three blues, and a black that is not in the cycle. */
 const water = (): SpriteFile =>

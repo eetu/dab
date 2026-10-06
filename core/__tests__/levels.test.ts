@@ -19,7 +19,7 @@ import {
   toJson,
   validateSprite,
   withNode,
-} from "../src";
+} from "../src/index.ts";
 
 const PAL = { A: "#ff0000", B: "#0000ff" };
 

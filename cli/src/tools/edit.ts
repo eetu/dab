@@ -18,6 +18,7 @@ import {
   moveFrame,
   movePaletteChar,
   moveParts,
+  orderPart,
   padSprite,
   refreshCycles,
   removeColour,
@@ -411,6 +412,41 @@ export function registerEdit(server: McpServer, store: Store) {
         const dx = a.x !== undefined ? a.x - placed.x : (a.dx ?? 0);
         const dy = a.y !== undefined ? a.y - placed.y : (a.dy ?? 0);
         return moveParts(s, [p], dx, dy);
+      },
+    }),
+  );
+
+  registerWrite(
+    server,
+    store,
+    "order_part",
+    {
+      description:
+        "Move a part forward or backward in its parent's draw order: the parts drawn behind " +
+        "the parent's own grid, then the grid, then the rest. forward/backward go `steps` " +
+        "places (default 1), front/back all the way. The grid is one of the steps, so a part " +
+        "stepped past it changes sides — a far leg drawn whole goes behind the body hiding it.",
+      inputSchema: {
+        file: arg.file,
+        version: arg.version,
+        part: z.string().min(1).describe('The part\'s path, e.g. "doorL" or "doorL/handle"'),
+        to: z.enum(["forward", "backward", "front", "back"]),
+        steps: z.number().int().min(1).optional(),
+      },
+    },
+    (a) => ({
+      fn: (s, { label }) => {
+        const p = parseNode(a.part);
+        if (levelOf(p) !== null) fail("a level has no place among parts");
+        const parent = findNode(s, label, p.slice(0, -1));
+        const name = p[p.length - 1];
+        if (!parent.parts?.some((q) => q.name === name)) {
+          const names = (parent.parts ?? []).map((q) => q.name);
+          fail(
+            `${where(label, p.slice(0, -1))} has no part ${name}; ${names.length ? `its parts: ${names.join(", ")}` : "it has none"}`,
+          );
+        }
+        return orderPart(s, p, a.to, a.steps);
       },
     }),
   );

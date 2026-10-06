@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { blankSprite, validateSprite } from "../src";
-import { sprite } from "./fixtures";
+import { blankSprite, validateSprite } from "../src/index.ts";
+import { sprite } from "./fixtures.ts";
 
 describe("validation", () => {
   test("a blank sprite is valid", () => {

@@ -9,7 +9,10 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    // Imports name their `.ts` files and the build writes them as `.js`: dist/ is
+    // plain ESM that Node and every bundler run as it is.
+    "rewriteRelativeImportExtensions": true
   },
   "include": ["src/**/*.ts", "__tests__/**/*.ts"]
 }

@@ -1,4 +1,4 @@
-import { patch } from "./patch";
+import { patch } from "./patch.ts";
 
 /** Mirror a part's own grid. Free in this format: reverse rows, reverse each. */
 export type Flip = "h" | "v" | "hv";

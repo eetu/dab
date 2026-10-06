@@ -1,7 +1,7 @@
 // Making parts: blank, borrowed, or lifted out of what is drawn.
 import { describe, expect, test } from "vitest";
 
-import { addPart, freePartName, liftPart, type SpriteBody } from "../src";
+import { addPart, freePartName, liftPart, type SpriteBody } from "../src/index.ts";
 
 const body = (): SpriteBody => ({
   w: 4,

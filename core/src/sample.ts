@@ -1,6 +1,6 @@
-import { channels, SAME_COLOUR } from "./colour";
-import { TRANSPARENT, withAlpha } from "./format";
-import { paletteMapper } from "./mapper";
+import { channels, SAME_COLOUR } from "./colour.ts";
+import { TRANSPARENT, withAlpha } from "./format.ts";
+import { paletteMapper } from "./mapper.ts";
 
 /** Where a point of the result comes from in the source grid, or null for
  *  nowhere — what a transform IS, as far as the sampler is concerned. */

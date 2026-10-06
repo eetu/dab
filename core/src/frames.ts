@@ -1,5 +1,5 @@
-import { blankFrame, type Level, type SpriteBody } from "./format";
-import { patch } from "./patch";
+import { blankFrame, type Level, type SpriteBody } from "./format.ts";
+import { patch } from "./patch.ts";
 
 /**
  * Move every animation's indices through the same permutation the frames just went
