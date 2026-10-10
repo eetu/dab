@@ -11,9 +11,9 @@ __metadata:
   dependencies:
     "@anarkisti/eslint-config": "npm:^1.0.0"
     "@modelcontextprotocol/sdk": "npm:^1.32.0"
-    "@types/node": "npm:^26.6.3"
+    "@types/node": "npm:^26.6.4"
     dab-core: "workspace:*"
-    eslint: "npm:^10.8.0"
+    eslint: "npm:^10.12.0"
     typescript: "npm:^6.0.2"
     vite: "npm:^8.3.1"
     vitest: "npm:^4.1.10"
@@ -401,12 +401,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@lucide/svelte@npm:^1.48.0":
-  version: 1.48.0
-  resolution: "@lucide/svelte@npm:1.48.0"
+"@lucide/svelte@npm:^1.51.0":
+  version: 1.51.0
+  resolution: "@lucide/svelte@npm:1.51.0"
   peerDependencies:
     svelte: ^5
-  checksum: 10/5e96bb15aa5f661ef85676a0e955a8f96210e55e2e6176e4507c7223eabc926bace83a47c2c85b08421ba09abc8aaa553f7e2a6a624428d83a18b730d36162ea
+  checksum: 10/5dfa74c8b77189198c07dbc228d745c39451ae97ca38f8d0dcf57cb4e169954b8b338f0006f495d9aab1c1323e4537851359f5ede2206baebaea06bdc127c6d1
   languageName: node
   linkType: hard
 
@@ -759,12 +759,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^26.6.3":
-  version: 26.6.3
-  resolution: "@types/node@npm:26.6.3"
+"@types/node@npm:^26.6.4":
+  version: 26.6.4
+  resolution: "@types/node@npm:26.6.4"
   dependencies:
     undici-types: "npm:~8.9.0"
-  checksum: 10/278d5241522520fbadd46b41065d7587bbb214adb3c6f8a2a9a28754d374c578d090f7387866d09c79be1e9bbf5adc7eeea453032a52f77e70b06077f85c5c14
+  checksum: 10/649173a03497020b8d3624a5149e0286bd175baf6d1df070c538637ccb256ce5554a76c5b63b454bda2cdb1821fa457e074477a75c3c78fc8f562d5c4a31cba8
   languageName: node
   linkType: hard
 
@@ -1323,7 +1323,7 @@ __metadata:
   dependencies:
     "@anarkisti/eslint-config": "npm:^1.0.0"
     ajv: "npm:^8.20.0"
-    eslint: "npm:^10.11.0"
+    eslint: "npm:^10.12.0"
     typescript: "npm:^6.0.2"
     vitest: "npm:^4.1.10"
   languageName: unknown
@@ -1334,12 +1334,12 @@ __metadata:
   resolution: "dab-frontend@workspace:frontend"
   dependencies:
     "@anarkisti/eslint-config": "npm:^1.0.0"
-    "@lucide/svelte": "npm:^1.48.0"
+    "@lucide/svelte": "npm:^1.51.0"
     "@sveltejs/vite-plugin-svelte": "npm:^7.3.1"
-    "@types/node": "npm:^26.6.3"
+    "@types/node": "npm:^26.6.4"
     "@vitest/browser-playwright": "npm:^4.1.10"
     dab-core: "workspace:*"
-    eslint: "npm:^10.11.0"
+    eslint: "npm:^10.12.0"
     playwright: "npm:^1.63.0"
     prettier: "npm:^3.9.9"
     prettier-plugin-svelte: "npm:^4.1.1"
@@ -1712,52 +1712,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint@npm:^10.11.0":
-  version: 10.11.0
-  resolution: "eslint@npm:10.11.0"
-  dependencies:
-    "@eslint-community/eslint-utils": "npm:^4.8.0"
-    "@eslint-community/regexpp": "npm:^4.12.2"
-    "@eslint/config-array": "npm:^0.23.5"
-    "@eslint/config-helpers": "npm:^0.7.0"
-    "@eslint/core": "npm:^1.2.1"
-    "@eslint/plugin-kit": "npm:^0.7.3"
-    "@humanfs/node": "npm:^0.16.6"
-    "@humanwhocodes/module-importer": "npm:^1.0.1"
-    "@humanwhocodes/retry": "npm:^0.4.2"
-    "@types/estree": "npm:^1.0.6"
-    ajv: "npm:^6.14.0"
-    cross-spawn: "npm:^7.0.6"
-    debug: "npm:^4.3.2"
-    escape-string-regexp: "npm:^4.0.0"
-    eslint-scope: "npm:^9.1.2"
-    eslint-visitor-keys: "npm:^5.0.1"
-    espree: "npm:^11.2.0"
-    esquery: "npm:^1.7.0"
-    esutils: "npm:^2.0.2"
-    fast-deep-equal: "npm:^3.1.3"
-    file-entry-cache: "npm:11.1.5 || >11.1.6 <12"
-    find-up: "npm:^5.0.0"
-    glob-parent: "npm:^6.0.2"
-    ignore: "npm:^5.2.0"
-    imurmurhash: "npm:^0.1.4"
-    is-glob: "npm:^4.0.0"
-    json-stable-stringify-without-jsonify: "npm:^1.0.1"
-    minimatch: "npm:^10.2.5"
-    natural-compare: "npm:^1.4.0"
-    optionator: "npm:^0.9.3"
-  peerDependencies:
-    jiti: "*"
-  peerDependenciesMeta:
-    jiti:
-      optional: true
-  bin:
-    eslint: bin/eslint.js
-  checksum: 10/b4de8711cae009d6978e3760d400d5b2cba4117625764d9b1b77969c61f4db7dfa7bfb2754c0a22b3d9f35960a3e4f03bd579104d2c25894490bf3cf7b448cac
-  languageName: node
-  linkType: hard
-
-"eslint@npm:^10.8.0":
+"eslint@npm:^10.12.0":
   version: 10.12.0
   resolution: "eslint@npm:10.12.0"
   dependencies:
