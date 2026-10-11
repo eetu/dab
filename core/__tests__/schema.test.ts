@@ -36,6 +36,10 @@ const accepted: [string, unknown][] = [
   ["inline and `use` parts, flipped and behind", carFixture()],
   ["a borrowed sprite", spoke],
   ["levels", addLevel(base(), deriveLevel(base(), "far", 2, 1))],
+  [
+    "slices behind it",
+    { ...base(), slices: [{ name: "tread", frames: base().frames }, { frames: base().frames }] },
+  ],
   ["the example car, as shipped", car],
   ["the example wheel, as shipped", wheel],
 ];
@@ -88,6 +92,12 @@ const structural: [string, unknown][] = [
   ["a level with parts", { ...base(), levels: [{ ...base(), name: "far", parts: [] }] }],
   ["a level whose name has a /", { ...base(), levels: [{ ...base(), name: "far/away" }] }],
   ["levels on a part", { ...base(), parts: [{ ...spoke, name: "w", x: 0, y: 0, levels: [] }] }],
+  ["a part named like a slice", { ...base(), parts: [{ name: "#1", x: 0, y: 0, use: "s" }] }],
+  [
+    "a slice with a palette of its own",
+    { ...base(), slices: [{ frames: base().frames, palette: {} }] },
+  ],
+  ["slices on a part", { ...base(), parts: [{ ...spoke, name: "w", x: 0, y: 0, slices: [] }] }],
 ];
 
 /** Files the validator rejects for a rule that relates one field to another,
@@ -124,6 +134,12 @@ const validatorOnly: [string, unknown][] = [
       levels: [{ ...base(), name: "far", frames: [...base().frames, ...base().frames] }],
     },
   ],
+  [
+    "a slice out of step with the sprite",
+    { ...base(), slices: [{ frames: [...base().frames, ...base().frames] }] },
+  ],
+  ["a slice row narrower than w", { ...base(), slices: [{ frames: [["AB", ".BA"]] }] }],
+  ["a slice in a colour the sprite lacks", { ...base(), slices: [{ frames: [["AZ.", ".BA"]] }] }],
   [
     "two levels with one name",
     {

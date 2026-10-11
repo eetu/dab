@@ -5,6 +5,7 @@ import {
   isPaletteKey,
   isPartRef,
   movePaletteChar as movePaletteCharIn,
+  nodeAt,
   type Part,
   refreshCycles,
   removeColour as removeColourFrom,
@@ -17,9 +18,9 @@ import {
   withNode,
 } from "dab-core";
 
-import { commit, commitNode } from "./history.svelte";
+import { commit, commitColours } from "./history.svelte";
 import { editor } from "./state.svelte";
-import { activeNode, allNodes, blocked, pathKey } from "./tree.svelte";
+import { activeNode, allNodes, blocked, colourPath, pathKey } from "./tree.svelte";
 
 /**
  * Drop every palette entry no frame uses — one edit, one undo.
@@ -30,10 +31,10 @@ import { activeNode, allNodes, blocked, pathKey } from "./tree.svelte";
  * only has 69 characters to spend.
  */
 export function removeUnusedColours(): number {
-  const node = activeNode();
+  const node = nodeAt(editor.sprite, colourPath()) ?? activeNode();
   const dead = unusedChars(node);
   if (!dead.length || blocked()) return 0;
-  commitNode((n) =>
+  commitColours((n) =>
     refreshCycles(
       dead.reduce((m, ch) => removeColourFrom(m, ch), n),
       cyclesOf(n),
@@ -43,7 +44,7 @@ export function removeUnusedColours(): number {
   return dead.length;
 }
 
-export const addColour = (hex: string) => commitNode((n) => addColourTo(n, hex));
+export const addColour = (hex: string) => commitColours((n) => addColourTo(n, hex));
 
 /**
  * Colours from a palette file, onto the next free characters — one undo
@@ -58,14 +59,14 @@ export function importColours(hexes: string[], from: string) {
     return;
   }
   const { added, skipped } = addColoursTo(activeNode(), hexes);
-  if (added.length) commitNode((n) => addColoursTo(n, hexes).sprite);
+  if (added.length) commitColours((n) => addColoursTo(n, hexes).sprite);
   editor.status =
     `+${added.length} colour${added.length === 1 ? "" : "s"} from ${from}` +
     (skipped ? ` — ${skipped} already here or past the last character` : "");
   editor.statusBad = !added.length;
 }
 export function removeColour(ch: string) {
-  commitNode((n) => refreshCycles(removeColourFrom(n, ch), cyclesOf(n)));
+  commitColours((n) => refreshCycles(removeColourFrom(n, ch), cyclesOf(n)));
   if (editor.ink === ch) editor.ink = TRANSPARENT;
 }
 /** Set a colour. `fresh` opens the undo entry; a picker drag streams the rest
@@ -75,15 +76,15 @@ export function setColour(ch: string, hex: string, fresh = true) {
   if (blocked()) return;
   // A cycle holds colours, not references, so its phases follow the edit.
   const edit = (n: SpriteBody) => refreshCycles(setColourIn(n, ch, hex));
-  if (fresh) return commitNode(edit);
-  editor.sprite = withNode(editor.sprite, editor.path, edit);
+  if (fresh) return commitColours(edit);
+  editor.sprite = withNode(editor.sprite, colourPath(), edit);
   editor.dirty = true;
 }
 
 /** Reorder the palette. The order is the file's — what `toJson` writes and what
  *  the swatches list in — so this is an edit, not a view preference. */
 export const movePaletteChar = (ch: string, to: number) =>
-  commitNode((n) => movePaletteCharIn(n, ch, to));
+  commitColours((n) => movePaletteCharIn(n, ch, to));
 export function renameChar(from: string, to: string) {
   const node = activeNode();
   if (renameCharIn(node, from, to) === node) {
@@ -93,7 +94,7 @@ export function renameChar(from: string, to: string) {
     }
     return;
   }
-  commitNode((n) => renameCharIn(n, from, to));
+  commitColours((n) => renameCharIn(n, from, to));
   if (editor.ink === from) editor.ink = to;
 }
 
@@ -149,7 +150,7 @@ export function paletteElsewhere(): { ch: string; hex: string; from: string }[] 
 export function adoptFromBundle() {
   const add = paletteElsewhere();
   if (!add.length) return;
-  commitNode((n) => ({
+  commitColours((n) => ({
     ...n,
     palette: { ...n.palette, ...Object.fromEntries(add.map((c) => [c.ch, c.hex])) },
   }));

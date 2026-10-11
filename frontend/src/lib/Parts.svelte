@@ -13,10 +13,11 @@
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import FlipHorizontal from "@lucide/svelte/icons/flip-horizontal";
   import Layers from "@lucide/svelte/icons/layers";
-  import { isPartRef, levelPath, type Part, type SpriteBody } from "dab-core";
+  import { isPartRef, levelPath, type Part, sliceBody, slicePath, type SpriteBody } from "dab-core";
 
   import { ask } from "./dialog.svelte";
   import {
+    addSlice,
     duplicatePart,
     editor,
     flipNode,
@@ -30,9 +31,11 @@
     removeLevel,
     removePart,
     removePickedParts,
+    removeSlice,
     rename,
     renameLevel,
     renamePart,
+    renameSlice,
     resolvePart,
     selectAll,
     selectNode,
@@ -241,6 +244,42 @@
       },
       { label: "Add part…", run: openPartDialog },
       { label: "New level…", hint: "this subject at another size", run: openLevelDialog },
+      {
+        label: "Add a slice behind",
+        hint: "this subject a voxel deeper, for a model",
+        run: () => addSlice(),
+      },
+    ];
+  }
+
+  /** A slice's verbs: what it is called, one more behind it, or not this one. */
+  function sliceItems(n: number): MenuItem[] {
+    const name = editor.sprite.slices?.[n - 1]?.name;
+    return [
+      {
+        label: "Rename…",
+        run: async () => {
+          const to = await ask({
+            title: `Name slice #${n}`,
+            label: "Name",
+            value: name ?? "",
+            placeholder: "tread, sidewall…",
+            note: `A label for whoever draws it. A consumer still reaches it as #${n}.`,
+            confirm: "Name",
+          });
+          if (to) renameSlice(n, to);
+        },
+      },
+      {
+        label: "Take the name off",
+        hint: name ? `#${n} again` : "it has none",
+        disabled: !name,
+        run: () => renameSlice(n, ""),
+      },
+      { kind: "separator" },
+      { label: "Add a slice behind this", run: () => addSlice(n) },
+      { kind: "separator" },
+      { label: "Remove", danger: true, run: () => removeSlice(n) },
     ];
   }
 
@@ -269,12 +308,16 @@
   }
 
   const levels = $derived(editor.sprite.levels ?? []);
+  /** The slices behind the front, each as the body it is drawn as. */
+  const slices = $derived(
+    (editor.sprite.slices ?? []).map((_, i) => sliceBody(editor.sprite, i + 1) as SpriteBody),
+  );
 
   /** Whether the sprite's levels and parts are folded away under its row. Each
    *  sprite opens unfolded; clicking its row again folds them, the way a second
    *  click on a folder's row closes it. */
   let folded = $state(false);
-  const inside = $derived(rows.length - 1 + levels.length);
+  const inside = $derived(rows.length - 1 + levels.length + slices.length);
   // Never hide what the tools draw on: a part or a level selected some other
   // way — on the canvas, from a menu — unfolds the tree to show its row.
   $effect(() => {
@@ -454,7 +497,7 @@
             <!-- The root's own trigger: the same items as right-clicking the row,
                because the two routes always agree. On the row itself: the open
                sprite is a file row in the tree, and a file row is one line. -->
-            <div class="acts root">
+            <div class="acts end">
               <IconButton
                 size="sm"
                 label={`Actions for ${editor.sprite.name}`}
@@ -493,11 +536,47 @@
               <span class="name">@{level.name}</span>
               <span class="size">{level.w}×{level.h}</span>
             </button>
-            <div class="acts">
+            <div class="acts end">
               <IconButton
                 size="sm"
                 label={`Actions for ${level.name}`}
                 onclick={(e) => openMenu(e, `@${level.name}`, levelItems(level.name))}
+              >
+                <Ellipsis size={13} />
+              </IconButton>
+            </div>
+          </li>
+        {/each}
+        <!-- The subject in depth, after its sizes: each slice a voxel further back
+             than the one above it, named the way a path names it. -->
+        {#each slices as slice, i (i)}
+          {@const n = i + 1}
+          {@const path = slicePath(n)}
+          {@const called = editor.sprite.slices?.[i]?.name}
+          {@const heading = called ? `#${n} ${called}` : `#${n}`}
+          <li
+            class:on={pathKey(path) === active}
+            style:--depth={1}
+            oncontextmenu={(e) => openMenu(e, heading, sliceItems(n))}
+          >
+            <button class="pick" onclick={() => selectNode(path)} title={`Draw ${heading}`}>
+              <span class="twist" aria-hidden="true"></span>
+              <span class="shot">
+                <Thumbnail
+                  node={slice}
+                  frame={Math.min(editor.frame, slice.frames.length - 1)}
+                  variant={editor.variant}
+                  height="1.4rem"
+                />
+              </span>
+              <span class="name">{called ?? `#${n}`}</span>
+              {#if called}<span class="size">#{n}</span>{/if}
+            </button>
+            <div class="acts end">
+              <IconButton
+                size="sm"
+                label={`Actions for slice ${n}`}
+                onclick={(e) => openMenu(e, heading, sliceItems(n))}
               >
                 <Ellipsis size={13} />
               </IconButton>
@@ -639,7 +718,8 @@
     min-width: 0;
     min-height: 1.6rem;
   }
-  .acts.root {
+  /* A row whose only control is its ⋯ keeps it on its own line, at the end. */
+  .acts.end {
     grid-column: 4;
     grid-row: 1;
   }

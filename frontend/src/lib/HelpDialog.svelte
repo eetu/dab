@@ -59,12 +59,19 @@
         <em>on the canvas</em>: no grid, no marquee, the fps on a bar over the art, and Esc puts
         your frame back. The loupe (last button on the rail) puts a small window over the canvas
         showing the sprite at ×1 — how it reads at the size it is drawn, moving when it moves. Drag
-        it to another corner; − and + change the size. A variant recolours characters without
-        redrawing; pick one to preview it, and it is what a consumer draws. Shift-click a second
-        swatch to take a run of colours, and <em>Cycle these</em> rotates them — one variant per
-        step, played with the frames, so water flows and lights chase without a frame more. A
-        cycle's colours follow the palette. The palette's ⋯ imports a Lospec <code>.hex</code> or
-        GIMP
+        it to another corner; − and + change the size. A sprite can have depth, for a game that
+        reads it as a model: <em>Add a slice behind</em> in its menu puts a copy of its grid a voxel
+        further back, a row under it in the tree to draw on like any part, sharing its palette and
+        frames; name one (tread, sidewall) from its menu. The 3D panel, under the colours, shows
+        what the grid and its slices make, from any side, at the frame on the strip, as you draw:
+        drag in it to turn it, double-click to look square on. A variant recolours characters
+        without redrawing; pick one to preview it, and it is what a consumer draws. Shift-click a
+        second swatch to take a run of colours, and
+        <em>Cycle these</em>
+        rotates them — one variant per step, played with the frames, so water flows and lights chase without
+        a frame more. A cycle's colours follow the palette. The palette's ⋯ imports a Lospec
+        <code>.hex</code>
+        or GIMP
         <code>.gpl</code> onto the free characters, and exports either.
       </p>
       <h3>Export</h3>

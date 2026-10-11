@@ -5,7 +5,7 @@
   // says nothing without the car under it. So the canvas stays exactly where it
   // is and this sits over the bottom of it, close enough to the art to compare
   // against but out of the middle of it.
-  import { levelOf } from "dab-core";
+  import { levelOf, sliceOf } from "dab-core";
 
   import {
     applyTurn,
@@ -29,7 +29,7 @@
   ];
 
   const hinged = $derived(turning.axis !== "z");
-  const onLevel = $derived(levelOf(editor.path) !== null);
+  const onLevel = $derived(levelOf(editor.path) !== null || sliceOf(editor.path) !== null);
 
   const SMOOTH = [
     { id: 1, label: "Crisp", hint: "Nearest neighbour — jagged, and costs no colours" },

@@ -7,6 +7,7 @@ import {
   nodeAt,
   type Part,
   type Placement,
+  sliceOf,
   type SpriteBody,
   type SpriteFile,
   withNode,
@@ -43,16 +44,24 @@ export function activeNode(): SpriteBody {
   return levelOf(editor.path) !== null ? { ...node, animations: editor.sprite.animations } : node;
 }
 
-/** What the canvas draws: the level being drawn, alone at its own size, or
- *  the sprite with its parts. */
-export const stageNode = (): SpriteBody =>
-  levelOf(editor.path) !== null
-    ? (nodeAt(editor.sprite, editor.path) ?? editor.sprite)
-    : editor.sprite;
+/** Whether the tools are on a level or a slice: a node that stands for the whole
+ *  subject (at another size, or further back) rather than a piece of it. */
+export const onWhole = (): boolean =>
+  levelOf(editor.path) !== null || sliceOf(editor.path) !== null;
 
-/** Where frame and animation edits land: the sprite itself when a level is
- *  being drawn, because every level steps with it. */
-export const sharedPath = (): string[] => (levelOf(editor.path) !== null ? [] : editor.path);
+/** What the canvas draws: the level or slice being drawn, alone, or the sprite with
+ *  its parts. */
+export const stageNode = (): SpriteBody =>
+  onWhole() ? (nodeAt(editor.sprite, editor.path) ?? editor.sprite) : editor.sprite;
+
+/** Where frame and animation edits land: the sprite itself when a level or a slice
+ *  is being drawn, because every one steps with it. */
+export const sharedPath = (): string[] => (onWhole() ? [] : editor.path);
+
+/** Where colour edits land: the sprite itself when a slice is being drawn, since one
+ *  palette colours it and every slice — a colour dropped from a slice alone would
+ *  leave the front drawn in a colour that is gone. */
+export const colourPath = (): string[] => (sliceOf(editor.path) !== null ? [] : editor.path);
 
 /** Where a node's top-left sits in the sprite's own coordinates. */
 export function nodeOrigin(path: readonly string[]): { x: number; y: number } {

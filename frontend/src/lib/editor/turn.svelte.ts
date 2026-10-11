@@ -10,6 +10,7 @@ import {
   resizeSprite,
   rotateRows,
   setPixels,
+  sliceOf,
   type SpriteFile,
   stampCells,
   stampRows,
@@ -178,7 +179,7 @@ export function setTurnFrames(n: number) {
   if (!turning.on) return;
   // Nor does a level: a run inserts frames, and the other sizes would only
   // get copies — the run belongs on the sprite, where every size steps with it.
-  const runs = turning.whole && levelOf(editor.path) === null;
+  const runs = turning.whole && levelOf(editor.path) === null && sliceOf(editor.path) === null;
   turning.frames = runs ? Math.max(1, Math.min(24, Math.round(n))) : 1;
   showTurn();
 }

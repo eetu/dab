@@ -9,7 +9,7 @@ import {
   type SpriteBody,
 } from "dab-core";
 
-import { commitNode } from "./history.svelte";
+import { commitColours } from "./history.svelte";
 import { editor } from "./state.svelte";
 import { activeNode, allNodes, blocked } from "./tree.svelte";
 
@@ -77,14 +77,14 @@ export function addCycle(chars: string[]): string | null {
     editor.statusBad = true;
     return null;
   }
-  commitNode((n) => addCycleTo(n, name, chars));
+  commitColours((n) => addCycleTo(n, name, chars));
   editor.variant = phaseName(name, 0);
   editor.status = `${name} · ${chars.length} phases — P plays it`;
   return name;
 }
 
 export function removeCycle(name: string) {
-  commitNode((n) => removeCycleFrom(n, name));
+  commitColours((n) => removeCycleFrom(n, name));
   if (editor.variant && !offered(editor.variant)) editor.variant = null;
 }
 
@@ -94,8 +94,8 @@ export function renameCycle(from: string, to: string) {
   const k = showing?.name === from ? showing.phases.indexOf(editor.variant!) : -1;
   const node = activeNode();
   if (renameCycleIn(node, from, to) === node) return;
-  commitNode((n) => renameCycleIn(n, from, to));
+  commitColours((n) => renameCycleIn(n, from, to));
   if (k >= 0) editor.variant = phaseName(to.trim(), k);
 }
 
-export const reverseCycle = (name: string) => commitNode((n) => reverseCycleIn(n, name));
+export const reverseCycle = (name: string) => commitColours((n) => reverseCycleIn(n, name));

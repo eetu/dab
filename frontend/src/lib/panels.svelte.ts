@@ -9,6 +9,8 @@
 // Both survive a reload. A panel you closed reopening on every dev-server
 // restart is worse than one that never closed.
 
+import type { Orbit } from "./voxels";
+
 const KEY = "dab.chrome";
 
 /** The three pieces of chrome around the canvas. */
@@ -51,21 +53,33 @@ type Chrome = {
   hidden: Record<string, boolean>;
   underlay: Underlay;
   loupe: Loupe;
+  /** Where the 3D panel looks from: the desk's, as the rest of the chrome. */
+  voxels: Orbit;
 };
 
 const LOUPE: Loupe = { on: false, zoom: 1, corner: "br" };
+/** A three-quarter look from up and to the left. */
+const VOXELS: Orbit = { yaw: -0.6, pitch: 0.45 };
 
 const load = (): Chrome => {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Chrome>;
     return {
-      folded: raw.folded ?? {},
+      // The 3D panel starts folded: most sprites are not models.
+      folded: { voxels: true, ...raw.folded },
       hidden: raw.hidden ?? {},
       underlay: raw.underlay ?? "full",
       loupe: { ...LOUPE, ...raw.loupe },
+      voxels: { ...VOXELS, ...raw.voxels },
     };
   } catch {
-    return { folded: {}, hidden: {}, underlay: "full", loupe: { ...LOUPE } };
+    return {
+      folded: { voxels: true },
+      hidden: {},
+      underlay: "full",
+      loupe: { ...LOUPE },
+      voxels: { ...VOXELS },
+    };
   }
 };
 
@@ -80,6 +94,7 @@ const save = () => {
         hidden: panels.hidden,
         underlay: panels.underlay,
         loupe: panels.loupe,
+        voxels: panels.voxels,
       }),
     );
   } catch {
@@ -111,6 +126,12 @@ export function setLoupeZoom(zoom: number): void {
 
 export function setLoupeCorner(corner: Corner): void {
   panels.loupe = { ...panels.loupe, corner };
+  save();
+}
+
+/** Where the 3D panel looks from: remembered once a turn is let go, not on every move. */
+export function setVoxelOrbit({ yaw, pitch }: Orbit): void {
+  panels.voxels = { yaw, pitch };
   save();
 }
 

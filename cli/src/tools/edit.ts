@@ -6,6 +6,7 @@ import {
   addFrame,
   addLevel,
   addPart,
+  addSlice,
   blankSprite,
   COLOUR,
   cyclesOf,
@@ -25,8 +26,10 @@ import {
   removeFrame,
   removeLevel,
   removeParts,
+  removeSlice,
   renameChar,
   renameLevel,
+  renameSlice,
   resizeSprite,
   rotateRows,
   setColour,
@@ -315,6 +318,38 @@ export function registerEdit(server: McpServer, store: Store) {
           renameLevel(s, a.name, to),
           `cannot rename level ${a.name} to ${to}: no such level, or the new name is taken or has a /; levels: ${names}`,
         );
+      },
+    }),
+  );
+
+  registerWrite(
+    server,
+    store,
+    "slice",
+    {
+      description:
+        "Slices are the subject in depth, for a model: the sprite's own grid is the front, each " +
+        "slice a voxel further back, front to back, in the sprite's palette and frames. add: a " +
+        "new slice right behind slice `after` (0 the front; the back unless given), a copy of it " +
+        "to draw over. remove slice `n`. rename slice `n` to `name`, a label (empty takes it " +
+        'off). Draw on one as node "#n" ("#1" right behind the front), whatever it is called.',
+      inputSchema: {
+        file: arg.file,
+        version: arg.version,
+        op: z.enum(["add", "remove", "rename"]),
+        after: z.number().int().min(0).optional(),
+        n: z.number().int().min(1).optional(),
+        name: z.string().optional(),
+      },
+    },
+    (a) => ({
+      fn: (s, { label }) => {
+        const count = s.slices?.length ?? 0;
+        if (a.op === "add") return addSlice(s, a.after ?? count);
+        const n = need(a.n, "n");
+        const none = `${label} has no slice #${n}; ${count ? `its slices: #1–#${count}` : "it has none"}`;
+        if (a.op === "remove") return changedOr(s, removeSlice(s, n), none);
+        return n <= count ? renameSlice(s, n, need(a.name, "name")) : changedOr(s, s, none);
       },
     }),
   );

@@ -49,5 +49,7 @@ export * from "./perspective.ts";
 export * from "./read.ts";
 export * from "./rotation.ts";
 export * from "./shapes.ts";
+export * from "./slices.ts";
 export * from "./tree.ts";
 export * from "./validate.ts";
+export * from "./voxels.ts";

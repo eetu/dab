@@ -1,18 +1,21 @@
-import { isPartRef, levelOf, type Part, type SpriteBody } from "./format.ts";
+import { isPartRef, levelOf, type Part, sliceBody, sliceOf, type SpriteBody } from "./format.ts";
 import { patch } from "./patch.ts";
 
 // A path is the list of part names from the root down. `[]` is the sprite
 // itself, `["doorL"]` its door, `["doorL", "handle"]` the handle on that door.
 // The editor holds one, every operation is applied through `withNode`, and a
 // consumer holds each node's frame under the same path — so the same three lines
-// address a part in the tool, in the file and in the game. A level is the one
-// node a path reaches that is not a part: `["@far"]`, at the top only.
+// address a part in the tool, in the file and in the game. A level and a slice
+// are the nodes a path reaches that are not parts: `["@far"]` and `["#1"]`, at
+// the top only.
 
 /** The node at a path, or null when the path names nothing — or names a `use`
  *  part, which has no body of its own to reach into. */
 export function nodeAt(s: SpriteBody, path: readonly string[]): SpriteBody | null {
   const level = levelOf(path);
   if (level !== null) return s.levels?.find((l) => l.name === level) ?? null;
+  const slice = sliceOf(path);
+  if (slice !== null) return sliceBody(s, slice);
   let node: SpriteBody = s;
   for (const name of path) {
     const found = (node.parts ?? []).find((p) => p.name === name);
@@ -46,6 +49,21 @@ export function withNode<T extends SpriteBody>(
     next[i] = patch(levels[i], fn(levels[i]));
     return patch(s, { levels: next });
   }
+  // A slice is the sprite's grid further back: its frames are its own, and anything
+  // else a tool changes on it (a colour) is the sprite's, which colours every slice.
+  const slice = sliceOf(path);
+  if (slice !== null) {
+    const body = sliceBody(s, slice);
+    if (!body) return s;
+    const out = fn(body);
+    const slices = [...(s.slices ?? [])];
+    slices[slice - 1] = { ...slices[slice - 1], frames: out.frames };
+    const shared =
+      out.palette !== body.palette || out.variants !== body.variants
+        ? { palette: out.palette, variants: out.variants }
+        : {};
+    return patch(s, { ...shared, slices });
+  }
   const parts = s.parts ?? [];
   const i = parts.findIndex((p) => p.name === path[0]);
   if (i < 0) return s;
@@ -78,7 +96,7 @@ export function moveParts<T extends SpriteBody>(
 ): T {
   let next = s;
   for (const path of topmost(paths)) {
-    if (!path.length || levelOf(path) !== null) continue;
+    if (!path.length || levelOf(path) !== null || sliceOf(path) !== null) continue;
     const name = path[path.length - 1];
     next = withNode(next, path.slice(0, -1), (n) => ({
       ...n,
@@ -109,7 +127,7 @@ export function orderPart<T extends SpriteBody>(
   to: PartOrder,
   steps = 1,
 ): T {
-  if (!path.length || levelOf(path) !== null) return s;
+  if (!path.length || levelOf(path) !== null || sliceOf(path) !== null) return s;
   const name = path[path.length - 1];
   return withNode(s, path.slice(0, -1), (n) => {
     const order = drawOrder(n);
@@ -139,7 +157,7 @@ export function orderPart<T extends SpriteBody>(
 export function removeParts<T extends SpriteBody>(s: T, paths: readonly (readonly string[])[]): T {
   let next = s;
   for (const path of topmost(paths)) {
-    if (!path.length || levelOf(path) !== null) continue;
+    if (!path.length || levelOf(path) !== null || sliceOf(path) !== null) continue;
     const name = path[path.length - 1];
     next = withNode(next, path.slice(0, -1), (n) => {
       const parts = n.parts?.filter((p) => p.name !== name);
