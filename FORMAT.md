@@ -109,6 +109,28 @@ frames as the sprite**, because it plays the sprite's animations — it has no
 `animations` of its own, and no parts. Which size to draw at which distance is
 the consumer's.
 
+## Slices
+
+```json
+"slices": [
+  { "name": "tread", "frames": [["…"]] },
+  { "frames": [["…"]] }
+]
+```
+
+The sprite in depth: what lies behind its own grid, a voxel further back each,
+front to back, every one as seen from in front. The sprite's own grid is the
+front, so a reader that draws it flat draws the face it shows; a reader that
+takes it as a thing in three dimensions stacks the slices behind it, one pixel
+to a voxel. A tyre standing up is a grid and three slices: a sidewall, the tread
+twice, a sidewall. Only the sprite itself has slices. A slice is frames and
+perhaps a `name` — its size, palette, variants and animations are the sprite's,
+so one palette colours the whole thing — and it has **exactly as many frames as
+the sprite**: a frame is still a moment, and a model that moves moves every
+slice together. A path names one by its place, `["#1"]` the slice right behind
+the front, whatever it is called, so a part's name cannot start with `#`. The
+name is a label for whoever draws it.
+
 ## How dab writes a file
 
 Keys in a fixed order, and one frame row per line, so a changed pixel is a
@@ -128,7 +150,9 @@ alone — a file can satisfy the schema and still break one:
 - part names are unique among siblings, and level names among levels;
 - a part does not `use` the sprite it belongs to;
 - parts nest at most four deep;
-- every level has as many frames as the sprite.
+- every level has as many frames as the sprite;
+- every slice has as many frames as the sprite, each `h` rows of `w` characters
+  in the sprite's colours.
 
 `core/__tests__/schema.test.ts` holds the two to each other: whatever the
 validator accepts, the schema accepts; whatever it rejects, the schema rejects

@@ -1,4 +1,12 @@
-import { isPaletteKey, isPartRef, LEVEL, nodeAt, type SpriteBody, TRANSPARENT } from "dab-core";
+import {
+  isPaletteKey,
+  isPartRef,
+  LEVEL,
+  nodeAt,
+  SLICE,
+  type SpriteBody,
+  TRANSPARENT,
+} from "dab-core";
 
 import { fail } from "./store";
 
@@ -22,6 +30,10 @@ export const where = (file: string, path: readonly string[]): string =>
 export function findNode(sprite: SpriteBody, file: string, path: readonly string[]): SpriteBody {
   const found = nodeAt(sprite, path);
   if (found) return found;
+  if (path.length === 1 && path[0].startsWith(SLICE)) {
+    const n = sprite.slices?.length ?? 0;
+    fail(`${file} has no slice ${path[0]}; ${n ? `its slices: #1–#${n}` : "it has none"}`);
+  }
   if (path.length === 1 && path[0].startsWith(LEVEL)) {
     const names = (sprite.levels ?? []).map((l) => LEVEL + l.name);
     fail(

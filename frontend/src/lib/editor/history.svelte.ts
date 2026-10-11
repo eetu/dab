@@ -2,7 +2,7 @@ import { cloneSprite, nodeAt, type SpriteBody, type SpriteFile, withNode } from 
 
 import { dropFloat } from "./selection.svelte";
 import { editor } from "./state.svelte";
-import { activeNode, blocked, partAt, sharedPath } from "./tree.svelte";
+import { activeNode, blocked, colourPath, partAt, sharedPath } from "./tree.svelte";
 
 // The undo stack, and the commit every edit goes through.
 //
@@ -64,6 +64,13 @@ export const commitNode = (fn: (node: SpriteBody) => SpriteBody) => {
   // palette and frame edit quietly do nothing. Say so instead.
   if (blocked()) return;
   commit(withNode(editor.sprite, editor.path, fn));
+};
+
+/** Commit a colour edit: to the sprite when a slice is being drawn, which every
+ *  slice shares the palette of. */
+export const commitColours = (fn: (node: SpriteBody) => SpriteBody) => {
+  if (blocked()) return;
+  commit(withNode(editor.sprite, colourPath(), fn));
 };
 
 /** Commit a frame or animation edit: to the sprite when a level is being

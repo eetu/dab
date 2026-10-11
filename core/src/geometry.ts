@@ -42,22 +42,25 @@ export function padSprite<T extends SpriteBody>(
  *  pixels they were drawn against — a body that slides two right takes its
  *  wheels with it, or the resize silently moves every part relative to the art. */
 function shifted<T extends SpriteBody>(s: T, w: number, h: number, dx: number, dy: number): T {
-  const frames = s.frames.map((frame) =>
-    Array.from({ length: h }, (_, y) => {
-      const src = frame[y - dy];
-      let row = "";
-      for (let x = 0; x < w; x++) {
-        const sx = x - dx;
-        row += src && sx >= 0 && sx < s.w ? src[sx] : TRANSPARENT;
-      }
-      return row;
-    }),
-  );
+  const move = (frames: string[][]) =>
+    frames.map((frame) =>
+      Array.from({ length: h }, (_, y) => {
+        const src = frame[y - dy];
+        let row = "";
+        for (let x = 0; x < w; x++) {
+          const sx = x - dx;
+          row += src && sx >= 0 && sx < s.w ? src[sx] : TRANSPARENT;
+        }
+        return row;
+      }),
+    );
   return patch(s, {
     w,
     h,
-    frames,
+    frames: move(s.frames),
     parts: s.parts?.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+    // The slices are the same grid further back: they grow and shrink with it.
+    ...(s.slices ? { slices: s.slices.map((l) => ({ ...l, frames: move(l.frames) })) } : {}),
   });
 }
 

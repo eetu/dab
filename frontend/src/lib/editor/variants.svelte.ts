@@ -1,6 +1,6 @@
 import { isPartRef, type SpriteBody, withNode } from "dab-core";
 
-import { commitNode } from "./history.svelte";
+import { commitColours } from "./history.svelte";
 import { editor } from "./state.svelte";
 import { activeNode, blocked } from "./tree.svelte";
 
@@ -12,7 +12,7 @@ import { activeNode, blocked } from "./tree.svelte";
 /** Replace the whole variant map, dropping it entirely when it empties. */
 function setVariants(variants: Record<string, Record<string, string>>) {
   const names = Object.keys(variants);
-  commitNode((n) => ({ ...n, variants: names.length ? variants : undefined }));
+  commitColours((n) => ({ ...n, variants: names.length ? variants : undefined }));
   // Keep the preview on something that still exists. A variant name is matched
   // across nodes, so this only clears when the ACTIVE node was the last to have
   // it — another part may still be drawn in a colourway of the same name.

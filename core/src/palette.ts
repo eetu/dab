@@ -47,9 +47,10 @@ const mapVariants = (
 export function removeColour<T extends SpriteBody>(s: T, ch: string): T {
   const palette = { ...s.palette };
   delete palette[ch];
-  const frames = s.frames.map((f) => f.map((row) => row.split(ch).join(TRANSPARENT)));
+  const erase = (frames: string[][]) =>
+    frames.map((f) => f.map((row) => row.split(ch).join(TRANSPARENT)));
   const variants = mapVariants(s, (e) => (e[0] === ch ? null : e));
-  return patch(s, { palette, frames, variants });
+  return patch(s, { palette, frames: erase(s.frames), variants, ...inSlices(s, erase) });
 }
 
 /** Move a colour to a different character, rewriting every pixel that used it. */
@@ -57,10 +58,15 @@ export function renameChar<T extends SpriteBody>(s: T, from: string, to: string)
   if (from === to || !isPaletteKey(to) || s.palette[to]) return s;
   const palette: Record<string, string> = {};
   for (const [ch, hex] of Object.entries(s.palette)) palette[ch === from ? to : ch] = hex;
-  const frames = s.frames.map((f) => f.map((row) => row.split(from).join(to)));
+  const rename = (frames: string[][]) =>
+    frames.map((f) => f.map((row) => row.split(from).join(to)));
   const variants = mapVariants(s, ([ch, hex]) => [ch === from ? to : ch, hex]);
-  return patch(s, { palette, frames, variants });
+  return patch(s, { palette, frames: rename(s.frames), variants, ...inSlices(s, rename) });
 }
+
+/** A rewrite of the frames carried to every slice, which the palette colours as well. */
+const inSlices = (s: SpriteBody, fn: (frames: string[][]) => string[][]) =>
+  s.slices ? { slices: s.slices.map((l) => ({ ...l, frames: fn(l.frames) })) } : {};
 
 export const setColour = <T extends SpriteBody>(s: T, ch: string, hex: string): T =>
   patch(s, { palette: { ...s.palette, [ch]: hex } });
@@ -84,10 +90,12 @@ export function movePaletteChar<T extends SpriteBody>(s: T, ch: string, to: numb
 }
 
 /** Palette entries no frame uses — the editor offers to sweep these up. A part
- *  has its own palette, so this is one node's question and not the tree's. */
+ *  has its own palette, so this is one node's question and not the tree's; a slice
+ *  shares the sprite's, so a colour only a slice uses is in use. */
 export function unusedChars(s: SpriteBody): string[] {
   const used = new Set<string>();
-  for (const f of s.frames) for (const row of f) for (const ch of row) used.add(ch);
+  for (const frames of [s.frames, ...(s.slices ?? []).map((l) => l.frames)])
+    for (const f of frames) for (const row of f) for (const ch of row) used.add(ch);
   return Object.keys(s.palette).filter((ch) => !used.has(ch));
 }
 

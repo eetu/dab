@@ -1,4 +1,12 @@
-import { encodeGif, encodePng, flattenSprite, levelOf, picture, type Pose } from "dab-core";
+import {
+  encodeGif,
+  encodePng,
+  flattenSprite,
+  levelOf,
+  picture,
+  type Pose,
+  sliceOf,
+} from "dab-core";
 
 import { animationRun, playLength } from "./animations.svelte";
 import { cycleShowing } from "./cycles.svelte";
@@ -14,7 +22,7 @@ import { activeNode, frameOf, pathKey, resolvePart, stageNode } from "./tree.sve
  *  `variant`: one flat body, one frame. */
 function pose(index: number, variant: string | null): Pose {
   const node = stageNode();
-  const base = levelOf(editor.path) !== null ? editor.path : [];
+  const base = levelOf(editor.path) !== null || sliceOf(editor.path) !== null ? editor.path : [];
   // The node being flattened shows its own frame — the active one's index if it
   // is the one being drawn, otherwise where it sits — and the rest are asked.
   const own = base.length || !editor.path.length ? index : frameOf([], node, index);

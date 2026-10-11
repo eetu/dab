@@ -12,6 +12,7 @@ import {
   padSprite,
   type Part,
   removeParts as removePartsFrom,
+  sliceOf,
   type SpriteBody,
   type SpriteFile,
   withNode,
@@ -40,8 +41,8 @@ const withParts = (path: readonly string[], fn: (parts: Part[]) => Part[]) =>
 /** A level is the whole subject at another size, and has no parts of its
  *  own. Says so and is true when the tools are pointed at one. */
 function onLevel(): boolean {
-  if (levelOf(editor.path) === null) return false;
-  editor.status = "a level has no parts — add them to the sprite";
+  if (levelOf(editor.path) === null && sliceOf(editor.path) === null) return false;
+  editor.status = `a ${levelOf(editor.path) !== null ? "level" : "slice"} has no parts — add them to the sprite`;
   editor.statusBad = true;
   return true;
 }

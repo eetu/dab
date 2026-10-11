@@ -121,6 +121,7 @@
   import { watchTheme } from "./lib/theme.svelte";
   import ToolRail from "./lib/ToolRail.svelte";
   import { type Backdrop, BACKDROPS, fitStage, zoomIn, zoomOut } from "./lib/viewport.svelte";
+  import Voxels from "./lib/Voxels.svelte";
 
   let backdrop = $state<Backdrop>("checker");
   let settingsOpen = $state(false);
@@ -953,6 +954,7 @@
     <aside class="right">
       <Inspector />
       <Palette />
+      <Voxels />
     </aside>
   {/if}
 

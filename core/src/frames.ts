@@ -1,4 +1,4 @@
-import { blankFrame, type Level, type SpriteBody } from "./format.ts";
+import { blankFrame, type Level, sliceBody, type SpriteBody } from "./format.ts";
 import { patch } from "./patch.ts";
 
 /**
@@ -24,12 +24,24 @@ function remapAnimations(
 }
 
 /**
- * Carry a frame operation to every level. They are the same subject at other
- * sizes, and a frame added to one strip and not the other is a consumer
- * reading past the end of it — so this is not optional either.
+ * Carry a frame operation to every level and every slice. A level is the same
+ * subject at another size and a slice the same subject further back, and a frame
+ * added to one strip and not the other is a consumer reading past the end of it —
+ * so this is not optional either. A slice is carried as the body it is drawn as,
+ * and keeps only its new frames.
  */
-const inStep = <T extends SpriteBody>(s: T, next: T, op: (level: Level) => Level): T =>
-  s.levels ? patch(next, { levels: s.levels.map(op) }) : next;
+const inStep = <T extends SpriteBody>(s: T, next: T, op: (level: Level) => Level): T => {
+  const levels = s.levels ? { levels: s.levels.map(op) } : {};
+  const slices = s.slices
+    ? {
+        slices: s.slices.map((l, i) => {
+          const body = sliceBody(s, i + 1) as SpriteBody;
+          return { ...l, frames: op({ ...body, name: "" }).frames };
+        }),
+      }
+    : {};
+  return s.levels || s.slices ? patch(next, { ...levels, ...slices }) : next;
+};
 
 export function addFrame<T extends SpriteBody>(s: T, after = s.frames.length - 1): T {
   const at = after + 1;

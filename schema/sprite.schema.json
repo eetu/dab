@@ -2,12 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/eetu/dab/blob/main/schema/sprite.schema.json",
   "title": "dab sprite",
-  "description": "A character-grid sprite: rows of characters and the palette they mean. FORMAT.md is the prose; rules that relate one field to another (row widths, characters in the palette, indices in range, unique names, levels in step, nesting depth) are the validator's, and FORMAT.md lists them.",
+  "description": "A character-grid sprite: rows of characters and the palette they mean. FORMAT.md is the prose; rules that relate one field to another (row widths, characters in the palette, indices in range, unique names, levels and slices in step, nesting depth) are the validator's, and FORMAT.md lists them.",
   "allOf": [{ "$ref": "#/$defs/body" }],
   "type": "object",
   "properties": {
     "name": { "type": "string", "minLength": 1 },
-    "levels": { "type": "array", "items": { "$ref": "#/$defs/level" } }
+    "levels": { "type": "array", "items": { "$ref": "#/$defs/level" } },
+    "slices": { "type": "array", "items": { "$ref": "#/$defs/slice" } }
   },
   "required": ["name"],
   "$defs": {
@@ -59,13 +60,14 @@
       "description": "A placement on its parent, and either its own body or a `use` naming another sprite.",
       "type": "object",
       "properties": {
-        "name": { "type": "string", "minLength": 1, "pattern": "^[^@]" },
+        "name": { "type": "string", "minLength": 1, "pattern": "^[^@#]" },
         "x": { "type": "integer" },
         "y": { "type": "integer" },
         "behind": { "type": "boolean" },
         "flip": { "enum": ["h", "v", "hv"] },
         "use": { "type": "string", "minLength": 1 },
-        "levels": false
+        "levels": false,
+        "slices": false
       },
       "required": ["name", "x", "y"],
       "oneOf": [
@@ -86,9 +88,28 @@
         "name": { "type": "string", "minLength": 1, "pattern": "^[^/]*$" },
         "animations": false,
         "parts": false,
-        "levels": false
+        "levels": false,
+        "slices": false
       },
       "required": ["name"]
+    },
+    "slice": {
+      "description": "What lies a voxel further back than the grid in front of it, as seen from in front: frames, the sprite's frame count, in the sprite's size and colours, and perhaps a name.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "A label for whoever draws it. Its path is still its place, #n.",
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "frames": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      },
+      "required": ["frames"],
+      "additionalProperties": false
     }
   }
 }

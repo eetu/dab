@@ -15,6 +15,7 @@
     isPartRef,
     levelOf,
     shapePoints,
+    sliceOf,
     type SpriteBody,
     TRANSPARENT,
   } from "dab-core";
@@ -132,7 +133,9 @@
    *  alone. `base` is that level's path, so the paths the painter hands back —
    *  relative to what it was given — still name the node the panels mean. */
   const sprite = $derived(stageNode());
-  const base = $derived(levelOf(editor.path) !== null ? editor.path : []);
+  const base = $derived(
+    levelOf(editor.path) !== null || sliceOf(editor.path) !== null ? editor.path : [],
+  );
   const px = $derived(cell());
 
   // The play head lives here because the surface is what plays. One interval,

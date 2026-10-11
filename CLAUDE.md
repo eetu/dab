@@ -97,6 +97,27 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   it unchanged — which is why a part's name may not start with `@`. A new level
   is derived (coverage down, Scale2x/3x up, no new colours) and then drawn over;
   which size to draw at what distance is the consumer's, as timing is.
+- **A slice is the subject a voxel further back, in step with the sprite.**
+  `slices: [{ frames }]` behind the sprite's own grid, which is the front — so a
+  flat reader draws the face it shows, and a game reading a model stacks the rest
+  behind it (`voxelsOf`). Depth is its own axis rather than a reading of the
+  frames: a sprite's frames meant time to the play button and depth to the 3D
+  view at once, and one of the two was always nonsense; now a frame is a moment
+  everywhere, and a model can move. Nested frames (`frames[f][z]`) said the same
+  thing and would have changed the type of `frames` in every module that reads
+  it; slices beside the frames are the level pattern again. Unlike a level, a
+  slice is only frames (and perhaps a name): its size, palette, variants and
+  animations are the sprite's, because it is the same grid further back — one
+  palette colours the whole thing, and a cell's colour is still the one-line
+  rule. So the colour
+  verbs land on the sprite while a slice is in hand (`commitColours`), and the
+  operations that rewrite pixels by colour or move the canvas carry every slice.
+  Frame verbs write every slice, as every level. Addressed like a node, `["#1"]`
+  right behind the front, so every tool works on it unchanged — a part's name may
+  not start with `#`. A new slice is a copy of the one in front of it, to draw over.
+  A slice's `name` is only a label in the tree and the tool listing; its path stays
+  its place, because a slice's identity is how deep it is, and a name in the path
+  would let renaming break what a consumer holds.
 - **A colour cycle is generated variants, one per phase.** `name 1` … `name n`,
   each naming only the characters it turns, so the format gains no key and a
   consumer no rule. A `cycles` key with a rate was the alternative and put timing
@@ -236,6 +257,17 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   two fifths of the pane: a window that covers the drawing is not a second opinion
   about it, so a zoom that would is refused, said in the accent, with Bigger
   greyed rather than doing nothing.
+- **The 3D panel is the other second opinion.** A sprite with slices is a model
+  (`voxelsOf`; korpi's), and the one thing a column of slices cannot say is what
+  they make. So a panel of the Subject column, under the colours, shows them
+  stacked, from any side, at the frame on the strip, following every stroke,
+  variant and hidden part as it lands — the whole subject, whatever part or slice
+  is in hand, as playing shows the whole. A sprite without slices has no panel. It answers what the canvas cannot
+  rather than drawing the same frame twice, which is why it is not the second
+  canvas the surface rule refuses. A panel rather than a floating window: it is a
+  view of the subject, so it lives where the subject is described, and folding is
+  how a rail already makes room — it starts folded. It fills the column at whole
+  pixels a voxel; a drag in it turns it, and where it looks from is the desk's.
 - **Prefs are the desk, document state is the drawing.** Tool, onion, grid, fps
   and backdrop persist globally (`sprite-editor:prefs`); the chrome — folded
   panels, hidden regions, the loupe's state — lives beside it

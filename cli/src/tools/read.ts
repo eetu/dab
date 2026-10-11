@@ -10,7 +10,8 @@ export function registerRead(server: McpServer, store: Store) {
   server.registerTool(
     "list_sprites",
     {
-      description: "Every sprite in the folder: size, frames, parts, levels and current version.",
+      description:
+        "Every sprite in the folder: size, frames, parts, levels, slices and current version.",
     },
     guard(async () => {
       const files = await store.list();
@@ -25,6 +26,7 @@ export function registerRead(server: McpServer, store: Store) {
             `${f}  ${s.w}×${s.h}  ${s.frames.length} frame${s.frames.length === 1 ? "" : "s"}`,
             parts.length && `parts ${parts.join(" ")}`,
             s.levels?.length && `levels ${s.levels.map((l) => `@${l.name}`).join(" ")}`,
+            s.slices?.length && `${s.slices.length + 1} deep (slices ${sliceNames(s)})`,
             `version ${got.version}`,
           ]
             .filter(Boolean)
@@ -125,8 +127,16 @@ function outline(loaded: Loaded, resolve: (name: string) => SpriteBody | null): 
   for (const l of s.levels ?? []) {
     lines.push(`level @${l.name}: ${l.w}×${l.h}`, ...body(l, "  "));
   }
+  if (s.slices?.length)
+    lines.push(
+      `in depth: its grid the front, then front to back ${sliceNames(s)} (each the node "#n" whatever it is called), in its palette and frames`,
+    );
   return lines.join("\n");
 }
+
+/** A sprite's slices as a path names them, with what they are called: `#1 tread, #2 tread, #3`. */
+const sliceNames = (s: SpriteBody): string =>
+  (s.slices ?? []).map((l, i) => (l.name ? `#${i + 1} ${l.name}` : `#${i + 1}`)).join(", ");
 
 function body(n: SpriteBody, indent: string): string[] {
   const out = [

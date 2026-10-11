@@ -35,7 +35,23 @@ export type SpriteBody = {
   /** The same subject drawn at other sizes — see `Level`. The sprite itself
    *  carries them; a part or a level does not. */
   levels?: Level[];
+  /** What lies behind its own grid, a voxel deep each, front to back — see
+   *  `Slice`. The sprite itself carries them; a part or a level does not. */
+  slices?: Slice[];
 };
+
+/**
+ * One layer of a sprite in depth: the subject a voxel further back than the one in
+ * front of it, as seen from in front. A sprite's own grid is its front, so what a
+ * flat reader draws is the face it shows; the slices are what a game reading it as
+ * a thing in three dimensions puts behind (`voxelsOf`). A frame is still a moment:
+ * each slice has the sprite's frames, in STEP as a level's are, so a model can
+ * move. Only frames: a slice is the same grid further back, so its size, palette,
+ * variants and animations are the sprite's — one palette colours the whole thing,
+ * and a cell's colour is still `variant?.[ch] ?? palette[ch]`. A `name` is a label
+ * for whoever draws it ("tread"); its path is still its place, `#n`.
+ */
+export type Slice = { name?: string; frames: string[][] };
 
 /**
  * One of a sprite's other sizes: the deer across the field, where the sprite
@@ -59,6 +75,31 @@ export const levelPath = (name: string): string[] => [`${LEVEL}${name}`];
 /** The level a path addresses, by name, or null for a path into the parts. */
 export const levelOf = (path: readonly string[]): string | null =>
   path.length === 1 && path[0].startsWith(LEVEL) ? path[0].slice(LEVEL.length) : null;
+
+/** How a path names a slice: `["#1"]` the one right behind the front. A part's name
+ *  may not start with it. */
+export const SLICE = "#";
+
+export const slicePath = (n: number): string[] => [`${SLICE}${n}`];
+
+/** The slice a path addresses, 1 the one behind the front, or null for any other path. */
+export const sliceOf = (path: readonly string[]): number | null => {
+  if (path.length !== 1 || !path[0].startsWith(SLICE)) return null;
+  const n = Number(path[0].slice(SLICE.length));
+  return Number.isInteger(n) && n >= 1 ? n : null;
+};
+
+/** How deep a sprite is, in slices: its own grid and those behind it. */
+export const depthOf = (s: SpriteBody): number => 1 + (s.slices?.length ?? 0);
+
+/** Slice `n` (1 behind the front) as a body: the sprite's grid, palette, variants and
+ *  animations, with the slice's frames — what a tool draws on, unchanged. */
+export const sliceBody = (s: SpriteBody, n: number): SpriteBody | null => {
+  const slice = s.slices?.[n - 1];
+  if (!slice) return null;
+  const { w, h, palette, variants, animations } = s;
+  return { w, h, palette, variants, animations, frames: slice.frames };
+};
 
 /** Where a part sits on its parent, in the parent's own pixel coordinates. */
 export type Placement = {
@@ -178,5 +219,6 @@ export function cloneSprite<T extends SpriteBody>(s: T): T {
     frames: s.frames.map((f) => [...f]),
     parts: s.parts?.map((p) => (isPartRef(p) ? { ...p } : cloneSprite(p))),
     levels: s.levels?.map((l) => cloneSprite(l)),
+    slices: s.slices?.map((l) => ({ ...l, frames: l.frames.map((f) => [...f]) })),
   });
 }

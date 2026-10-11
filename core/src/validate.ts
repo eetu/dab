@@ -4,6 +4,7 @@ import {
   LEVEL,
   MAX_PART_DEPTH,
   type Placement,
+  SLICE,
   type SpriteBody,
   type SpriteFile,
   TRANSPARENT,
@@ -119,6 +120,48 @@ function validateBody(
     if (where) say("only the sprite itself has levels");
     else validateLevels(sp.levels, sp, rootName, errors);
   }
+  if (sp.slices !== undefined) {
+    if (where) say("only the sprite itself has slices");
+    else validateSlices(sp.slices, sp, rootName, errors);
+  }
+}
+
+/**
+ * A slice's rules: frames and perhaps a name, as many frames as the sprite has, each
+ * the sprite's size in the sprite's colours — its size, palette, variants and
+ * animations are the sprite's.
+ */
+function validateSlices(
+  slices: unknown,
+  root: Partial<SpriteBody>,
+  rootName: string,
+  errors: string[],
+): void {
+  if (!Array.isArray(slices)) {
+    errors.push("slices must be a list");
+    return;
+  }
+  const count = Array.isArray(root.frames) ? root.frames.length : 0;
+  slices.forEach((raw, i) => {
+    const at = `slice ${i + 1}`;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      errors.push(`${at} is not an object`);
+      return;
+    }
+    const l = raw as { name?: unknown; frames?: unknown };
+    const extra = Object.keys(l).filter((k) => k !== "frames" && k !== "name");
+    if (extra.length)
+      errors.push(
+        `${at}: carries only a name and frames — its ${extra.join(", ")} are the sprite's`,
+      );
+    if (l.name !== undefined && (typeof l.name !== "string" || !l.name.trim()))
+      errors.push(`${at}: a name is some text, or no name at all`);
+    if (Array.isArray(l.frames) && l.frames.length !== count) {
+      errors.push(`${at}: has ${l.frames.length} frames, the sprite has ${count}`);
+    }
+    const body = { w: root.w, h: root.h, palette: root.palette, frames: l.frames };
+    validateBody(body as Partial<SpriteBody>, at, 1, rootName, errors);
+  });
 }
 
 /**
@@ -197,6 +240,8 @@ function validateParts(
     seen.add(p.name);
     if (p.name.startsWith(LEVEL))
       there(`a part's name cannot start with ${LEVEL} — that names a level`);
+    if (p.name.startsWith(SLICE))
+      there(`a part's name cannot start with ${SLICE} — that names a slice`);
     if (!Number.isInteger(p.x) || !Number.isInteger(p.y)) there("x and y must be whole pixels");
     if (p.behind !== undefined && typeof p.behind !== "boolean")
       there("behind must be true or false");
