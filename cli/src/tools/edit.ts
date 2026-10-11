@@ -35,6 +35,7 @@ import {
   setColour,
   type SpriteBody,
   type SpriteFile,
+  stackSlices,
 } from "dab-core";
 import { z } from "zod";
 
@@ -332,11 +333,13 @@ export function registerEdit(server: McpServer, store: Store) {
         "slice a voxel further back, front to back, in the sprite's palette and frames. add: a " +
         "new slice right behind slice `after` (0 the front; the back unless given), a copy of it " +
         "to draw over. remove slice `n`. rename slice `n` to `name`, a label (empty takes it " +
-        'off). Draw on one as node "#n" ("#1" right behind the front), whatever it is called.',
+        "off). stack: `stack` back (the grid the front) or down (the grid the top, seen from " +
+        'above, each slice a voxel lower). Draw on one as node "#n", whatever it is called.',
       inputSchema: {
         file: arg.file,
         version: arg.version,
-        op: z.enum(["add", "remove", "rename"]),
+        op: z.enum(["add", "remove", "rename", "stack"]),
+        stack: z.enum(["back", "down"]).optional(),
         after: z.number().int().min(0).optional(),
         n: z.number().int().min(1).optional(),
         name: z.string().optional(),
@@ -346,6 +349,7 @@ export function registerEdit(server: McpServer, store: Store) {
       fn: (s, { label }) => {
         const count = s.slices?.length ?? 0;
         if (a.op === "add") return addSlice(s, a.after ?? count);
+        if (a.op === "stack") return stackSlices(s, need(a.stack, "stack"));
         const n = need(a.n, "n");
         const none = `${label} has no slice #${n}; ${count ? `its slices: #1–#${count}` : "it has none"}`;
         if (a.op === "remove") return changedOr(s, removeSlice(s, n), none);

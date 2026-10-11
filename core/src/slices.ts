@@ -24,6 +24,12 @@ export function renameSlice<T extends SpriteBody>(s: T, n: number, to: string): 
   return patch(s, { slices: s.slices?.map((l, i) => (i === n - 1 ? next : l)) });
 }
 
+/** Its slices going `way` from its grid: back (the grid the front) or down (the grid the top). */
+export function stackSlices<T extends SpriteBody>(s: T, way: "back" | "down"): T {
+  const stack = way === "down" ? way : undefined;
+  return s.stack === stack ? s : patch(s, { stack });
+}
+
 /** Slice `n` (1 right behind the front) taken out; the last one gone, the key goes too. */
 export function removeSlice<T extends SpriteBody>(s: T, n: number): T {
   const slices = (s.slices ?? []).filter((_, i) => i !== n - 1);

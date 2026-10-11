@@ -62,11 +62,12 @@
         it to another corner; − and + change the size. A sprite can have depth, for a game that
         reads it as a model: <em>Add a slice behind</em> in its menu puts a copy of its grid a voxel
         further back, a row under it in the tree to draw on like any part, sharing its palette and
-        frames; name one (tread, sidewall) from its menu. The 3D panel, under the colours, shows
-        what the grid and its slices make, from any side, at the frame on the strip, as you draw:
-        drag in it to turn it, double-click to look square on. A variant recolours characters
-        without redrawing; pick one to preview it, and it is what a consumer draws. Shift-click a
-        second swatch to take a run of colours, and
+        frames; name one (tread, sidewall) from its menu, and <em>Slices go down</em> turns them
+        into floors under a top grid, for a thing better drawn from above. The 3D panel, under the
+        colours, shows what the grid and its slices make, from any side, at the frame on the strip,
+        as you draw: drag in it to turn it, double-click to look square on. A variant recolours
+        characters without redrawing; pick one to preview it, and it is what a consumer draws.
+        Shift-click a second swatch to take a run of colours, and
         <em>Cycle these</em>
         rotates them — one variant per step, played with the frames, so water flows and lights chase without
         a frame more. A cycle's colours follow the palette. The palette's ⋯ imports a Lospec

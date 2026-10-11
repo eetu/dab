@@ -131,6 +131,12 @@ slice together. A path names one by its place, `["#1"]` the slice right behind
 the front, whatever it is called, so a part's name cannot start with `#`. The
 name is a label for whoever draws it.
 
+`"stack": "down"` turns the slices the other way: the sprite's grid is its top,
+seen from above (its first row the back, its last the front), and each slice the
+subject a voxel lower, down to its bottom: a duck drawn a floor at a time. Without
+it, or with `"back"`, the slices go back from the front. Either way a reader gets
+the same thing the right way up (`voxelsOf`).
+
 ## How dab writes a file
 
 Keys in a fixed order, and one frame row per line, so a changed pixel is a

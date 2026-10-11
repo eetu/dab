@@ -99,7 +99,11 @@
         ondblclick={squareOn}
       ></canvas>
     </div>
-    <p class="note">Its grid in front, its slices behind, at the frame on the strip.</p>
+    <p class="note">
+      {editor.sprite.stack === "down"
+        ? "Its grid on top, its slices below"
+        : "Its grid in front, its slices behind"}, at the frame on the strip.
+    </p>
   </Panel>
 {/if}
 

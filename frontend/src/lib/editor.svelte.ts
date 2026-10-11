@@ -111,7 +111,7 @@ export {
   selection,
   selectShapeAt,
 } from "./editor/selection.svelte";
-export { addSlice, removeSlice, renameSlice } from "./editor/slices.svelte";
+export { addSlice, removeSlice, renameSlice, stackSlices } from "./editor/slices.svelte";
 export { editor, type Tool, TOOLS } from "./editor/state.svelte";
 export {
   activeHidden,

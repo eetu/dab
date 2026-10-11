@@ -124,6 +124,10 @@ function validateBody(
     if (where) say("only the sprite itself has slices");
     else validateSlices(sp.slices, sp, rootName, errors);
   }
+  if (sp.stack !== undefined) {
+    if (where) say("only the sprite itself says which way its slices stack");
+    else if (sp.stack !== "back" && sp.stack !== "down") say("stack is back or down");
+  }
 }
 
 /**

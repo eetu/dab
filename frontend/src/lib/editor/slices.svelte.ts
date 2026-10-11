@@ -4,6 +4,7 @@ import {
   renameSlice as renameSliceIn,
   sliceOf,
   slicePath,
+  stackSlices as stackSlicesIn,
 } from "dab-core";
 
 import { commit, settle } from "./history.svelte";
@@ -26,6 +27,17 @@ export function renameSlice(n: number, to: string) {
   const next = renameSliceIn(editor.sprite, n, to);
   if (next === editor.sprite) return;
   commit(next);
+}
+
+/** Its slices going `way` from its grid: back from the front, or down from the top. */
+export function stackSlices(way: "back" | "down") {
+  const next = stackSlicesIn(editor.sprite, way);
+  if (next === editor.sprite) return;
+  commit(next);
+  editor.status =
+    way === "down"
+      ? "the grid the top, each slice a voxel lower"
+      : "the grid the front, each slice a voxel further back";
 }
 
 /** Slice `n` taken out; drawing on it, the front is drawn on next. */

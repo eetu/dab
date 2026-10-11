@@ -40,6 +40,18 @@ describe("voxels", () => {
     expect(voxelAt(v, 0, 0, -1)).toBe(0);
   });
 
+  test("stacked down: its grid the top, its rows back to front, its slices floors below", () => {
+    const v = voxelsOf({ ...box, stack: "down" });
+    expect([v.w, v.h, v.d]).toEqual([3, 3, 2]);
+    // The top floor is the grid: its first row at the back (z 0), its last at the front.
+    expect(voxelAt(v, 0, 0, 0)).toBe(wordOf("#0000ff"));
+    expect(voxelAt(v, 0, 0, 1)).toBe(wordOf("#0000ff"));
+    // The ring a floor down, its gap at the back; red at the bottom.
+    expect(voxelAt(v, 1, 1, 0)).toBe(0);
+    expect(voxelAt(v, 1, 1, 1)).toBe(wordOf("#00ff00"));
+    expect(voxelAt(v, 2, 2, 1)).toBe(wordOf("#ff0000"));
+  });
+
   test("a frame is a moment: every slice at it", () => {
     const v = voxelsOf(box, { frame: 1 });
     expect(voxelAt(v, 0, 0, 2)).toBe(wordOf("#ffff00"));

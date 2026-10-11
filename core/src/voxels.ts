@@ -1,7 +1,10 @@
 // A sprite read as a thing in three dimensions: its own grid the front, its slices behind it a
-// voxel further back each (see `Slice`), a pixel to a voxel. A standing tyre is its sidewall in
-// front and three slices behind. This is what a game takes for a model and what the editor's 3D
-// panel shows, at a frame: a frame is still a moment, and every slice moves with it.
+// voxel further back each (see `Slice`), a pixel to a voxel; or, stacked down, its grid the top
+// seen from above and its slices below it a voxel lower each. A standing tyre is its sidewall in
+// front and three slices behind; a duck, its head's top and the floors under it. Either way the
+// voxels come out the right way up, so what reads them need not know how they were drawn. This
+// is what a game takes for a model and what the editor's 3D panel shows, at a frame: a frame is
+// still a moment, and every slice moves with it.
 
 import { sliceBody, type SpriteBody } from "./format.ts";
 import { assembly, type LayerView, pixels } from "./read.ts";
@@ -22,6 +25,21 @@ export function voxelsOf(
     pixels(sliceBody(node, i + 1) as SpriteBody, frame, { variant: view.variant }),
   );
   const { w, h } = front;
+  if (node.stack === "down") {
+    // A floor a height, the grid at the top; each floor's rows run from the back to the front.
+    const high = 1 + behind.length;
+    const px = new Uint32Array(w * high * h);
+    for (let row = 0; row < h; row++)
+      for (let x = 0; x < w; x++) px[row * high * w + x] = front.px[row * w + x];
+    behind.forEach((p, i) => {
+      for (let y = 0; y < p.h; y++)
+        for (let x = 0; x < p.w; x++) {
+          const c = p.px[y * p.w + x];
+          if (c) px[((front.y + y) * high + i + 1) * w + front.x + x] = c;
+        }
+    });
+    return { w, h: high, d: h, px };
+  }
   const d = 1 + behind.length;
   const px = new Uint32Array(w * h * d);
   px.set(front.px, (d - 1) * w * h);
