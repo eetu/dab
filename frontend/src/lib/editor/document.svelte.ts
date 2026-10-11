@@ -30,6 +30,7 @@ export function loadSprite(sprite: SpriteFile, file: string | null) {
   editor.playhead = 0;
   editor.sprite = sprite;
   editor.file = file;
+  editor.opened++;
   editor.frame = 0;
   editor.path = [];
   editor.shown = {};

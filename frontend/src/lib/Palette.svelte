@@ -18,6 +18,7 @@
     variantNames,
     writePaletteFile,
   } from "dab-core";
+  import { tick } from "svelte";
 
   import ColourPicker from "./ColourPicker.svelte";
   import {
@@ -49,6 +50,7 @@
     reverseCycle,
     selectColour,
     setColour,
+    setMaterial,
     setPlaying,
     setVariantColour,
   } from "./editor.svelte";
@@ -267,6 +269,31 @@
     drag = null;
   }
 
+  /** Names a game reads a material by, offered as you type; any lowercase word will do. */
+  const MATERIALS = [
+    "wood",
+    "rubber",
+    "vinyl",
+    "plastic",
+    "steel",
+    "glass",
+    "stone",
+    "cloth",
+    "paper",
+  ];
+  let materialField = $state<HTMLInputElement | null>(null);
+
+  /** The current colour's material field, taken up for `ch` (from its menu). */
+  function editMaterial(ch: string) {
+    editor.ink = ch;
+    runTo = null;
+    // The strip below shows the ink: once it has, the field is there to focus.
+    void tick().then(() => {
+      materialField?.focus();
+      materialField?.select();
+    });
+  }
+
   function commitRename(from: string, e: Event) {
     const to = (e.target as HTMLInputElement).value.trim();
     renaming = null;
@@ -281,6 +308,7 @@
     const clash = clashes.get(ch);
     return [
       { label: "Rename character…", hint: ch, run: () => (renaming = ch) },
+      { label: "Material…", hint: node.materials?.[ch] ?? "none", run: () => editMaterial(ch) },
       {
         label: "Select its pixels",
         hint: drawnHere(ch) ? String(drawnHere(ch)) : "none on this frame",
@@ -440,7 +468,7 @@
           at = (e.currentTarget as HTMLElement).getBoundingClientRect();
         }}
         oncontextmenu={(e) => openMenu(e, `Colour ${ch}`, itemsFor(ch, hex))}
-        title={`${ch} — ${hex}${unused.has(ch) ? " · unused" : ""}`}
+        title={`${ch} — ${hex}${node.materials?.[ch] ? ` · ${node.materials[ch]}` : ""}${unused.has(ch) ? " · unused" : ""}`}
         aria-label={`Colour ${ch}, ${hex}`}
       >
         <span class="tag" class:dark={light(hex)}>{ch}</span>
@@ -510,6 +538,30 @@
         <Ellipsis size={13} />
       </IconButton>
     </div>
+    <!-- What it is made of: a name a game reads (burns, floats) by; empty for none. -->
+    <label class="made">
+      <span>made of</span>
+      <input
+        bind:this={materialField}
+        value={node.materials?.[ch] ?? ""}
+        placeholder="nothing in particular"
+        list="materials"
+        spellcheck="false"
+        aria-label={`Material of ${ch}`}
+        onchange={(e) => {
+          const el = e.target as HTMLInputElement;
+          setMaterial(ch, el.value);
+          // What it is now: the name as kept, or as it was when refused.
+          el.value = node.materials?.[ch] ?? "";
+        }}
+        onkeydown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+      />
+    </label>
+    <datalist id="materials">
+      {#each MATERIALS as m (m)}
+        <option value={m}></option>
+      {/each}
+    </datalist>
   {:else}
     <p class="note">Transparent — the cell with nothing in it. `.` in the file.</p>
   {/if}
@@ -814,6 +866,26 @@
   }
   .edit:hover {
     border-color: var(--halo-text-light);
+  }
+  .made {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.4rem;
+    align-items: center;
+    font-size: 0.68rem;
+    color: var(--halo-text-muted);
+  }
+  .made input {
+    font-size: 0.72rem;
+    background: var(--halo-bg-main);
+    color: var(--halo-text-main);
+    border: 1px solid var(--halo-border);
+    border-radius: 3px;
+    padding: 0.15rem 0.3rem;
+    min-width: 0;
+  }
+  .made input::placeholder {
+    color: var(--halo-text-light);
   }
   .share {
     font-size: 0.68rem;

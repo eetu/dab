@@ -56,9 +56,11 @@
     ondetach?: (path: string[]) => void;
     /** So is opening one: it owns the folder listing and the dirty guard. */
     onopensprite?: (name: string) => void;
+    /** Given, the sprite is a draft (never saved), and this throws it away. */
+    ondiscard?: () => void;
   };
 
-  let { ondetach, onopensprite }: Props = $props();
+  let { ondetach, onopensprite, ondiscard }: Props = $props();
 
   type Row = { path: string[]; part: Part | null; node: SpriteBody | null; depth: number };
 
@@ -257,6 +259,17 @@
         hint: down ? "the grid the front" : "the grid the top, seen from above",
         run: () => stackSlices(down ? "back" : "down"),
       },
+      ...(ondiscard
+        ? [
+            { kind: "separator" as const },
+            {
+              label: "Discard",
+              hint: editor.dirty ? "never saved — asks first" : "nothing drawn yet",
+              danger: true,
+              run: ondiscard,
+            } satisfies MenuItem,
+          ]
+        : []),
     ];
   }
 
@@ -406,6 +419,8 @@
               >{/if}
             {#if !row.path.length && levels.length}<span class="size"
                 >{editor.sprite.w}×{editor.sprite.h}</span
+              >{/if}
+            {#if !row.path.length && ondiscard}<span class="size" title="Never saved">draft</span
               >{/if}
             {#if ref}<span class="tag" title={`Borrowed from ${(row.part as { use: string }).use}`}
                 >{(row.part as { use: string }).use}</span

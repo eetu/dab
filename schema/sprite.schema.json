@@ -40,6 +40,15 @@
           "propertyNames": { "minLength": 1 },
           "additionalProperties": { "$ref": "#/$defs/colours" }
         },
+        "materials": {
+          "description": "Character → what it is made of, a lowercase word (rubber, stainless-steel): a name for a reader that burns, melts or sinks a thing by it. Only the palette's characters.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[!-~]$", "not": { "const": "." } },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+          }
+        },
         "animations": {
           "description": "Named runs of frame indices, in playing order; a repeat is a hold.",
           "type": "object",

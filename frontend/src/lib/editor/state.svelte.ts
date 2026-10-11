@@ -38,6 +38,8 @@ export const editor = $state({
   /** The file this came from, so Save knows whether it is a new sprite. */
   file: null as string | null,
   dirty: false,
+  /** Counts documents loaded: which one is in hand, for what keeps a note against it. */
+  opened: 0,
   frame: 0,
   /**
    * Which node the tools write to: part names from the root down, `[]` for the

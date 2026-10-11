@@ -15,6 +15,7 @@ const FOLDER_KEY = "folder";
 const FILE_KEY = "sprite-editor:file";
 const DRAFT_KEY = "sprite-editor:draft";
 const SAVED_KEY = "sprite-editor:saved";
+const DRAFTS_KEY = "sprite-editor:drafts";
 
 function open(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
@@ -102,6 +103,48 @@ export function clearDraft() {
 
 export function recallDraft(): Held | null {
   return recall(DRAFT_KEY);
+}
+
+/** Sprites made and never saved, each with its id and whether it was drawn on, and which is
+ *  open: kept per served folder as the draft is (`""` for none), the others left alone. */
+type HeldDrafts = { open: string | null; list: { id: string; changed: boolean; sprite: string }[] };
+
+export function rememberDrafts(
+  list: readonly { id: string; changed: boolean; sprite: SpriteFile }[],
+  open: string | null,
+  folder: string | null = null,
+) {
+  try {
+    const all = JSON.parse(localStorage.getItem(DRAFTS_KEY) ?? "{}") as Record<string, HeldDrafts>;
+    const mine: HeldDrafts = {
+      open,
+      list: list.map((d) => ({ id: d.id, changed: d.changed, sprite: toJson(d.sprite) })),
+    };
+    if (mine.list.length) all[folder ?? ""] = mine;
+    else delete all[folder ?? ""];
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(all));
+  } catch {
+    /* quota or private mode — the drafts last as long as the tab */
+  }
+}
+
+export function recallDrafts(folder: string | null = null): {
+  open: string | null;
+  list: { id: string; changed: boolean; sprite: SpriteFile }[];
+} {
+  try {
+    const all = JSON.parse(localStorage.getItem(DRAFTS_KEY) ?? "{}") as Record<string, HeldDrafts>;
+    const mine = all[folder ?? ""];
+    if (!mine) return { open: null, list: [] };
+    // One that no longer parses is dropped, as the draft is.
+    const list = mine.list.flatMap((d) => {
+      const parsed = fromJson(d.sprite);
+      return "errors" in parsed ? [] : [{ id: d.id, changed: d.changed, sprite: parsed.sprite }];
+    });
+    return { open: list.some((d) => d.id === mine.open) ? mine.open : null, list };
+  } catch {
+    return { open: null, list: [] };
+  }
 }
 
 /**

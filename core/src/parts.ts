@@ -40,7 +40,14 @@ export function addPart<T extends SpriteBody>(node: T, spec: NewPart): { node: T
   const h = Math.max(1, spec.h ?? Math.min(8, node.h));
   const part: Part = spec.use
     ? { ...at, use: spec.use }
-    : { ...at, w, h, palette: { ...node.palette }, frames: [blankFrame(w, h)] };
+    : {
+        ...at,
+        w,
+        h,
+        palette: { ...node.palette },
+        ...(node.materials ? { materials: { ...node.materials } } : {}),
+        frames: [blankFrame(w, h)],
+      };
   return { node: patch(node, { parts: [...parts, part] }), name };
 }
 
@@ -99,6 +106,7 @@ export function liftPart<T extends SpriteBody>(
     h,
     palette: { ...node.palette },
     ...(copy.variants ? { variants: copy.variants } : {}),
+    ...(copy.materials ? { materials: copy.materials } : {}),
     ...(copy.animations ? { animations: copy.animations } : {}),
     frames,
   };

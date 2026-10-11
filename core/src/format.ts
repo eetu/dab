@@ -23,6 +23,13 @@ export type SpriteBody = {
    */
   variants?: Record<string, Record<string, string>>;
   /**
+   * What some of the palette's characters are made of, by name (`rubber`, `steel`): for a game
+   * that burns, melts or sinks a thing by what it is. Only names; what one means is the reader's.
+   * A character it does not name is made of nothing in particular. Keyed like the palette, so a
+   * slice is made of what the sprite is, and a part says its own.
+   */
+  materials?: Record<string, string>;
+  /**
    * Named runs of frame indices. Repeats are legal and mean a hold; reversing is
    * reading the list backwards, so there is no direction field and no duration —
    * a consumer's clock is its own.
@@ -98,13 +105,13 @@ export const sliceOf = (path: readonly string[]): number | null => {
 /** How deep a sprite is, in slices: its own grid and those behind it. */
 export const depthOf = (s: SpriteBody): number => 1 + (s.slices?.length ?? 0);
 
-/** Slice `n` (1 behind the front) as a body: the sprite's grid, palette, variants and
- *  animations, with the slice's frames — what a tool draws on, unchanged. */
+/** Slice `n` (1 behind the front) as a body: the sprite's grid, palette, variants, materials
+ *  and animations, with the slice's frames — what a tool draws on, unchanged. */
 export const sliceBody = (s: SpriteBody, n: number): SpriteBody | null => {
   const slice = s.slices?.[n - 1];
   if (!slice) return null;
-  const { w, h, palette, variants, animations } = s;
-  return { w, h, palette, variants, animations, frames: slice.frames };
+  const { w, h, palette, variants, materials, animations } = s;
+  return { w, h, palette, variants, materials, animations, frames: slice.frames };
 };
 
 /** Where a part sits on its parent, in the parent's own pixel coordinates. */
@@ -179,6 +186,9 @@ export function cellColour(s: SpriteBody, ch: string, variant?: string | null): 
  * the format has no reason to forbid.
  */
 export const COLOUR = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
+
+/** A material's name: a lowercase word, hyphens between words (`stainless-steel`). */
+export const MATERIAL = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 /** How opaque a colour is, 0–255. A colour with no alpha digits is opaque. */
 export const alphaOf = (hex: string): number =>

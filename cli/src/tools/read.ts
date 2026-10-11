@@ -42,7 +42,7 @@ export function registerRead(server: McpServer, store: Store) {
     "read_sprite",
     {
       description:
-        "A sprite's outline as text: palette, variants, colour cycles, animations, the parts tree " +
+        "A sprite's outline as text: palette, materials, variants, colour cycles, animations, the parts tree " +
         "with placements, levels, and the version every write must quote. No pixels — read_frame " +
         "for those.",
       inputSchema: { file: arg.file },
@@ -149,6 +149,8 @@ function body(n: SpriteBody, indent: string): string[] {
         .join("  ") || "(empty)"
     }`,
   ];
+  const made = Object.entries(n.materials ?? {});
+  if (made.length) out.push(`${indent}made of: ${made.map(([c, m]) => `${c} ${m}`).join("  ")}`);
   const cycles = cyclesOf(n);
   const phases = new Set(cycles.flatMap((c) => c.phases));
   for (const c of cycles) {

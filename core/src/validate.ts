@@ -2,6 +2,7 @@ import {
   COLOUR,
   isPaletteKey,
   LEVEL,
+  MATERIAL,
   MAX_PART_DEPTH,
   type Placement,
   SLICE,
@@ -71,6 +72,21 @@ function validateBody(
           if (!(ch in (sp.palette ?? {}))) {
             say(`variant ${name} recolours ${ch}, which the palette does not have`);
           }
+        }
+      }
+    }
+  }
+  // Materials name what characters the palette has are made of, as variants recolour them.
+  if (sp.materials !== undefined) {
+    if (!sp.materials || typeof sp.materials !== "object" || Array.isArray(sp.materials)) {
+      say("materials must be an object of character → material");
+    } else {
+      for (const [ch, name] of Object.entries(sp.materials)) {
+        if (typeof name !== "string" || !MATERIAL.test(name)) {
+          say(`${ch} is made of ${JSON.stringify(name)}, which is not a lowercase word`);
+        }
+        if (!(ch in (sp.palette ?? {}))) {
+          say(`materials name ${ch}, which the palette does not have`);
         }
       }
     }

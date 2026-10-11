@@ -1,8 +1,8 @@
 // Whether the "new part" dialog is open.
 //
-// A module because two places ask for it now — the Parts panel's plus button
-// and a right-click on a selection — and neither of them is anywhere near the
-// other in the tree.
+// A module because several places ask for it — the sprites panel's actions, a
+// row's menu and a right-click on a selection — and none of them is anywhere
+// near the others in the tree.
 
 export const partDialog = $state({ open: false });
 

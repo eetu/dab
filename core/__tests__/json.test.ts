@@ -25,6 +25,14 @@ describe("serialisation", () => {
     expect(toJson(s)).toContain('      "A.A",\n      ".A."');
   });
 
+  test("materials are written after the variants, one line each, and read back", () => {
+    const made: SpriteFile = { ...s, materials: { A: "neon" } };
+    const text = toJson(made);
+    expect(text).toContain('  },\n  "materials": {\n    "A": "neon"\n  },\n  "frames"');
+    const back = fromJson(text);
+    expect("sprite" in back && back.sprite).toEqual(made);
+  });
+
   test("a bad file comes back as errors rather than throwing", () => {
     expect(fromJson("{oh no")).toHaveProperty("errors");
     expect(fromJson('{"name":"x"}')).toHaveProperty("errors");

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { type SpriteBody, voxelAt, voxelsOf, wordOf } from "../src/index.ts";
+import { materialAt, type SpriteBody, voxelAt, voxelsOf, wordOf } from "../src/index.ts";
 
 /** A box three voxels deep: blue in front, a green ring behind it, red at the back; and a
  *  second frame where the front has gone yellow. */
@@ -71,6 +71,29 @@ describe("voxels", () => {
     expect(voxelAt(v, 3, 0, 2)).toBe(wordOf("#ffffff"));
     expect(voxelAt(v, 3, 0, 1)).toBe(0);
     expect(voxelAt(v, 0, 0, 0)).toBe(wordOf("#800000"));
+  });
+
+  test("each voxel made of what its character is: the front's parts, the slices, stacked down", () => {
+    const made: SpriteBody = {
+      ...box,
+      materials: { B: "glass", R: "steel" },
+      parts: [
+        {
+          ...{ name: "knob", x: 3, y: 0, w: 1, h: 1 },
+          ...{ palette: { K: "#ffffff" }, materials: { K: "rubber" }, frames: [["K"], ["K"]] },
+        },
+      ],
+    };
+    const v = voxelsOf(made);
+    expect(materialAt(v, 0, 0, 2)).toBe("glass");
+    expect(materialAt(v, 3, 0, 2)).toBe("rubber");
+    // The ring behind is green, which names nothing; the back is steel.
+    expect(materialAt(v, 0, 0, 1)).toBeNull();
+    expect(materialAt(v, 2, 1, 0)).toBe("steel");
+    expect(materialAt(v, 1, 0, 1)).toBeNull();
+    const down = voxelsOf({ ...made, parts: undefined, stack: "down" });
+    expect(materialAt(down, 0, 0, 0)).toBe("glass");
+    expect(materialAt(down, 2, 2, 1)).toBe("steel");
   });
 
   test("a sprite with no slices is one voxel deep", () => {

@@ -33,6 +33,7 @@ const accepted: [string, unknown][] = [
     { ...base(), variants: { night: { A: "#110000" } }, animations: { blink: [0, 0] } },
   ],
   ["a colour cycle", addCycle(base(), "flow", ["A", "B"])],
+  ["materials", { ...base(), materials: { A: "rubber", B: "stainless-steel" } }],
   ["inline and `use` parts, flipped and behind", carFixture()],
   ["a borrowed sprite", spoke],
   ["levels", addLevel(base(), deriveLevel(base(), "far", 2, 1))],
@@ -56,6 +57,8 @@ const structural: [string, unknown][] = [
   ["a colour that is not one", { ...base(), palette: { A: "red" } }],
   ["no frames", { ...base(), frames: [] }],
   ["an empty animation", { ...base(), animations: { idle: [] } }],
+  ["a material that is not a lowercase word", { ...base(), materials: { A: "Rubber" } }],
+  ["a material named for `.`", { ...base(), materials: { ".": "air" } }],
   [
     "a part with both pixels and a `use`",
     { ...carFixture(), parts: [{ ...spoke, name: "w", x: 0, y: 0, use: "spoke" }] },
@@ -117,6 +120,7 @@ const validatorOnly: [string, unknown][] = [
     { ...base(), variants: { n: { Z: "#000000" } } },
   ],
   ["an animation past the end of the strip", { ...base(), animations: { a: [0, 3] } }],
+  ["a material for a character the palette lacks", { ...base(), materials: { Z: "steel" } }],
   [
     "two parts with one name",
     { ...carFixture(), parts: [carFixture().parts![1], carFixture().parts![1]] },
