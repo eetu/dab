@@ -42,8 +42,8 @@
       </p>
       <h3>Parts</h3>
       <p>
-        The + over the sprites starts a new sprite; <em>Add part…</em> in the ⋯ beside it, or in a
-        row's menu, adds a part to what is selected. A part is a grid of its own at an offset — a
+        The + over the sprites starts a new sprite; <em>Add part…</em> in the sprite's ⋯ (or any
+        row's menu) adds a part to what is selected. A part is a grid of its own at an offset — a
         door, a wheel — with its own frames, so a door opens without multiplying the car's strip.
         Inline for one subject; <em>use</em> borrows another sprite in the folder, so one wheel serves
         every car. Move (V) drags a part; selecting a borrowed part is dashed — open its sprite to draw

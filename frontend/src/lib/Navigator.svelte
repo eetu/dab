@@ -12,7 +12,6 @@
   // sprite would show rows that look drawable and are not — the split again,
   // inside one list — so a closed file is a row you open, and that is all.
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
-  import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
@@ -23,7 +22,6 @@
   import type { Entry, Folder } from "./files";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
-  import { openPartDialog } from "./partdialog.svelte";
   import Parts from "./Parts.svelte";
   import Thumbnail from "./Thumbnail.svelte";
 
@@ -182,17 +180,6 @@
           <Plus size={13} />
         </IconButton>
       {/if}
-      <IconButton
-        size="sm"
-        ghost
-        label="Sprite actions"
-        onclick={(e) =>
-          openMenu(e, editor.sprite.name, [
-            { label: "Add part…", hint: "to what is selected", run: openPartDialog },
-          ])}
-      >
-        <Ellipsis size={13} />
-      </IconButton>
       {#if folder && onforget}
         <IconButton
           size="sm"

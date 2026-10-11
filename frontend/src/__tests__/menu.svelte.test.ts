@@ -154,9 +154,9 @@ test("the sprites panel's + asks for a new sprite", async () => {
 test("adding a part is a question with an answer, not a row that lingers", async () => {
   selectNode([]);
   await sleep(30);
-  // From the sprites panel's actions: its + is for a new sprite.
+  // From the sprite row's ⋯, with the rest of what applies to the sprite.
   const acts = [...app.host.querySelectorAll("button")].find(
-    (b) => b.getAttribute("aria-label") === "Sprite actions",
+    (b) => b.getAttribute("aria-label") === `Actions for ${editor.sprite.name}`,
   )!;
   acts.click();
   await sleep(20);
