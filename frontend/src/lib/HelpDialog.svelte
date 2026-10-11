@@ -42,11 +42,13 @@
       </p>
       <h3>Parts</h3>
       <p>
-        A part is a grid of its own at an offset — a door, a wheel — with its own frames, so a door
-        opens without multiplying the car's strip. Inline for one subject; <em>use</em> borrows another
-        sprite in the folder, so one wheel serves every car. Move (V) drags a part; selecting a borrowed
-        part is dashed — open its sprite to draw on it. Shift-click rows (or parts, with Move) to pick
-        several: the arrows, a drag and ⌫ move or remove them together, and Esc goes back to one.
+        The + over the sprites starts a new sprite; <em>Add part…</em> in the ⋯ beside it, or in a
+        row's menu, adds a part to what is selected. A part is a grid of its own at an offset — a
+        door, a wheel — with its own frames, so a door opens without multiplying the car's strip.
+        Inline for one subject; <em>use</em> borrows another sprite in the folder, so one wheel serves
+        every car. Move (V) drags a part; selecting a borrowed part is dashed — open its sprite to draw
+        on it. Shift-click rows (or parts, with Move) to pick several: the arrows, a drag and ⌫ move or
+        remove them together, and Esc goes back to one.
       </p>
       <h3>Frames, animations, variants</h3>
       <p>
@@ -65,9 +67,11 @@
         frames; name one (tread, sidewall) from its menu, and <em>Slices go down</em> turns them
         into floors under a top grid, for a thing better drawn from above. The 3D panel, under the
         colours, shows what the grid and its slices make, from any side, at the frame on the strip,
-        as you draw: drag in it to turn it, double-click to look square on. A variant recolours
-        characters without redrawing; pick one to preview it, and it is what a consumer draws.
-        Shift-click a second swatch to take a run of colours, and
+        as you draw: drag in it to turn it, double-click to look square on. Under a colour,
+        <em>made of</em> names what its character is made of (rubber, steel, glass) — a word a game
+        burns, melts or floats a thing by; a slice is made of what the sprite is. A variant
+        recolours characters without redrawing; pick one to preview it, and it is what a consumer
+        draws. Shift-click a second swatch to take a run of colours, and
         <em>Cycle these</em>
         rotates them — one variant per step, played with the frames, so water flows and lights chase without
         a frame more. A cycle's colours follow the palette. The palette's ⋯ imports a Lospec

@@ -4,12 +4,17 @@
   // New used to be a button that took an unnamed 16×16 immediately, over
   // whatever you had open — the only route into a fresh document that did not
   // ask, and the only one that could throw away unsaved work without saying so.
-  import { editor, newSprite } from "./editor.svelte";
+  import { openDraft } from "./drafts.svelte";
+  import { editor } from "./editor.svelte";
   import Modal from "./Modal.svelte";
-  import { clearDraft, forgetSaved } from "./persist";
 
-  type Props = { open: boolean; onclose: () => void };
-  let { open, onclose }: Props = $props();
+  /** `oncreate` makes it: App keeps the list of drafts it joins. */
+  type Props = {
+    open: boolean;
+    onclose: () => void;
+    oncreate: (name: string, w: number, h: number) => void;
+  };
+  let { open, onclose, oncreate }: Props = $props();
 
   let name = $state("untitled");
   let w = $state(16);
@@ -23,15 +28,12 @@
   });
 
   const ready = $derived(!!name.trim() && w > 0 && h > 0);
-  const losing = $derived(editor.dirty);
+  // A draft open is kept in the list, so only a file's unsaved changes are lost.
+  const losing = $derived(editor.dirty && !openDraft());
 
   function create() {
     if (!ready) return;
-    newSprite(name.trim(), w, h);
-    // This document has never been on disk, so there is nothing for Revert to
-    // go back to — and the last file's saved state is emphatically not it.
-    forgetSaved();
-    clearDraft();
+    oncreate(name.trim(), w, h);
     onclose();
   }
 </script>

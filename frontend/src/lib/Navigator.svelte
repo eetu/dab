@@ -12,16 +12,18 @@
   // sprite would show rows that look drawable and are not — the split again,
   // inside one list — so a closed file is a row you open, and that is all.
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
   import { tick } from "svelte";
 
+  import { type Draft, drafts, openId } from "./drafts.svelte";
   import { addPart, editor, selectNode, usedBy } from "./editor.svelte";
   import type { Entry, Folder } from "./files";
   import IconButton from "./IconButton.svelte";
   import { type MenuItem, openMenu } from "./menu.svelte";
-  import { openPartDialog, partDialog } from "./partdialog.svelte";
+  import { openPartDialog } from "./partdialog.svelte";
   import Parts from "./Parts.svelte";
   import Thumbnail from "./Thumbnail.svelte";
 
@@ -37,6 +39,11 @@
     onforget?: () => void;
     ondetach?: (path: string[]) => void;
     onopensprite?: (name: string) => void;
+    /** Ask for a new sprite: its name and size. */
+    onnew?: () => void;
+    /** Open a draft, a sprite made here and never saved; throw one away. */
+    onopendraft?: (id: string) => void;
+    ondiscarddraft?: (id: string) => void;
   };
 
   let {
@@ -51,11 +58,16 @@
     onforget,
     ondetach,
     onopensprite,
+    onnew,
+    onopendraft,
+    ondiscarddraft,
   }: Props = $props();
 
-  /** The open document is in the folder — or it is new, flattened or the
-   *  example, and stands above the files as the one thing not yet among them. */
+  /** The open document is in the folder or a draft — or it is the example or a dropped file,
+   *  and stands above the files as the one thing not yet among them. */
   const openInFolder = $derived(entries.some((e) => e.file === editor.file));
+  const draftOpen = $derived(openId());
+  const openListed = $derived(openInFolder || !!draftOpen);
 
   let filter = $state("");
   /** Worth a filter somewhere around the point the list stops being scannable. */
@@ -66,6 +78,25 @@
     if (!q) return entries;
     return entries.filter((e) => e.file === editor.file || e.sprite.name.toLowerCase().includes(q));
   });
+  const shownDrafts = $derived.by(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return drafts.list;
+    return drafts.list.filter((d) => d.id === draftOpen || d.sprite.name.toLowerCase().includes(q));
+  });
+
+  /** A closed draft's verbs: it has no file to rename or delete, only to open or throw away. */
+  function draftMenu(e: MouseEvent, d: Draft) {
+    openMenu(e, `${d.sprite.name} — not saved`, [
+      { label: "Open", run: () => onopendraft?.(d.id) },
+      { kind: "separator" },
+      {
+        label: "Discard",
+        hint: d.changed ? "asks first" : "nothing drawn yet",
+        danger: true,
+        run: () => ondiscarddraft?.(d.id),
+      },
+    ]);
+  }
 
   /** A closed file's verbs. Writes need a writable folder; without one they
    *  grey with the reason rather than vanish. The open file's verbs are its
@@ -141,13 +172,26 @@
     </span>
     {#if folder}<span class="count">{entries.length}</span>{/if}
     <div class="acts">
+      {#if onnew}
+        <IconButton
+          size="sm"
+          label="Add a sprite"
+          hint="A new sprite: its name and size"
+          onclick={onnew}
+        >
+          <Plus size={13} />
+        </IconButton>
+      {/if}
       <IconButton
         size="sm"
-        active={partDialog.open}
-        label="Add a part to what is selected"
-        onclick={openPartDialog}
+        ghost
+        label="Sprite actions"
+        onclick={(e) =>
+          openMenu(e, editor.sprite.name, [
+            { label: "Add part…", hint: "to what is selected", run: openPartDialog },
+          ])}
       >
-        <Plus size={13} />
+        <Ellipsis size={13} />
       </IconButton>
       {#if folder && onforget}
         <IconButton
@@ -193,10 +237,39 @@
       </label>
     {/if}
 
-    {#if !openInFolder}
+    {#if !openListed}
       <div class="open">
         <Parts {ondetach} {onopensprite} />
       </div>
+    {/if}
+
+    <!-- Sprites made here and never saved, above the folder's: the open one unfolded, the rest
+         rows that open where they were left. The dot is unsaved work, as on the open row. -->
+    {#if shownDrafts.length}
+      <ul class="files" aria-label="Drafts">
+        {#each shownDrafts as d (d.id)}
+          {#if d.id === draftOpen}
+            <li class="open">
+              <Parts {ondetach} {onopensprite} ondiscard={() => ondiscarddraft?.(d.id)} />
+            </li>
+          {:else}
+            <li class="file" oncontextmenu={(ev) => draftMenu(ev, d)}>
+              <button
+                onclick={() => onopendraft?.(d.id)}
+                title={`Open ${d.sprite.name} — not saved yet`}
+              >
+                <span class="twist" aria-hidden="true"></span>
+                <span class="shot">
+                  <Thumbnail node={d.sprite} frame={0} assembly height="1.4rem" />
+                </span>
+                <span class="name">{d.sprite.name}</span>
+                {#if d.changed}<span class="dirty" title="Unsaved changes">•</span>{/if}
+                <small>draft</small>
+              </button>
+            </li>
+          {/if}
+        {/each}
+      </ul>
     {/if}
 
     <ul class="files">
@@ -323,6 +396,11 @@
   .file button:hover {
     border-color: var(--halo-border);
     background: var(--halo-bg-main);
+  }
+  /* Unsaved work: the accent dot the open sprite's row carries too. */
+  .dirty {
+    color: var(--halo-accent);
+    font-weight: 700;
   }
   /* The disclosure column the open sprite's row has, so every picture lines up. */
   .twist {

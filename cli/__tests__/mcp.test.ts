@@ -469,6 +469,23 @@ describe("the dab MCP server", () => {
     expect(s.variants).toEqual({ night: {} });
   });
 
+  test("a material is set, listed and refused when it is not a word", async () => {
+    await put("tyre", { name: "tyre", w: 2, h: 1, palette: PAL, frames: [["AB"]] });
+    let v = versionIn((await call("read_sprite", { file: "tyre" })).text);
+    const made = await call("palette", {
+      ...{ file: "tyre", version: v, op: "material", ch: "A", material: "rubber" },
+    });
+    v = versionIn(made.text);
+    expect((await disk("tyre")).materials).toEqual({ A: "rubber" });
+    expect((await call("read_sprite", { file: "tyre" })).text).toContain("made of: A rubber");
+    const bad = await call("palette", {
+      ...{ file: "tyre", version: v, op: "material", ch: "B", material: "Steel Wool" },
+    });
+    expect(bad.text).toContain("cannot be a material");
+    await call("palette", { file: "tyre", version: v, op: "material", ch: "A", material: "" });
+    expect((await disk("tyre")).materials).toBeUndefined();
+  });
+
   test("render is a PNG about 512 px; a lineup stands sprites on one baseline at one scale", async () => {
     await put("tall", {
       name: "tall",

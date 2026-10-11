@@ -97,7 +97,7 @@ export function scaleRows(
 }
 
 /** A new level at `w × h` from a body that exists: every frame scaled, the
- *  palette and variants as they are, since the characters are the same ones. */
+ *  palette, variants and materials as they are, since the characters are the same ones. */
 export function deriveLevel(from: SpriteBody, name: string, w: number, h: number): Level {
   return {
     name,
@@ -111,6 +111,7 @@ export function deriveLevel(from: SpriteBody, name: string, w: number, h: number
           ),
         }
       : {}),
+    ...(from.materials ? { materials: { ...from.materials } } : {}),
     frames: from.frames.map((f) => scaleRows(f, from.palette, w, h)),
   };
 }

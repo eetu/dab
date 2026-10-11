@@ -104,3 +104,13 @@ test("rotation of a whole node, which grows to hold it", async () => {
   expect(editor.sprite.w).toBeGreaterThan(20);
   await rig.shot("06-rotate-whole");
 });
+
+test("a colour and what it is made of", async () => {
+  const rig = await open({ ...SPRITES.wheel(), materials: { T: "rubber", S: "steel" } });
+  onTestFinished(rig.stop);
+  editor.ink = "T";
+  await rig.settle();
+  const field = rig.host.querySelector<HTMLInputElement>('[aria-label="Material of T"]');
+  expect(field?.value).toBe("rubber");
+  await rig.shot("08-materials");
+});

@@ -142,13 +142,27 @@ test("a new sprite is named and sized before it exists", async () => {
   expect(document.querySelector('[aria-label="New sprite"]')).toBeNull();
 });
 
+test("the sprites panel's + asks for a new sprite", async () => {
+  editor.dirty = false;
+  [...app.host.querySelectorAll("button")]
+    .find((b) => b.getAttribute("aria-label") === "Add a sprite")!
+    .click();
+  await sleep(40);
+  expect(document.querySelector('[aria-label="New sprite"]')).toBeTruthy();
+});
+
 test("adding a part is a question with an answer, not a row that lingers", async () => {
   selectNode([]);
   await sleep(30);
-  const add = [...app.host.querySelectorAll("button")].find(
-    (b) => b.getAttribute("aria-label") === "Add a part to what is selected",
+  // From the sprites panel's actions: its + is for a new sprite.
+  const acts = [...app.host.querySelectorAll("button")].find(
+    (b) => b.getAttribute("aria-label") === "Sprite actions",
   )!;
-  add.click();
+  acts.click();
+  await sleep(20);
+  [...document.querySelectorAll<HTMLButtonElement>(".menu button")]
+    .find((b) => b.textContent?.includes("Add part"))!
+    .click();
   await sleep(40);
 
   const box = document.querySelector('[aria-label="New part"]') as HTMLElement;

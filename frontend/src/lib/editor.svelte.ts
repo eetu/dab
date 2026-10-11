@@ -63,6 +63,7 @@ export {
   removeUnusedColours,
   renameChar,
   setColour,
+  setMaterial,
 } from "./editor/palette.svelte";
 export {
   addPart,

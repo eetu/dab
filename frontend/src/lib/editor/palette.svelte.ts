@@ -4,6 +4,7 @@ import {
   cyclesOf,
   isPaletteKey,
   isPartRef,
+  MATERIAL,
   movePaletteChar as movePaletteCharIn,
   nodeAt,
   type Part,
@@ -11,6 +12,7 @@ import {
   removeColour as removeColourFrom,
   renameChar as renameCharIn,
   setColour as setColourIn,
+  setMaterial as setMaterialIn,
   type SpriteBody,
   type SpriteFile,
   TRANSPARENT,
@@ -79,6 +81,20 @@ export function setColour(ch: string, hex: string, fresh = true) {
   if (fresh) return commitColours(edit);
   editor.sprite = withNode(editor.sprite, colourPath(), edit);
   editor.dirty = true;
+}
+
+/** What `ch` is made of, by name (`rubber`); empty for nothing in particular. One undo entry,
+ *  on the sprite while a slice is in hand, as a colour is: a slice is made of what it is. */
+export function setMaterial(ch: string, name: string) {
+  const to = name.trim().toLowerCase() || null;
+  if (to !== null && !MATERIAL.test(to)) {
+    editor.status = `${JSON.stringify(name.trim())} cannot be a material — one lowercase word, hyphens between words`;
+    editor.statusBad = true;
+    return;
+  }
+  if ((activeNode().materials?.[ch] ?? null) === to) return;
+  commitColours((n) => setMaterialIn(n, ch, to));
+  editor.status = to ? `${ch} is ${to}` : `${ch} is made of nothing in particular`;
 }
 
 /** Reorder the palette. The order is the file's — what `toJson` writes and what

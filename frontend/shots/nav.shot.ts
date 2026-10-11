@@ -12,7 +12,8 @@ import { mount, unmount } from "svelte";
 import { expect, onTestFinished, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { loadSprite, sheet } from "../src/lib/editor.svelte";
+import { beginDraft, drafts, keepOpenDraft } from "../src/lib/drafts.svelte";
+import { editor, loadSprite, newSprite, sheet } from "../src/lib/editor.svelte";
 import { EXAMPLE_SHEET, exampleCar } from "../src/lib/examples";
 import type { Entry } from "../src/lib/files";
 import Navigator from "../src/lib/Navigator.svelte";
@@ -65,6 +66,7 @@ function openNav() {
       onduplicate: () => {},
       ondelete: () => {},
       onforget: () => {},
+      onnew: () => {},
     },
   });
   return {
@@ -97,4 +99,27 @@ test("the tree: an unsaved sprite above the folder, filter and all", async () =>
   expect(nav.host.querySelector(".body > .open")).toBeTruthy();
   expect(nav.host.querySelector(".find")).toBeTruthy();
   await page.screenshot({ path: "out/19-nav-unsaved.png" });
+});
+
+test("the tree: drafts, made here and never saved, above the folder", async () => {
+  sheet.byName = {};
+  // One drawn on and set aside, one untouched and set aside, and the one open.
+  loadSprite({ ...SPRITES.car(), name: "lamp" }, null);
+  beginDraft(true);
+  keepOpenDraft();
+  newSprite("crate", 8, 8);
+  beginDraft();
+  keepOpenDraft();
+  newSprite("pylon", 12, 30);
+  beginDraft();
+  onTestFinished(() => {
+    drafts.list = [];
+    drafts.open = null;
+  });
+  const nav = openNav();
+  onTestFinished(nav.stop);
+  await sleep(200);
+  expect(editor.sprite.name).toBe("pylon");
+  expect(nav.host.querySelectorAll('[aria-label="Drafts"] li.file').length).toBe(2);
+  await page.screenshot({ path: "out/19-nav-drafts.png" });
 });

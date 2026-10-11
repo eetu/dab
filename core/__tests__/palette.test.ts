@@ -12,6 +12,7 @@ import {
   readPaletteFile,
   removeColour,
   renameChar,
+  setMaterial,
   toJson,
   unusedChars,
   validateSprite,
@@ -50,6 +51,30 @@ describe("palette", () => {
     const renamed = renameChar(s, "A", "Z");
     expect(renamed.variants).toEqual({ night: { Z: "#111111", B: "#222222" } });
     expect(validateSprite(renamed)).toEqual([]);
+  });
+
+  test("a dropped or renamed colour takes its material with it", () => {
+    const s = { ...sprite(["AB"], { A: "#000000", B: "#ffffff" }), materials: { A: "rubber" } };
+    const dropped = removeColour(s, "A");
+    expect(dropped.materials).toBeUndefined();
+    expect(validateSprite(dropped)).toEqual([]);
+    const renamed = renameChar(s, "A", "Z");
+    expect(renamed.materials).toEqual({ Z: "rubber" });
+    expect(validateSprite(renamed)).toEqual([]);
+  });
+
+  test("a material set, changed and taken off, kept in the palette's order", () => {
+    const s = sprite(["AB"], { A: "#000000", B: "#ffffff" });
+    const both = setMaterial(setMaterial(s, "B", "steel"), "A", "rubber");
+    expect(Object.entries(both.materials ?? {})).toEqual([
+      ["A", "rubber"],
+      ["B", "steel"],
+    ]);
+    expect(setMaterial(both, "B", "glass").materials).toEqual({ A: "rubber", B: "glass" });
+    expect(setMaterial(setMaterial(both, "A", null), "B", null).materials).toBeUndefined();
+    // Refused: a character with no colour, a name that is not a word.
+    expect(setMaterial(s, "Z", "steel")).toBe(s);
+    expect(setMaterial(s, "A", "Steel Wool")).toBe(s);
   });
 
   test("renaming onto a taken character is refused rather than merging two colours", () => {

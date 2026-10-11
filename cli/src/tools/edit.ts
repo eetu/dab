@@ -16,6 +16,7 @@ import {
   isPaletteKey,
   levelOf,
   liftPart,
+  MATERIAL,
   moveFrame,
   movePaletteChar,
   moveParts,
@@ -33,6 +34,7 @@ import {
   resizeSprite,
   rotateRows,
   setColour,
+  setMaterial,
   type SpriteBody,
   type SpriteFile,
   stackSlices,
@@ -140,15 +142,17 @@ export function registerEdit(server: McpServer, store: Store) {
         "Edit a node's palette. add: a colour under `ch`, or the next free key. set: recolour `ch` " +
         "(in `variant` if given, which creates it). remove: drop `ch` and erase its pixels (or just " +
         "the variant's override). rename: move `ch`'s pixels and colour to key `to`. move: reorder " +
-        "`ch` to `index`. Colour cycles follow every edit.",
+        "`ch` to `index`. material: what `ch` is made of, `material` a lowercase word (rubber, " +
+        "stainless-steel), empty for nothing in particular. Colour cycles follow every edit.",
       inputSchema: {
         file: arg.file,
         version: arg.version,
         node: arg.node,
-        op: z.enum(["add", "set", "remove", "rename", "move"]),
+        op: z.enum(["add", "set", "remove", "rename", "move", "material"]),
         ch: z.string().optional(),
         hex: hex.optional(),
         to: z.string().optional().describe("rename: the new key"),
+        material: z.string().optional().describe("material: what `ch` is made of; empty for none"),
         index: z.number().int().min(0).optional().describe("move: the new position"),
         variant: z.string().optional(),
       },
@@ -217,6 +221,15 @@ export function registerEdit(server: McpServer, store: Store) {
             );
           if (to in n.palette) fail(`${label} already has ${to}; rename it away first`);
           return renameChar(n, k, to);
+        }
+        if (a.op === "material") {
+          const k = known(a.ch);
+          const name = need(a.material, "material").trim() || null;
+          if (name !== null && !MATERIAL.test(name))
+            fail(
+              `${JSON.stringify(name)} cannot be a material: a lowercase word, hyphens between words`,
+            );
+          return setMaterial(n, k, name);
         }
         return movePaletteChar(n, known(a.ch), need(a.index, "index"));
       },

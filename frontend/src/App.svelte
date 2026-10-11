@@ -21,6 +21,17 @@
   import ContextMenu from "./lib/ContextMenu.svelte";
   import { ask, confirmed, dialog } from "./lib/dialog.svelte";
   import {
+    beginDraft,
+    draftChanged,
+    drafts,
+    draftsNow,
+    dropDraft,
+    keepOpenDraft,
+    markOpen,
+    openDraft,
+    openId,
+  } from "./lib/drafts.svelte";
+  import {
     activeNode,
     adoptFromDisk,
     applyTurn,
@@ -39,6 +50,7 @@
     history,
     holdingWork,
     loadSprite,
+    newSprite,
     nudgePart,
     nudgeSelection,
     pasteClipboard,
@@ -105,10 +117,12 @@
     clearDraft,
     forgetSaved,
     recallDraft,
+    recallDrafts,
     recallFile,
     recallPrefs,
     recallSaved,
     rememberDraft,
+    rememberDrafts,
     rememberFile,
     rememberPrefs,
     rememberSaved,
@@ -228,20 +242,36 @@
       rememberFile(file);
       clearDraft();
       rememberSaved(editor.sprite, file);
+      // A draft saved is a file now, listed as one.
+      const filed = openId();
+      if (filed) dropDraft(filed);
       await refresh();
       if (removed) return say(`renamed ${removed} → ${file}`);
       return say(`saved ${file}`);
     }
     downloadSprite(editor.sprite);
     editor.dirty = false;
+    // Downloaded, a draft has a copy outside this tab: discarding it loses nothing.
+    const draft = openDraft();
+    if (draft) draft.changed = false;
     // A download is the last state that left this tab, so it is what Revert
     // comes back to — there is no folder to re-read it from.
     rememberSaved(editor.sprite, editor.file);
     say(`downloaded ${editor.sprite.name}.json`);
   }
 
+  /** Whether the open document may give way to another: a draft is set aside in the list as
+   *  it is; unsaved changes to a file are discarded only if you say so. */
+  async function leaving(): Promise<boolean> {
+    if (openDraft()) {
+      keepOpenDraft();
+      return true;
+    }
+    return !editor.dirty || (await confirmed(discardSpec()));
+  }
+
   async function open(entry: Entry) {
-    if (editor.dirty && !(await confirmed(discardSpec()))) return;
+    if (!(await leaving())) return;
     // cloneSprite, not structuredClone: `entries` is $state, so everything in
     // it is a deep proxy, and structuredClone refuses a proxy outright
     // (DataCloneError). Copying field by field reads straight through it.
@@ -262,7 +292,7 @@
    * your files outrank the demo.
    */
   async function openExample() {
-    if (editor.dirty && !(await confirmed(discardSpec()))) return;
+    if (!(await leaving())) return;
     sheet.byName = { ...EXAMPLE_SHEET, ...sheet.byName };
     loadSprite(exampleCar(), null);
     forgetSaved();
@@ -275,6 +305,62 @@
     confirm: "Discard",
     danger: true,
   });
+
+  /** A new sprite, named and sized: a draft in the list until it is saved. The dialog has
+   *  already asked about a file's unsaved changes; a draft open is kept. */
+  function makeSprite(name: string, w: number, h: number) {
+    keepOpenDraft();
+    newSprite(name, w, h);
+    // Never on disk, so nothing for Revert to go back to — and the last file's saved state is
+    // emphatically not it.
+    forgetSaved();
+    clearDraft();
+    rememberFile(null);
+    beginDraft();
+  }
+
+  /** Open draft `id` where it was left. */
+  async function openDraftById(id: string) {
+    if (id === openId()) return;
+    const d = drafts.list.find((x) => x.id === id);
+    if (!d || !(await leaving())) return;
+    loadSprite(cloneSprite(d.sprite), null);
+    editor.dirty = d.changed;
+    markOpen(id);
+    forgetSaved();
+    clearDraft();
+    rememberFile(null);
+    say(`${d.sprite.name} — not saved yet`);
+  }
+
+  /** Draft `id` thrown away: asked first only if it was drawn on, since an untouched one has
+   *  nothing to lose. The open one gives way to the next draft, or the folder's first sprite,
+   *  or the example. */
+  async function discardDraft(id: string) {
+    const d = drafts.list.find((x) => x.id === id);
+    if (!d) return;
+    const wasOpen = d.id === openId();
+    const name = wasOpen ? editor.sprite.name : d.sprite.name;
+    if (
+      draftChanged(d) &&
+      !(await confirmed({
+        title: `Discard ${name}?`,
+        note: "It was never saved, and undo cannot bring it back.",
+        confirm: "Discard",
+        danger: true,
+      }))
+    )
+      return;
+    dropDraft(id);
+    say(`discarded ${name}`);
+    if (!wasOpen) return;
+    editor.dirty = false;
+    clearDraft();
+    const next = drafts.list.at(-1);
+    if (next) return openDraftById(next.id);
+    if (entries.length) return open(entries[0]);
+    return openExample();
+  }
 
   /**
    * Bake the assembly into a flat copy and open it — the door out of "rotate
@@ -296,12 +382,15 @@
     const name = to?.trim();
     if (!name) return;
     if (sheet.byName[name]) return sayBad(`${name} already exists`);
-    if (editor.dirty && !(await confirmed(discardSpec()))) return;
     const flat = flattenedNode(name);
     if (!flat) return sayBad("no parts to flatten");
+    if (!(await leaving())) return;
     loadSprite(flat.sprite, null);
     forgetSaved();
+    clearDraft();
     editor.dirty = true;
+    // Never saved, so a draft in the list until it is.
+    beginDraft(true);
     say(
       `flattened ${was}${flat.added ? ` — ${flat.added} colour${flat.added > 1 ? "s" : ""} added` : ""} · ⌘S saves it`,
     );
@@ -447,6 +536,7 @@
     const res = await readDroppedFiles(files);
     problems = res.problems;
     if (res.entries[0]) {
+      if (!(await leaving())) return;
       loadSprite(res.entries[0].sprite, res.entries[0].file);
       say(`opened ${res.entries[0].file}`);
     } else sayBad("no sprite in that drop");
@@ -712,11 +802,23 @@
     // and a draft from anywhere else — the demo car, another folder on this
     // origin — is not its work, so it stays out of the way.
     const served = folder?.kind === "served" ? folder : null;
+    // The sprites made here and never saved come back to the list, kept per folder as the
+    // draft is; the one that was open opens again, as the draft has it if it was drawn on.
+    const held = recallDrafts(served?.id ?? null);
+    drafts.list = held.list;
+    draftsBack = true;
     const draft = recallDraft();
+    const left = held.list.find((d) => d.id === held.open);
     if (draft && (!served || draft.folder === served.id)) {
       loadSprite(draft.sprite, draft.file);
       editor.dirty = true;
+      if (left && draft.file === null) markOpen(left.id);
       say("restored unsaved work");
+    } else if (left) {
+      loadSprite(cloneSprite(left.sprite), null);
+      editor.dirty = left.changed;
+      markOpen(left.id);
+      say(`${left.sprite.name} — not saved yet`);
     } else if (served) {
       // Nothing of this folder's was open: say what is in it.
       if (!editor.file) {
@@ -790,6 +892,18 @@
     if (!editor.dirty) return;
     const served = folder?.kind === "served" ? folder.id : null;
     const id = setTimeout(() => rememberDraft(sprite, file, served), 400);
+    return () => clearTimeout(id);
+  });
+
+  // And the sprites made here and never saved, on the same timer — once the ones a reload
+  // left have come back, or an empty list would write over them.
+  let draftsBack = $state(false);
+  $effect(() => {
+    if (!draftsBack) return;
+    const list = draftsNow();
+    const open = openId();
+    const served = folder?.kind === "served" ? folder.id : null;
+    const id = setTimeout(() => rememberDrafts(list, open, served), 400);
     return () => clearTimeout(id);
   });
 
@@ -931,6 +1045,9 @@
       ondelete={deleteEntry}
       onforget={folder?.kind === "served" ? undefined : forgetFolder}
       ondetach={detach}
+      onnew={() => (making = true)}
+      onopendraft={(id) => void openDraftById(id)}
+      ondiscarddraft={(id) => void discardDraft(id)}
       onopensprite={(name) => {
         const entry = entries.find((e) => e.sprite.name === name);
         if (entry) open(entry);
@@ -1022,7 +1139,7 @@
 <AddPartDialog open={partDialog.open} onclose={closePartDialog} />
 <LevelDialog open={levelDialog.open} onclose={closeLevelDialog} />
 <ResizeDialog />
-<NewSpriteDialog open={making} onclose={() => (making = false)} />
+<NewSpriteDialog open={making} onclose={() => (making = false)} oncreate={makeSprite} />
 <SettingsDialog open={settingsOpen} onclose={() => (settingsOpen = false)} />
 <ExportDialog open={exporting} onclose={() => (exporting = false)} />
 <HelpDialog open={helpOpen} onclose={closeHelp} onexample={openExample} />

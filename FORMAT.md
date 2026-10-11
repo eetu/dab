@@ -35,6 +35,7 @@ The format may change. Every consumer is in-house, and is moved with it.
 | `palette`    | yes      | character → colour                                     |
 | `frames`     | yes      | at least one; each is `h` strings of `w` characters    |
 | `variants`   |          | name → { character → colour }: alternate colourways    |
+| `materials`  |          | character → what it is made of — see Materials         |
 | `animations` |          | name → frame indices, in playing order                 |
 | `parts`      |          | child grids placed on this one — see Parts             |
 | `levels`     |          | the same subject drawn at other sizes — see Levels     |
@@ -65,6 +66,16 @@ as one variant per phase — `water 1`, `water 2` … `water n` — each naming 
 the characters it turns. Phase 1 is the palette as drawn. A consumer cycles by
 drawing `water k` on its own clock, counting phases up to the first missing
 number.
+
+## Materials
+
+What some of the palette's characters are made of, by name: `{ "A": "rubber",
+"S": "stainless-steel" }`. A name is a lowercase word, hyphens between words.
+It may only name characters the palette has; one it does not name is made of
+nothing in particular. The format gives only the names: what `rubber` does
+(burns smoky, floats) is the reader's. A slice is made of what the sprite is;
+a part and a level say their own. `voxelsOf` gives each voxel its material
+(`materialAt`).
 
 ## Animations
 
@@ -151,7 +162,7 @@ alone — a file can satisfy the schema and still break one:
 
 - each frame has `h` rows of exactly `w` characters;
 - every character in a frame is `.` or in the palette;
-- a variant names only characters the palette has;
+- a variant names only characters the palette has, and so do materials;
 - an animation's indices are less than the number of frames;
 - part names are unique among siblings, and level names among levels;
 - a part does not `use` the sprite it belongs to;

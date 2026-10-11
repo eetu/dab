@@ -1,4 +1,4 @@
-import { isPaletteKey, type SpriteBody, TRANSPARENT } from "./format.ts";
+import { isPaletteKey, MATERIAL, type SpriteBody, TRANSPARENT } from "./format.ts";
 import { patch } from "./patch.ts";
 
 /** Characters a sprite may use, in a stable order, skipping the taken ones. */
@@ -37,6 +37,16 @@ const mapVariants = (
     ]),
   );
 
+/** The materials with `from` dropped (`to` null) or moved to `to`, in their order; none left,
+ *  none at all. Like a variant, a material may only name a character the palette has. */
+const mapMaterials = (s: SpriteBody, from: string, to: string | null) => {
+  if (!s.materials) return undefined;
+  const entries = Object.entries(s.materials).flatMap(([ch, m]) =>
+    ch !== from ? [[ch, m]] : to ? [[to, m]] : [],
+  );
+  return entries.length ? Object.fromEntries(entries) : undefined;
+};
+
 /**
  * Drop a colour and erase every pixel that used it.
  *
@@ -50,7 +60,14 @@ export function removeColour<T extends SpriteBody>(s: T, ch: string): T {
   const erase = (frames: string[][]) =>
     frames.map((f) => f.map((row) => row.split(ch).join(TRANSPARENT)));
   const variants = mapVariants(s, (e) => (e[0] === ch ? null : e));
-  return patch(s, { palette, frames: erase(s.frames), variants, ...inSlices(s, erase) });
+  const materials = mapMaterials(s, ch, null);
+  return patch(s, {
+    palette,
+    frames: erase(s.frames),
+    variants,
+    materials,
+    ...inSlices(s, erase),
+  });
 }
 
 /** Move a colour to a different character, rewriting every pixel that used it. */
@@ -61,7 +78,14 @@ export function renameChar<T extends SpriteBody>(s: T, from: string, to: string)
   const rename = (frames: string[][]) =>
     frames.map((f) => f.map((row) => row.split(from).join(to)));
   const variants = mapVariants(s, ([ch, hex]) => [ch === from ? to : ch, hex]);
-  return patch(s, { palette, frames: rename(s.frames), variants, ...inSlices(s, rename) });
+  const materials = mapMaterials(s, from, to);
+  return patch(s, {
+    palette,
+    frames: rename(s.frames),
+    variants,
+    materials,
+    ...inSlices(s, rename),
+  });
 }
 
 /** A rewrite of the frames carried to every slice, which the palette colours as well. */
@@ -70,6 +94,18 @@ const inSlices = (s: SpriteBody, fn: (frames: string[][]) => string[][]) =>
 
 export const setColour = <T extends SpriteBody>(s: T, ch: string, hex: string): T =>
   patch(s, { palette: { ...s.palette, [ch]: hex } });
+
+/** What character `ch` is made of, by name, or made of nothing in particular (`null`). Unchanged
+ *  for a character the palette has not got or a name that is not a lowercase word. */
+export function setMaterial<T extends SpriteBody>(s: T, ch: string, name: string | null): T {
+  if (!(ch in s.palette) || (name !== null && !MATERIAL.test(name))) return s;
+  const rest = Object.entries(s.materials ?? {}).filter(([c]) => c !== ch);
+  // In the palette's order, so the file reads as the swatches do.
+  const named = name === null ? rest : [...rest, [ch, name] as [string, string]];
+  const order = Object.keys(s.palette);
+  named.sort(([a], [b]) => order.indexOf(a) - order.indexOf(b));
+  return patch(s, { materials: named.length ? Object.fromEntries(named) : undefined });
+}
 
 /**
  * Move a colour to a different place in the palette.

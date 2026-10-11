@@ -44,6 +44,9 @@ function bodyEntries(n: SpriteBody, ind: string): [string, string][] {
   if (n.variants && Object.keys(n.variants).length) {
     out.push(["variants", mapBlock(n.variants, ind, q)]);
   }
+  if (n.materials && Object.keys(n.materials).length) {
+    out.push(["materials", mapBlock(n.materials, ind, q)]);
+  }
   if (n.animations && Object.keys(n.animations).length)
     out.push(["animations", mapBlock(n.animations, ind, q)]);
   out.push(["frames", framesBlock(n.frames, ind)]);
