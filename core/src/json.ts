@@ -47,7 +47,9 @@ function bodyEntries(n: SpriteBody, ind: string): [string, string][] {
   if (n.animations && Object.keys(n.animations).length)
     out.push(["animations", mapBlock(n.animations, ind, q)]);
   out.push(["frames", framesBlock(n.frames, ind)]);
-  // Right after the front's frames, what lies behind them, front to back.
+  // Right after the front's frames, which way the slices go and what lies behind (or under)
+  // them, in order.
+  if (n.stack) out.push(["stack", q(n.stack)]);
   if (n.slices?.length) {
     const block = (l: Slice, at: string) =>
       `{\n${l.name ? `${at}  "name": ${q(l.name)},\n` : ""}${at}  "frames": ${framesBlock(l.frames, at + "  ")}\n${at}}`;

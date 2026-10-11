@@ -26,7 +26,8 @@ export function registerRead(server: McpServer, store: Store) {
             `${f}  ${s.w}×${s.h}  ${s.frames.length} frame${s.frames.length === 1 ? "" : "s"}`,
             parts.length && `parts ${parts.join(" ")}`,
             s.levels?.length && `levels ${s.levels.map((l) => `@${l.name}`).join(" ")}`,
-            s.slices?.length && `${s.slices.length + 1} deep (slices ${sliceNames(s)})`,
+            s.slices?.length &&
+              `${s.slices.length + 1} ${s.stack === "down" ? "high" : "deep"} (slices ${sliceNames(s)})`,
             `version ${got.version}`,
           ]
             .filter(Boolean)
@@ -129,7 +130,9 @@ function outline(loaded: Loaded, resolve: (name: string) => SpriteBody | null): 
   }
   if (s.slices?.length)
     lines.push(
-      `in depth: its grid the front, then front to back ${sliceNames(s)} (each the node "#n" whatever it is called), in its palette and frames`,
+      s.stack === "down"
+        ? `in height: its grid the top, seen from above, then top to bottom ${sliceNames(s)} (each the node "#n" whatever it is called), in its palette and frames`
+        : `in depth: its grid the front, then front to back ${sliceNames(s)} (each the node "#n" whatever it is called), in its palette and frames`,
     );
   return lines.join("\n");
 }

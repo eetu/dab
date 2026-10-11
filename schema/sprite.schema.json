@@ -8,7 +8,11 @@
   "properties": {
     "name": { "type": "string", "minLength": 1 },
     "levels": { "type": "array", "items": { "$ref": "#/$defs/level" } },
-    "slices": { "type": "array", "items": { "$ref": "#/$defs/slice" } }
+    "slices": { "type": "array", "items": { "$ref": "#/$defs/slice" } },
+    "stack": {
+      "description": "Which way its slices go from its grid: back (the grid the front) or down (the grid the top, seen from above). Back unless given.",
+      "enum": ["back", "down"]
+    }
   },
   "required": ["name"],
   "$defs": {
@@ -67,7 +71,8 @@
         "flip": { "enum": ["h", "v", "hv"] },
         "use": { "type": "string", "minLength": 1 },
         "levels": false,
-        "slices": false
+        "slices": false,
+        "stack": false
       },
       "required": ["name", "x", "y"],
       "oneOf": [
@@ -89,7 +94,8 @@
         "animations": false,
         "parts": false,
         "levels": false,
-        "slices": false
+        "slices": false,
+        "stack": false
       },
       "required": ["name"]
     },

@@ -38,6 +38,10 @@ export type SpriteBody = {
   /** What lies behind its own grid, a voxel deep each, front to back — see
    *  `Slice`. The sprite itself carries them; a part or a level does not. */
   slices?: Slice[];
+  /** Which way its slices go from its grid: `back` (unless given), the grid its front and each
+   *  slice a voxel further from the eye; or `down`, the grid its top seen from above (its first
+   *  row the back, its last the front) and each slice a voxel lower. The sprite itself says. */
+  stack?: "back" | "down";
 };
 
 /**
@@ -49,7 +53,9 @@ export type SpriteBody = {
  * move. Only frames: a slice is the same grid further back, so its size, palette,
  * variants and animations are the sprite's — one palette colours the whole thing,
  * and a cell's colour is still `variant?.[ch] ?? palette[ch]`. A `name` is a label
- * for whoever draws it ("tread"); its path is still its place, `#n`.
+ * for whoever draws it ("tread"); its path is still its place, `#n`. Stacked `down`
+ * (`SpriteBody.stack`), a slice is the subject a voxel lower than the one above it,
+ * seen from above: a duck drawn a floor at a time, the top of its head first.
  */
 export type Slice = { name?: string; frames: string[][] };
 

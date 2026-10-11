@@ -41,6 +41,7 @@
     selectNode,
     setPartBehind,
     setPartFlip,
+    stackSlices,
     usePartInstead,
   } from "./editor.svelte";
   import IconButton from "./IconButton.svelte";
@@ -245,9 +246,16 @@
       { label: "Add part…", run: openPartDialog },
       { label: "New level…", hint: "this subject at another size", run: openLevelDialog },
       {
-        label: "Add a slice behind",
-        hint: "this subject a voxel deeper, for a model",
+        label: down ? "Add a slice below" : "Add a slice behind",
+        hint: down
+          ? "this subject a voxel lower, for a model"
+          : "this subject a voxel deeper, for a model",
         run: () => addSlice(),
+      },
+      {
+        label: down ? "Slices go back" : "Slices go down",
+        hint: down ? "the grid the front" : "the grid the top, seen from above",
+        run: () => stackSlices(down ? "back" : "down"),
       },
     ];
   }
@@ -277,7 +285,10 @@
         run: () => renameSlice(n, ""),
       },
       { kind: "separator" },
-      { label: "Add a slice behind this", run: () => addSlice(n) },
+      {
+        label: down ? "Add a slice below this" : "Add a slice behind this",
+        run: () => addSlice(n),
+      },
       { kind: "separator" },
       { label: "Remove", danger: true, run: () => removeSlice(n) },
     ];
@@ -308,6 +319,8 @@
   }
 
   const levels = $derived(editor.sprite.levels ?? []);
+  /** Its slices go down from its grid, the top, rather than back from it. */
+  const down = $derived(editor.sprite.stack === "down");
   /** The slices behind the front, each as the body it is drawn as. */
   const slices = $derived(
     (editor.sprite.slices ?? []).map((_, i) => sliceBody(editor.sprite, i + 1) as SpriteBody),

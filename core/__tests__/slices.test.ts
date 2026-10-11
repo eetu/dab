@@ -18,6 +18,7 @@ import {
   setPixels,
   slicePath,
   type SpriteFile,
+  stackSlices,
   toJson,
   unusedChars,
   validateSprite,
@@ -110,6 +111,17 @@ describe("slices", () => {
     expect(renameSlice(s, 1, "ring")).toBe(s);
     expect(renameSlice(s, 3, "x")).toBe(s);
     expect(validateSprite({ ...s, slices: [{ name: " ", frames: s.frames }] })).not.toEqual([]);
+  });
+
+  test("turned to stack down and back, written as it is", () => {
+    const down = stackSlices(box(), "down");
+    expect(down.stack).toBe("down");
+    expect(stackSlices(down, "down")).toBe(down);
+    expect(stackSlices(down, "back").stack).toBeUndefined();
+    const text = toJson(down);
+    expect(text.indexOf('"stack": "down"')).toBeLessThan(text.indexOf('"slices"'));
+    const back = fromJson(text);
+    expect("sprite" in back && back.sprite.stack).toBe("down");
   });
 
   test("written one row a line, right after the front's frames, and read back as it was", () => {

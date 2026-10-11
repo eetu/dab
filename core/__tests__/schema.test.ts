@@ -40,6 +40,7 @@ const accepted: [string, unknown][] = [
     "slices behind it",
     { ...base(), slices: [{ name: "tread", frames: base().frames }, { frames: base().frames }] },
   ],
+  ["slices stacked down", { ...base(), stack: "down", slices: [{ frames: base().frames }] }],
   ["the example car, as shipped", car],
   ["the example wheel, as shipped", wheel],
 ];
@@ -98,6 +99,11 @@ const structural: [string, unknown][] = [
     { ...base(), slices: [{ frames: base().frames, palette: {} }] },
   ],
   ["slices on a part", { ...base(), parts: [{ ...spoke, name: "w", x: 0, y: 0, slices: [] }] }],
+  ["slices stacked up", { ...base(), stack: "up" }],
+  [
+    "a part saying how slices stack",
+    { ...base(), parts: [{ ...spoke, name: "w", x: 0, y: 0, stack: "down" }] },
+  ],
 ];
 
 /** Files the validator rejects for a rule that relates one field to another,
