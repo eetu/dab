@@ -6,6 +6,7 @@
 // tested in the format package, where it lives.
 import { mount, unmount } from "svelte";
 import { beforeEach, expect, test } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import App from "../App.svelte";
 import {
@@ -224,7 +225,6 @@ test("the bar answers REAL clicks — capture must not eat them", async () => {
   // capture, which is exactly how this bug hid: the pane captured the pointer
   // on pointerdown, the release retargeted, and no click was ever synthesised
   // on the bar. Every earlier test called the functions instead of clicking.
-  const { userEvent } = await import("@vitest/browser/context");
   selectBox({ x: 0, y: 0 }, { x: 1, y: 1 });
   beginTurn(false);
   setTurn(37, 1);
