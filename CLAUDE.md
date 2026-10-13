@@ -135,9 +135,13 @@ backend/     axum binary: serves frontend/dist with an SPA fallback, plus /statu
   animation is the whole skeleton — and the parts are detail under it, not
   something you switch to. So a part with nothing chosen plays along: its own
   animation of the name being played if it has one, on the one play head,
-  otherwise the frame the drawing is on, as far as it has frames. A deer whose
+  otherwise the subject's frame, as far as it has frames. A deer whose
   legs are parts walks when you step or play the deer, the way the export, a
-  flatten and a consumer draw it. The strip's thumbnails are the assembly at
+  flatten and a consumer draw it. The frame being drawn is the subject's only
+  when its strip is the subject's length — the subject, or a part lifted out of
+  it. A part on a timeline of its own (a screen flickering on in a still TV)
+  plays alone, and the subject stays on its first frame: its frame numbers
+  name none of the subject's. The strip's thumbnails are the assembly at
   each frame for the same reason: a body on a row of identical frames hid
   the walk. A part's picker can still hold a frame, follow, or play another
   of its animations (the head grazing while the legs walk). Lifting a part

@@ -113,11 +113,15 @@ export function frameOf(
   const play = chosen ? want.slice("play:".length) : want === undefined ? editor.animation : null;
   const run = play ? node.animations?.[play] : undefined;
   if (run?.length && (chosen || step >= 0)) return clamp(run[Math.max(0, step) % run.length]);
-  // Otherwise it plays along: the frame the drawing is on, as far as it has
-  // one. A part lifted out of a drawing has the drawing's frames, so stepping
-  // or playing the whole subject moves every piece of it — which is what the
-  // export, a flatten and a consumer all do with a part nobody posed.
-  return clamp(active);
+  // Otherwise it plays along with the subject, as far as it has frames — which
+  // is what the export, a flatten and a consumer all do with a part nobody
+  // posed. The frame being drawn is the subject's when its strip is the
+  // subject's length: the subject itself, or a part lifted out of it, which has
+  // its frames. A strip of another length is the part's own timeline (a screen
+  // flickering on inside a still TV), whose frame numbers name none of the
+  // subject's, so the subject stays on its first.
+  const subject = activeNode().frames.length === stageNode().frames.length ? active : 0;
+  return clamp(subject);
 }
 
 /** Where `frame` is in the run selected — the step a part playing alongside
