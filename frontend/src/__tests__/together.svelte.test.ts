@@ -3,7 +3,7 @@
 import type { SpriteFile } from "dab-core";
 import { afterEach, beforeEach, expect, test } from "vitest";
 
-import { editor, frameOf, loadSprite } from "../lib/editor.svelte";
+import { editor, frameOf, loadSprite, selectNode } from "../lib/editor.svelte";
 
 const grid = (ch: string) => [ch + ch];
 
@@ -90,4 +90,33 @@ test("a part can be set to play another of its animations, or to hold a frame", 
   expect(frameOf(["leg"], leg())).toBe(2);
   editor.shown.leg = 1;
   expect(frameOf(["leg"], leg())).toBe(1);
+});
+
+test("a part drawn on the subject's strip carries the subject with it", () => {
+  // The leg has the deer's three frames: its frame 2 is the deer's frame 2.
+  selectNode(["leg"]);
+  editor.frame = 2;
+  expect(frameOf([], deer())).toBe(2);
+  expect(frameOf(["tail"], tail())).toBe(1);
+});
+
+test("a part on a timeline of its own plays alone", () => {
+  // A still TV whose screen flickers on over frames the TV does not have.
+  const body = { x: 0, y: 0, w: 2, h: 1, palette: { A: "#ff0000" } };
+  const screen = {
+    ...body,
+    name: "screen",
+    animations: { on: [1, 2, 3] },
+    frames: [0, 1, 2, 3].map(() => grid("A")),
+  };
+  const glitch = { ...body, name: "glitch", frames: [grid("A"), grid("A")] };
+  const tv: SpriteFile = { ...body, name: "tv", frames: [grid("A")], parts: [screen, glitch] };
+  loadSprite(tv, "tv.json");
+  selectNode(["screen"]);
+  editor.animation = "on";
+  editor.playing = true;
+  editor.playhead = 1;
+  expect(frameOf(["screen"], screen, 2)).toBe(2);
+  expect(frameOf(["glitch"], glitch, 2)).toBe(0);
+  expect(frameOf([], tv, 2)).toBe(0);
 });
