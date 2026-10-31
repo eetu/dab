@@ -57,7 +57,7 @@
   },
   "devDependencies": {
     "@anarkisti/eslint-config": "^1.0.0",
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/node": "^26.6.5",
     "dab-core": "workspace:*",
     "eslint": "^10.13.0",

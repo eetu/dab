@@ -10,7 +10,7 @@ __metadata:
   resolution: "@anarkisti/dab@workspace:cli"
   dependencies:
     "@anarkisti/eslint-config": "npm:^1.0.0"
-    "@modelcontextprotocol/sdk": "npm:^1.32.1"
+    "@modelcontextprotocol/sdk": "npm:^1.32.2"
     "@types/node": "npm:^26.6.5"
     dab-core: "workspace:*"
     eslint: "npm:^10.13.0"
@@ -401,18 +401,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@lucide/svelte@npm:^1.59.0":
-  version: 1.59.0
-  resolution: "@lucide/svelte@npm:1.59.0"
+"@lucide/svelte@npm:^1.61.0":
+  version: 1.61.0
+  resolution: "@lucide/svelte@npm:1.61.0"
   peerDependencies:
     svelte: ^5
-  checksum: 10/2ab63a7e540a5b311ca8381da7dc64f3f5436d874e0d09ac7384f47fac223317abe8aa79840385f71d2d0cc9c50063b48aeb930971fa84875729686b5e8b4e00
+  checksum: 10/c5f626df3162c41001f670042511accf1be0f4a57fdb54fee57d1bae6d30c84cce8c071449396dd2e7b7264fe41556e88b02ce1970ebf44a044f1d2bad2edda8
   languageName: node
   linkType: hard
 
-"@modelcontextprotocol/sdk@npm:^1.32.1":
-  version: 1.32.1
-  resolution: "@modelcontextprotocol/sdk@npm:1.32.1"
+"@modelcontextprotocol/sdk@npm:^1.32.2":
+  version: 1.32.2
+  resolution: "@modelcontextprotocol/sdk@npm:1.32.2"
   dependencies:
     "@hono/node-server": "npm:^1.19.9 || ^2.0.5"
     ajv: "npm:^8.17.1"
@@ -439,7 +439,7 @@ __metadata:
       optional: true
     zod:
       optional: false
-  checksum: 10/0078f2782a70d4a73dd49269d01d4d5c4c5a405934ec7a9f496d0007b38dbb518a4cfa742953b46d77dcebf4f2ce5ab0cc68b4fdc9338ddb4e93315c7d3dde16
+  checksum: 10/94f3dcadc817ed7e8c58fed0a7a0d921cebe31f38b936abffcb13106204a6afea9f7526eee18650299e0d9df0c90e5c2d30f0990fa4048652d3bb7859f1a7234
   languageName: node
   linkType: hard
 
@@ -1205,7 +1205,7 @@ __metadata:
   resolution: "dab-frontend@workspace:frontend"
   dependencies:
     "@anarkisti/eslint-config": "npm:^1.0.0"
-    "@lucide/svelte": "npm:^1.59.0"
+    "@lucide/svelte": "npm:^1.61.0"
     "@sveltejs/vite-plugin-svelte": "npm:^7.3.1"
     "@types/node": "npm:^26.6.5"
     "@vitest/browser-playwright": "npm:^5.0.5"

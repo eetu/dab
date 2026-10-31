@@ -17,7 +17,7 @@
     "shots": "vitest run --config vitest.shots.config.ts"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.59.0",
+    "@lucide/svelte": "^1.61.0",
     "dab-core": "workspace:*"
   },
   "devDependencies": {
