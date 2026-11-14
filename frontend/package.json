@@ -17,14 +17,14 @@
     "shots": "vitest run --config vitest.shots.config.ts"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.66.0",
+    "@lucide/svelte": "^1.70.0",
     "dab-core": "workspace:*"
   },
   "devDependencies": {
     "@anarkisti/eslint-config": "^1.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/node": "^26.6.6",
-    "@vitest/browser-playwright": "^5.0.5",
+    "@vitest/browser-playwright": "^5.1.0",
     "eslint": "^10.14.0",
     "playwright": "^1.64.1",
     "prettier": "^3.9.10",
